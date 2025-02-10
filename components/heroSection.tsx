@@ -13,9 +13,9 @@ export default function HeroSection() {
     }, []);
 
     return (   
-    <section className="relative bg-cover bg-center min-h-screen text-white bg-[url('/bg-hero1.png')] bg-fixed xs:rounded-bl-[100px] lg:rounded-bl-[200px] flex items-center">
+    <section className="relative bg-cover bg-center min-h-screen text-white bg-[url('/bg-hero1.png')] bg-fixed xs:rounded-bl-[100px] lg:rounded-bl-[200px] flex items-center pt-20 lg:pt-0">
         <div className="bg-black/60 absolute inset-0"></div>
-        <div className={`relative z-10 grid grid-cols-1 lg:grid-cols-2 items-center h-full px-6 lg:px-32 mt-0 lg:pt-20 text-center lg:text-left w-full transition-opacity duration-1000 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>       
+        <div className={`relative z-10 grid grid-cols-1 lg:grid-cols-2 items-center h-full px-6 lg:px-32 text-center lg:text-left w-full transition-opacity duration-1000 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>       
         {/* Bagian Kiri Hero */}
         <div className={`flex flex-col justify-center items-start mt-10 lg:mt-0 transform transition-transform duration-1000 ${isLoaded ? 'translate-x-0' : '-translate-x-full'}`}>
             <h1 className="xs:text-5xl lg:text-7xl font-semibold mb-4">Everyday is a Coffee Day!</h1>
@@ -31,7 +31,7 @@ export default function HeroSection() {
             </Link>
             <Link href="/reservasi">
                 <button className="flex items-center text-white xs:text-base lg:text-xl font-light bg-[#FF8A00] bg-opacity-50 border-2 border-[#FF8A00] rounded-2xl py-2 px-6 lg:px-8 w-fit transform transition-transform duration-300 hover:scale-105">
-                    <Image src="/bottle.png" alt="" width={22} height={22} className="mr-2" />
+                    <Image src="/bottle.png" alt="" width={12} height={12} className="mr-2" />
                     Order Online
                 </button>
             </Link>
