@@ -30,7 +30,10 @@ export default function ClientReviews() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {reviews.map((review, index) => (
-          <div key={index} className="bg-white rounded-2xl shadow-lg p-6">
+          <div
+            key={index}
+            className="bg-white rounded-2xl shadow-lg p-6 transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-300/50"
+          >
             <p className="text-gray-700 italic mb-6">{review.text}</p>
 
             {/* Info Profil */}
