@@ -30,14 +30,12 @@ export default function MenuPage() {
   const filteredMenu = menuData.filter((item) => item.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#f3e5ab] via-[#d4a373] to-[#8b5e34] py-12 px-6 mt-16">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black py-12 px-6 mt-16">
       <div className="max-w-6xl mx-auto bg-white/90 shadow-lg rounded-lg p-10">
-        {/* Header dengan Gradien Warna */}
         <h1 className="text-4xl font-extrabold text-center bg-gradient-to-r from-orange-600 to-red-500 text-transparent bg-clip-text mb-8">
           Menu Lezat Kami 🍽️
         </h1>
 
-        {/* Kategori dengan Efek Hover */}
         <div className="flex justify-center space-x-4 mb-8">
           {categories.map((category) => (
             <button
@@ -54,14 +52,12 @@ export default function MenuPage() {
           ))}
         </div>
 
-        {/* Daftar Menu */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredMenu.map((item) => (
             <div
               key={item.id}
-              className="relative border p-5 rounded-lg shadow-xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl"
+              className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
             >
-              {/* Gambar */}
               <div className="relative w-full h-48">
                 <Image
                   src={item.image}
@@ -72,15 +68,15 @@ export default function MenuPage() {
                 />
               </div>
 
-              {/* Informasi Menu */}
-              <h2 className="text-2xl font-bold mt-4">{item.name}</h2>
-              <p className="text-gray-600">{item.description}</p>
-              <p className="text-lg font-semibold text-orange-600 mt-2">
-                Rp{item.price.toLocaleString()}
-              </p>
+              <div className="p-4">
+                <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
+                <p className="text-gray-600">{item.description}</p>
+                <p className="text-lg font-semibold text-orange-600 mt-2">
+                  Rp{item.price.toLocaleString()}
+                </p>
+              </div>
 
-              {/* Rating & Ketersediaan */}
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex items-center justify-between px-4 mb-4">
                 <span className="text-sm text-gray-500">⭐ {item.rating}</span>
                 {item.stock ? (
                   <span className="text-green-600 font-medium">Tersedia</span>
@@ -88,6 +84,12 @@ export default function MenuPage() {
                   <span className="text-red-600 font-medium">Habis</span>
                 )}
               </div>
+
+              <button
+                className="w-full py-3 bg-orange-500 text-white font-bold rounded-b-2xl transition duration-300 hover:bg-orange-600 flex justify-center items-center"
+              >
+                🛒 Tambahkan ke Keranjang
+              </button>
             </div>
           ))}
         </div>
