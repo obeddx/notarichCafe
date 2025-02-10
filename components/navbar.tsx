@@ -14,13 +14,7 @@ const NavbarGlass = () => {
     <nav className="fixed top-0 left-0 w-full z-20 flex flex-row h-20 items-center px-6 bg-white/70 backdrop-blur-md shadow-md transition-colors duration-300">
       {/* Logo */}
       <div className="w-1/2 flex items-center gap-4">
-        <Image
-          className="h-14 w-14 object-cover rounded-full"
-          src="/logo-notarich-transparent.png"
-          width={100}
-          height={100}
-          alt="Notarich Cafe Logo"
-        />
+        <Image className="h-14 w-14 object-cover rounded-full" src="/logo-notarich-transparent.png" width={100} height={100} alt="Notarich Cafe Logo" />
         <span className="font-bruno_ace text-2xl">
           <Link href="/" className="hover:text-orange-600 transition-colors">
             Notarich Cafe
@@ -48,17 +42,13 @@ const NavbarGlass = () => {
           </li>
         </ul>
         <Link href="/reserve">
-          <button className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-xl shadow-md">
-            Booking
-          </button>
+          <button className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-xl shadow-md">Booking</button>
         </Link>
       </div>
 
       {/* Mobile Hamburger Icon */}
       <div className="md:hidden ml-auto">
-        <button onClick={toggleMenu}>
-          {menuOpen ? <FiX size={28} /> : <FiMenu size={28} />}
-        </button>
+        <button onClick={toggleMenu}>{menuOpen ? <FiX size={28} /> : <FiMenu size={28} />}</button>
       </div>
 
       {/* Mobile Menu */}
@@ -82,9 +72,7 @@ const NavbarGlass = () => {
             </li>
           </ul>
           <Link href="/reserve" onClick={closeMenu}>
-            <button className="w-full bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 mt-4 rounded-xl shadow-md">
-              Booking
-            </button>
+            <button className="w-full bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 mt-4 rounded-xl shadow-md">Booking</button>
           </Link>
         </div>
       )}
