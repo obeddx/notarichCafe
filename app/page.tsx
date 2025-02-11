@@ -8,13 +8,14 @@ import ClientReviews from "@/components/heroReview";
 export default function Home() {
   return (
     <div>
-    <HeroSection/>
-    <HeroAboutUs/>
-    <HowToReserve/>
-    <GallerySlide/>
-    <ClientReviews/>
-    
-    
+      <HeroSection />
+      <div id="about-us">
+        <HeroAboutUs />
+      </div>
+      <HowToReserve />
+      <GallerySlide />
+      <ClientReviews />
     </div>
   );
 }
+

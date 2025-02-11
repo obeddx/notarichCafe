@@ -2,19 +2,41 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FiMenu, FiX } from "react-icons/fi";
 
 const NavbarGlass = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const closeMenu = () => setMenuOpen(false);
+
+  const scrollToAboutUs = (event: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
+    event.preventDefault();
+
+    if (typeof window !== "undefined" && window.location.pathname !== "/") {
+      router.push("/#about-us");
+    } else {
+      const aboutUsSection = document.getElementById("about-us");
+      if (aboutUsSection) {
+        aboutUsSection.scrollIntoView({ behavior: "smooth" });
+        closeMenu();
+      }
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 w-full z-20 flex flex-row h-20 items-center px-6 bg-white/70 backdrop-blur-md shadow-md transition-colors duration-300">
       {/* Logo */}
       <div className="w-1/2 flex items-center gap-4">
-        <Image className="h-14 w-14 object-cover rounded-full" src="/logo-notarich-transparent.png" width={100} height={100} alt="Notarich Cafe Logo" />
+        <Image
+          className="h-14 w-14 object-cover rounded-full"
+          src="/logo-notarich-transparent.png"
+          width={100}
+          height={100}
+          alt="Notarich Cafe Logo"
+        />
         <span className="font-bruno_ace text-2xl">
           <Link href="/" className="hover:text-orange-600 transition-colors">
             Notarich Cafe
@@ -36,13 +58,15 @@ const NavbarGlass = () => {
             </Link>
           </li>
           <li>
-            <Link href="/contact" className="hover:text-orange-600 transition-colors">
+            <a href="#about-us" onClick={(e) => scrollToAboutUs(e)} className="hover:text-orange-600 transition-colors">
               About Us
-            </Link>
+            </a>
           </li>
         </ul>
         <Link href="/reserve">
-          <button className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-xl shadow-md">Booking</button>
+          <button className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-xl shadow-md">
+            Booking
+          </button>
         </Link>
       </div>
 
@@ -66,13 +90,15 @@ const NavbarGlass = () => {
               </Link>
             </li>
             <li>
-              <Link href="/contact" onClick={closeMenu}>
+              <a href="#about-us" onClick={(e) => scrollToAboutUs(e)}>
                 About Us
-              </Link>
+              </a>
             </li>
           </ul>
           <Link href="/reserve" onClick={closeMenu}>
-            <button className="w-full bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 mt-4 rounded-xl shadow-md">Booking</button>
+            <button className="w-full bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 mt-4 rounded-xl shadow-md">
+              Booking
+            </button>
           </Link>
         </div>
       )}
