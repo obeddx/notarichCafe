@@ -34,10 +34,12 @@ interface Menu {
   stock: boolean;
 }
 
-const categories = ["Makanan", "Minuman", "Dessert"];
+const categories = [
+  "Coffee", "Tea", "Frappe", "Juice", "Milk Base", "Refresher", "Cocorich", "Mocktail", "Snack", "Main Course"
+];
 
 export default function MenuPage() {
-  const [selectedCategory, setSelectedCategory] = useState("Makanan");
+  const [selectedCategory, setSelectedCategory] = useState("Coffee");
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,17 +48,12 @@ export default function MenuPage() {
       try {
         const response = await fetch("/api/getMenu");
         const data = await response.json();
-        // Jika API mengembalikan objek dengan properti "menu", gunakan itu,
-        // jika tidak, asumsikan data adalah array menu langsung.
         const menuArray = data.menu || data;
-        // Transformasi setiap item untuk menambahkan properti yang tidak ada dari database.
-        // Di sini, rating dan stock diisi default; untuk category, kita gunakan data dari database.
         const transformedMenu: Menu[] = menuArray.map((item: any) => ({
           ...item,
-          // Gunakan kategori dari database (contoh: "makanan")
           category: item.category,
-          rating: item.rating !== undefined ? item.rating : 4.5, // default rating manual
-          stock: item.stock !== undefined ? item.stock : true, // default stock manual (true artinya tersedia)
+          rating: item.rating !== undefined ? item.rating : 4.5,
+          stock: item.stock !== undefined ? item.stock : true,
         }));
         setMenus(transformedMenu);
       } catch (error) {
@@ -69,14 +66,12 @@ export default function MenuPage() {
     fetchMenu();
   }, []);
 
-  // Filter menu berdasarkan kategori (perbandingan dilakukan secara case-insensitive)
   const filteredMenu = menus.filter(
     (item) => item.category.toLowerCase() === selectedCategory.toLowerCase()
   );
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
       <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
         <div className="max-w-2xl text-center md:text-left">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
@@ -106,7 +101,6 @@ export default function MenuPage() {
         </div>
       </section>
 
-      {/* Menu Section */}
       <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
         <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">
           Our Popular Menu
