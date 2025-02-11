@@ -157,9 +157,16 @@ export default function AddMenu() {
                   required
                   className="w-full p-2 border border-gray-300 rounded mt-1"
                 >
-                  <option value="makanan">Makanan</option>
-                  <option value="minuman">Minuman</option>
-                  <option value="dessert">Dessert</option>
+                  <option value="makanan">Coffee</option>
+                  <option value="minuman">Tea</option>
+                  <option value="dessert">Frappe</option>
+                  <option value="dessert">Juice</option>
+                  <option value="dessert">Milk Base</option>
+                  <option value="dessert">Refresher</option>
+                  <option value="dessert">Cocorich</option>
+                  <option value="dessert">Mocktail</option>
+                  <option value="dessert">Sncak</option>
+                  <option value="dessert">Main Course</option>
                 </select>
               </label>
             </div>
