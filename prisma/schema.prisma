@@ -9,6 +9,77 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  username   String   @unique
+  email      String   @unique
+  password   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Menu {
+  id           Int             @id @default(autoincrement())
+  name         String
+  description  String?
+  image        String
+  price        Float
+  // Relasi ke tabel join yang menghubungkan menu dengan ingredient
+  ingredients  MenuIngredient[]
+}
+
+model Ingredient {
+  id          Int                     @id @default(autoincrement())
+  name        String
+  start       Float                   // Stok awal
+  stockIn     Float                   // Tambahan stok
+  used        Float                   // Bahan yang sudah digunakan
+  wasted      Float                   // Bahan yang basi/dibuang
+  stock       Float                   // Stok akhir: (start + stockIn) - used - wasted
+  // Relasi ke tabel join
+  menus       MenuIngredient[]
+  // Relasi ke histori stok harian
+  dailyStocks DailyIngredientStock[]
+}
+
+model MenuIngredient {
+  id           Int         @id @default(autoincrement())
+  menuId       Int
+  ingredientId Int
+  amount       Float       // Jumlah bahan yang diperlukan untuk menu ini
+
+  // Relasi
+  menu         Menu        @relation(fields: [menuId], references: [id])
+  ingredient   Ingredient  @relation(fields: [ingredientId], references: [id])
+
+  @@unique([menuId, ingredientId])
+}
+
+model DailyIngredientStock {
+  id           Int       @id @default(autoincrement())
+  date         DateTime  // Tanggal data dicatat
+  ingredientId Int
+  start        Float     // Stok awal hari itu
+  stockIn      Float     // Penambahan stok hari itu
+  used         Float     // Bahan yang digunakan hari itu
+  wasted       Float     // Bahan yang dibuang hari itu
+  stock        Float     // Stok akhir hari itu
+
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  
+  @@index([date])
+  
+}
+
+model Userr {
+  id         Int      @id @default(autoincrement())
+  username   String   @unique
+  email      String   @unique
+  password   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

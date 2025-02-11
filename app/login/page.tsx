@@ -1,14 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import Image from "next/image";
 import { FcGoogle } from "react-icons/fc";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(""); // Menggunakan username
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        console.log("Login successful:", data);
+        // Lakukan redirect atau proses selanjutnya di sini.
+      } else {
+        setErrorMessage(data.message || "Login failed");
+      }
+    } catch (error) {
+      setErrorMessage("An error occurred while logging in.");
+      console.error("Login error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-cover bg-center p-4" style={{ backgroundImage: "url('/login2.png')" }}>
@@ -21,20 +52,23 @@ export default function LoginPage() {
             Create an account
           </a>
         </p>
-        <form>
+
+        {errorMessage && <p className="text-center text-red-500 mb-4">{errorMessage}</p>}
+
+        <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Username</label>
-            <input type="text" className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={username} onChange={(e) => setUsername(e.target.value)} />
+            <input type="text" className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={username} onChange={(e) => setUsername(e.target.value)} required />
           </div>
           <div className="mb-4 relative">
             <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input type={showPassword ? "text" : "password"} className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input type={showPassword ? "text" : "password"} onChange={(e) => setPassword(e.target.value)} className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={password} required />
             <button type="button" className="absolute top-9 right-2 text-gray-600" onClick={() => setShowPassword(!showPassword)}>
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
           </div>
-          <button type="submit" className="w-full p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">
-            Log In
+          <button type="submit" className="w-full p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition" disabled={loading}>
+            {loading ? "Logging in..." : "Log In"}
           </button>
         </form>
         <div className="my-4 text-center text-gray-500">OR</div>
