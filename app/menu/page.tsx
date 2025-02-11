@@ -26,16 +26,46 @@ const categories = ["Makanan", "Minuman", "Dessert"];
 
 export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("Makanan");
-
   const filteredMenu = menuData.filter((item) => item.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black py-12 px-6 mt-16">
-      <div className="max-w-6xl mx-auto bg-white/90 shadow-lg rounded-lg p-10">
-        <h1 className="text-4xl font-extrabold text-center bg-gradient-to-r from-orange-600 to-red-500 text-transparent bg-clip-text mb-8">
-          Menu Lezat Kami 🍽️
-        </h1>
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
+        <div className="max-w-2xl text-center md:text-left">
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
+            Begin your day with <br />
+            a <span className="text-orange-600">perfect cup of coffee</span>
+          </h1>
+          <p className="mt-4 text-lg text-gray-700">
+            Setting a positive tone with its comforting warmth and invigorating flavor
+          </p>
+          <div className="mt-6 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-4">
+            <button className="px-6 py-3 bg-orange-600 text-white font-bold rounded-full shadow-md hover:bg-orange-500 transition">
+              ☕ Order Online
+            </button>
+            <button className="px-6 py-3 border-2 border-orange-600 text-orange-600 font-bold rounded-full shadow-md hover:bg-orange-600 hover:text-white transition">
+              See more menu
+            </button>
+          </div>
+        </div>
 
+        {/* Gambar Minuman */}
+        <div className="relative flex justify-center w-full md:w-auto mt-10 md:mt-0">
+          <Image
+            src="/frappu-transparent.png"
+            alt="Delicious coffee"
+            width={300}
+            height={300}
+            className="max-w-xs md:max-w-sm object-contain drop-shadow-lg animate-float"
+          />
+        </div>
+      </section>
+
+      {/* Menu Section */}
+      <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
+        <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">Our Popular Menu</h2>
+        
         <div className="flex justify-center space-x-4 mb-8">
           {categories.map((category) => (
             <button
@@ -85,6 +115,7 @@ export default function MenuPage() {
                 )}
               </div>
 
+              {/* Tombol Tambah ke Keranjang */}
               <button
                 className="w-full py-3 bg-orange-500 text-white font-bold rounded-b-2xl transition duration-300 hover:bg-orange-600 flex justify-center items-center"
               >
@@ -92,7 +123,7 @@ export default function MenuPage() {
               </button>
             </div>
           ))}
-        </div>
+        </div> 
       </div>
     </div>
   );
