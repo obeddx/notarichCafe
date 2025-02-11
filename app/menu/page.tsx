@@ -50,10 +50,11 @@ export default function MenuPage() {
         // jika tidak, asumsikan data adalah array menu langsung.
         const menuArray = data.menu || data;
         // Transformasi setiap item untuk menambahkan properti yang tidak ada dari database.
-        // Di sini, category, rating, dan stock diisi manual (default).
+        // Di sini, rating dan stock diisi default; untuk category, kita gunakan data dari database.
         const transformedMenu: Menu[] = menuArray.map((item: any) => ({
           ...item,
-          category: item.category || "Makanan", // default category manual
+          // Gunakan kategori dari database (contoh: "makanan")
+          category: item.category,
           rating: item.rating !== undefined ? item.rating : 4.5, // default rating manual
           stock: item.stock !== undefined ? item.stock : true, // default stock manual (true artinya tersedia)
         }));
@@ -68,8 +69,10 @@ export default function MenuPage() {
     fetchMenu();
   }, []);
 
-  // Filter menu berdasarkan kategori yang dipilih (menggunakan field manual)
-  const filteredMenu = menus.filter((item) => item.category === selectedCategory);
+  // Filter menu berdasarkan kategori (perbandingan dilakukan secara case-insensitive)
+  const filteredMenu = menus.filter(
+    (item) => item.category.toLowerCase() === selectedCategory.toLowerCase()
+  );
 
   return (
     <div className="min-h-screen">
@@ -77,22 +80,37 @@ export default function MenuPage() {
       <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
         <div className="max-w-2xl text-center md:text-left">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
-            Begin your day with <br />a <span className="text-orange-600">perfect cup of coffee</span>
+            Begin your day with <br />
+            a <span className="text-orange-600">perfect cup of coffee</span>
           </h1>
-          <p className="mt-4 text-lg text-gray-700">Setting a positive tone with its comforting warmth and invigorating flavor</p>
+          <p className="mt-4 text-lg text-gray-700">
+            Setting a positive tone with its comforting warmth and invigorating flavor
+          </p>
           <div className="mt-6 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-4">
-            <button className="px-6 py-3 bg-orange-600 text-white font-bold rounded-full shadow-md hover:bg-orange-500 transition">☕ Order Online</button>
-            <button className="px-6 py-3 border-2 border-orange-600 text-orange-600 font-bold rounded-full shadow-md hover:bg-orange-600 hover:text-white transition">See more menu</button>
+            <button className="px-6 py-3 bg-orange-600 text-white font-bold rounded-full shadow-md hover:bg-orange-500 transition">
+              ☕ Order Online
+            </button>
+            <button className="px-6 py-3 border-2 border-orange-600 text-orange-600 font-bold rounded-full shadow-md hover:bg-orange-600 hover:text-white transition">
+              See more menu
+            </button>
           </div>
         </div>
         <div className="relative flex justify-center w-full md:w-auto mt-10 md:mt-0">
-          <Image src="/frappu-transparent.png" alt="Delicious coffee" width={300} height={300} className="max-w-xs md:max-w-sm object-contain drop-shadow-lg animate-float" />
+          <Image
+            src="/frappu-transparent.png"
+            alt="Delicious coffee"
+            width={300}
+            height={300}
+            className="max-w-xs md:max-w-sm object-contain drop-shadow-lg animate-float"
+          />
         </div>
       </section>
 
       {/* Menu Section */}
       <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
-        <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">Our Popular Menu</h2>
+        <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">
+          Our Popular Menu
+        </h2>
 
         <div className="flex justify-center space-x-4 mb-8">
           {categories.map((category) => (
@@ -100,7 +118,9 @@ export default function MenuPage() {
               key={category}
               onClick={() => setSelectedCategory(category)}
               className={`px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
-                selectedCategory === category ? "bg-orange-600 text-white scale-105" : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+                selectedCategory === category
+                  ? "bg-orange-600 text-white scale-105"
+                  : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
               }`}
             >
               {category}
@@ -113,23 +133,40 @@ export default function MenuPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMenu.map((item) => (
-              <div key={item.id} className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden">
+              <div
+                key={item.id}
+                className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
+              >
                 <div className="relative w-full h-48">
-                  <Image src={item.image} alt={item.name} layout="fill" objectFit="cover" className="rounded-lg" />
+                  <Image
+                    src={item.image}
+                    alt={item.name}
+                    layout="fill"
+                    objectFit="cover"
+                    className="rounded-lg"
+                  />
                 </div>
 
                 <div className="p-4">
                   <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
                   <p className="text-gray-600">{item.description}</p>
-                  <p className="text-lg font-semibold text-orange-600 mt-2">Rp{item.price.toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-orange-600 mt-2">
+                    Rp{item.price.toLocaleString()}
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-between px-4 mb-4">
                   <span className="text-sm text-gray-500">⭐ {item.rating}</span>
-                  {item.stock ? <span className="text-green-600 font-medium">Tersedia</span> : <span className="text-red-600 font-medium">Habis</span>}
+                  {item.stock ? (
+                    <span className="text-green-600 font-medium">Tersedia</span>
+                  ) : (
+                    <span className="text-red-600 font-medium">Habis</span>
+                  )}
                 </div>
 
-                <button className="w-full py-3 bg-orange-500 text-white font-bold rounded-b-2xl transition duration-300 hover:bg-orange-600 flex justify-center items-center">🛒 Tambahkan ke Keranjang</button>
+                <button className="w-full py-3 bg-orange-500 text-white font-bold rounded-b-2xl transition duration-300 hover:bg-orange-600 flex justify-center items-center">
+                  🛒 Tambahkan ke Keranjang
+                </button>
               </div>
             ))}
           </div>

@@ -28,6 +28,8 @@ model Menu {
   description  String?
   image        String
   price        Float
+  category     String
+  Status       String
   // Relasi ke tabel join yang menghubungkan menu dengan ingredient
   ingredients  MenuIngredient[]
 }
@@ -40,6 +42,7 @@ model Ingredient {
   used        Float                   // Bahan yang sudah digunakan
   wasted      Float                   // Bahan yang basi/dibuang
   stock       Float                   // Stok akhir: (start + stockIn) - used - wasted
+  unit        String
   // Relasi ke tabel join
   menus       MenuIngredient[]
   // Relasi ke histori stok harian
