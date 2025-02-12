@@ -197,6 +197,14 @@ export default function MenuPage() {
         )}
       </div>
 
+      {/* Floating Cart Button */}
+      <button
+        onClick={() => setIsCartOpen(true)}
+        className="fixed bottom-4 left-4 bg-orange-600 text-white p-4 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center z-50"
+      >
+        <ShoppingCart className="w-6 h-6" />
+      </button>
+
       {/* Cart Popup */}
       {isCartOpen && (
         <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50">
