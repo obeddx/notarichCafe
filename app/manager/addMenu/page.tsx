@@ -168,14 +168,14 @@ export default function AddMenu() {
                 >
                   <option value="makanan">Coffee</option>
                   <option value="minuman">Tea</option>
-                  <option value="dessert">Frappe</option>
-                  <option value="dessert">Juice</option>
-                  <option value="dessert">Milk Base</option>
-                  <option value="dessert">Refresher</option>
-                  <option value="dessert">Cocorich</option>
-                  <option value="dessert">Mocktail</option>
-                  <option value="dessert">Sncak</option>
-                  <option value="dessert">Main Course</option>
+                  <option value="Frappe">Frappe</option>
+                  <option value="Juice">Juice</option>
+                  <option value="Milk Base">Milk Base</option>
+                  <option value="Refresher">Refresher</option>
+                  <option value="Cocorich">Cocorich</option>
+                  <option value="Mocktail">Mocktail</option>
+                  <option value="Snack">Snack</option>
+                  <option value="Main Course">Main Course</option>
                 </select>
               </label>
             </div>
