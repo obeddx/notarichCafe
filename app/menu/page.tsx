@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { ShoppingCart, X } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast"; // Import react-hot-toast
 
 interface Ingredient {
   id: number;
@@ -32,7 +32,6 @@ interface Menu {
   category: string;
   rating: number;
   stock: boolean;
-  note?: string;
 }
 
 const categories = [
@@ -46,9 +45,8 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cart, setCart] = useState<Menu[]>([]);
-  const [tableNumber, setTableNumber] = useState<string>("1");
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [notes, setNotes] = useState<{ [key: number]: string }>({});
+  const [tableNumber, setTableNumber] = useState<string>("1"); // Default nomor meja
+  const [isCartOpen, setIsCartOpen] = useState(false); // State untuk pop-up keranjang
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -83,23 +81,19 @@ export default function MenuPage() {
   }, []);
 
   useEffect(() => {
+    // Load cart dari sessionStorage saat komponen di-mount
     const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
     if (storedCart) {
       setCart(JSON.parse(storedCart));
     }
   }, [tableNumber]);
 
-  const handleNoteChange = (menuId: number, note: string) => {
-    setNotes((prevNotes) => ({ ...prevNotes, [menuId]: note }));
-  };
-
   const addToCart = (menu: Menu) => {
-    const note = notes[menu.id] || "";
-    const updatedCart = [...cart, { ...menu, note }];
+    const updatedCart = [...cart, menu];
     setCart(updatedCart);
     sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
     toast.success(`${menu.name} added to cart!`);
-    setIsCartOpen(true);
+    setIsCartOpen(true); // Buka pop-up keranjang saat item ditambahkan
   };
 
   const removeFromCart = (menuId: number) => {
@@ -114,8 +108,9 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen">
-      <Toaster position="top-right" reverseOrder={false} />
+      <Toaster position="top-right" reverseOrder={false} /> {/* Notifikasi */}
 
+      {/* Hero Section */}
       <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
         <div className="max-w-2xl text-center md:text-left">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
@@ -136,11 +131,13 @@ export default function MenuPage() {
         </div>
       </section>
 
+      {/* Menu Section */}
       <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
         <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">
           Our Popular Menu
         </h2>
 
+        {/* Category Buttons */}
         <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
           {categories.map((category) => (
             <button
@@ -157,6 +154,7 @@ export default function MenuPage() {
           ))}
         </div>
 
+        {/* Menu Items */}
         {loading ? (
           <p className="text-center text-gray-500">Loading menu...</p>
         ) : error ? (
@@ -185,13 +183,6 @@ export default function MenuPage() {
                   <p className="text-lg font-semibold text-orange-600 mt-2 text-left">
                     Rp{item.price.toLocaleString()}
                   </p>
-                  <input
-                    type="text"
-                    placeholder="Add a note..."
-                    value={notes[item.id] || ""}
-                    onChange={(e) => handleNoteChange(item.id, e.target.value)}
-                    className="w-full mt-2 p-2 border rounded-lg text-sm text-gray-700"
-                  />
                   <button
                     onClick={() => addToCart(item)}
                     className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
@@ -206,6 +197,7 @@ export default function MenuPage() {
         )}
       </div>
 
+      {/* Cart Popup */}
       {isCartOpen && (
         <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50">
           <div className="flex justify-between items-center border-b pb-4 mb-4">
@@ -224,7 +216,6 @@ export default function MenuPage() {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
                     <p className="text-orange-600">Rp{item.price.toLocaleString()}</p>
-                    {item.note && <p className="text-gray-500 text-sm italic">Note: {item.note}</p>}
                   </div>
                   <button
                     onClick={() => removeFromCart(item.id)}
