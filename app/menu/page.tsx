@@ -2,7 +2,9 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { ShoppingCart, X } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast"; // Import react-hot-toast
+import Link from "next/link";
+import toast, { Toaster } from "react-hot-toast";
+import { useSearchParams, useRouter } from "next/navigation";
 
 interface Ingredient {
   id: number;
@@ -40,10 +42,17 @@ interface CartItem {
   note: string;
 }
 
-
 const categories = [
-  "Coffee", "Tea", "Frappe", "Juice", "Milk Base",
-  "Refresher", "Cocorich", "Mocktail", "Snack", "Main Course"
+  "Coffee",
+  "Tea",
+  "Frappe",
+  "Juice",
+  "Milk Base",
+  "Refresher",
+  "Cocorich",
+  "Mocktail",
+  "Snack",
+  "Main Course",
 ];
 
 export default function MenuPage() {
@@ -51,15 +60,35 @@ export default function MenuPage() {
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  interface CartItem {
-    menu: Menu;
-    quantity: number;
-  }
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [tableNumber, setTableNumber] = useState<string>("Unknown");
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
-  const [tableNumber, setTableNumber] = useState<string>("1"); // Default nomor meja
-  const [isCartOpen, setIsCartOpen] = useState(false); // State untuk pop-up keranjang
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
+  // Ambil nilai tableNumber dari URL atau sessionStorage
+  useEffect(() => {
+    const tableFromUrl = searchParams?.get("table");
+    const tableFromSession = sessionStorage.getItem("tableNumber");
+    const finalTableNumber = tableFromUrl || tableFromSession || "Unknown";
+    setTableNumber(finalTableNumber);
+
+    // Jika didapat dari URL, simpan ke sessionStorage
+    if (tableFromUrl) {
+      sessionStorage.setItem("tableNumber", tableFromUrl);
+    }
+  }, [searchParams]);
+
+  // Load cart dari sessionStorage berdasarkan nomor meja
+  useEffect(() => {
+    const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
+    if (storedCart) {
+      setCart(JSON.parse(storedCart));
+    }
+  }, [tableNumber]);
+
+  // Fetch menu data dari API
   useEffect(() => {
     const fetchMenu = async () => {
       try {
@@ -92,77 +121,97 @@ export default function MenuPage() {
     fetchMenu();
   }, []);
 
-  useEffect(() => {
-    // Load cart dari sessionStorage saat komponen di-mount
-    const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
-    }
-  }, [tableNumber]);
-
+  // Tambahkan item ke keranjang
   const addToCart = (menu: Menu) => {
     setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex((item) => item.menu.id === menu.id);
-  
+      const existingItemIndex = prevCart.findIndex(
+        (item) => item.menu.id === menu.id
+      );
+
       let updatedCart;
       if (existingItemIndex !== -1) {
-        // Jika sudah ada, tambah quantity
+        // Jika item sudah ada, tambahkan quantity
         updatedCart = prevCart.map((item, index) =>
-          index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
+          index === existingItemIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
       } else {
-        // Jika belum ada, tambahkan sebagai item baru dengan quantity 1 dan note kosong
+        // Jika belum ada, tambahkan item baru
         updatedCart = [...prevCart, { menu, quantity: 1, note: "" }];
       }
-  
-      sessionStorage.setItem("cart_data", JSON.stringify(updatedCart));
+      sessionStorage.setItem(
+        `cart_table_${tableNumber}`,
+        JSON.stringify(updatedCart)
+      );
       return updatedCart;
     });
-  
+
     toast.success(`${menu.name} added to cart!`);
     setIsCartOpen(true);
   };
-  
 
+  // Hapus item dari keranjang
   const removeFromCart = (menuId: number) => {
     setCart((prevCart) => {
-      const updatedCart = prevCart.map((item) => {
-        if (item.menu.id === menuId) {
-          if (item.quantity > 1) {
-            return { ...item, quantity: item.quantity - 1 };
+      const updatedCart = prevCart
+        .map((item) => {
+          if (item.menu.id === menuId) {
+            if (item.quantity > 1) {
+              return { ...item, quantity: item.quantity - 1 };
+            }
+            return null; // Jika quantity 1, hapus item
           }
-          return null; // Jika quantity 1, hapus item dari cart
-        }
-        return item;
-      }).filter(Boolean) as CartItem[]; // Hapus null dari array
-
-      sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
+          return item;
+        })
+        .filter(Boolean) as CartItem[];
+      sessionStorage.setItem(
+        `cart_table_${tableNumber}`,
+        JSON.stringify(updatedCart)
+      );
       return updatedCart;
     });
-
     toast.error("Item removed from cart!");
   };
 
+  // Update note untuk item di keranjang
   const updateCartItemNote = (menuId: number, note: string) => {
     setCart((prevCart) => {
       const updatedCart = prevCart.map((item) =>
         item.menu.id === menuId ? { ...item, note } : item
       );
-  
-      sessionStorage.setItem("cart_data", JSON.stringify(updatedCart));
+      sessionStorage.setItem(
+        `cart_table_${tableNumber}`,
+        JSON.stringify(updatedCart)
+      );
       return updatedCart;
     });
   };
-  
 
-
+  // Filter menu berdasarkan kategori yang dipilih
   const filteredMenu = menus.filter((item) =>
     item.category.toLowerCase().includes(selectedCategory.toLowerCase())
   );
 
+  // Jika tableNumber masih "Unknown", tampilkan tombol scan barcode
+  if (tableNumber === "Unknown") {
+    return (
+      <div className="min-h-screen flex flex-col justify-center items-center">
+        <h2 className="text-2xl mb-4">
+          Table number tidak terdeteksi. Silakan scan barcode meja Anda.
+        </h2>
+        <Link href="/scan">
+          <button className="bg-orange-600 text-white p-4 rounded-full shadow-lg hover:bg-orange-700 transition">
+            Scan Barcode
+          </button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
-      <Toaster position="top-right" reverseOrder={false} /> {/* Notifikasi */}
+      <Toaster position="top-right" reverseOrder={false} />
 
       {/* Hero Section */}
       <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
@@ -190,6 +239,7 @@ export default function MenuPage() {
         <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">
           Our Popular Menu
         </h2>
+        <h2 className="text-2xl text-white mb-4">Table Number: {tableNumber}</h2>
 
         {/* Category Buttons */}
         <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
@@ -197,10 +247,11 @@ export default function MenuPage() {
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${selectedCategory === category
-                ? "bg-orange-600 text-white scale-105"
-                : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
-                }`}
+              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
+                selectedCategory === category
+                  ? "bg-orange-600 text-white scale-105"
+                  : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+              }`}
             >
               {category}
             </button>
@@ -213,7 +264,9 @@ export default function MenuPage() {
         ) : error ? (
           <p className="text-center text-red-500">{error}</p>
         ) : filteredMenu.length === 0 ? (
-          <p className="text-center text-gray-500">No menu available for this category.</p>
+          <p className="text-center text-gray-500">
+            No menu available for this category.
+          </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMenu.map((item) => (
@@ -272,7 +325,7 @@ export default function MenuPage() {
             <p className="text-center text-gray-500 flex-grow">Your cart is empty.</p>
           ) : (
             <>
-              {/* List Item Keranjang - Membungkus dengan flex-grow agar bisa scroll */}
+              {/* List Item Keranjang */}
               <div className="flex-grow overflow-y-auto">
                 <ul className="space-y-4">
                   {cart.map((item) => {
@@ -280,7 +333,9 @@ export default function MenuPage() {
                     return (
                       <li key={item.menu.id} className="flex flex-col border-b pb-4">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-semibold text-gray-900">{item.menu.name}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {item.menu.name}
+                          </h3>
                           <p className="text-orange-600 font-semibold">
                             Rp{item.menu.price.toLocaleString()} x {item.quantity}
                           </p>
@@ -313,20 +368,20 @@ export default function MenuPage() {
                 </ul>
               </div>
 
-              {/* Total Harga Keseluruhan - Tetap di bawah dengan mt-auto */}
+              {/* Total Harga */}
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
                 <h3 className="text-xl font-bold text-gray-900">Total Harga:</h3>
                 <p className="text-2xl text-orange-600 font-semibold">
-                  Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+                  Rp
+                  {cart
+                    .reduce((total, item) => total + item.menu.price * item.quantity, 0)
+                    .toLocaleString()}
                 </p>
               </div>
             </>
           )}
         </div>
       )}
-
-
     </div>
-
   );
 }
