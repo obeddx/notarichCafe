@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { ShoppingCart, X } from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
 
 interface Ingredient {
   id: number;
@@ -30,10 +32,11 @@ interface Menu {
   category: string;
   rating: number;
   stock: boolean;
+  note?: string;
 }
 
 const categories = [
-  "Coffee", "Tea", "Frappe", "Juice", "Milk Base", 
+  "Coffee", "Tea", "Frappe", "Juice", "Milk Base",
   "Refresher", "Cocorich", "Mocktail", "Snack", "Main Course"
 ];
 
@@ -42,6 +45,10 @@ export default function MenuPage() {
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cart, setCart] = useState<Menu[]>([]);
+  const [tableNumber, setTableNumber] = useState<string>("1");
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [notes, setNotes] = useState<{ [key: number]: string }>({});
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -51,8 +58,6 @@ export default function MenuPage() {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         const data = await response.json();
-        
-        console.log("Fetched Menu Data:", data); // Debugging API response
 
         const transformedMenu: Menu[] = data.map((item: Partial<Menu>) => ({
           id: item.id ?? 0,
@@ -67,10 +72,8 @@ export default function MenuPage() {
         }));
 
         setMenus(transformedMenu);
-        setError(null);
       } catch (err) {
         setError("Failed to load menu data.");
-        console.error("Error fetching menu data:", err);
       } finally {
         setLoading(false);
       }
@@ -79,18 +82,40 @@ export default function MenuPage() {
     fetchMenu();
   }, []);
 
-  // Debugging kategori
-  console.log("Selected Category:", selectedCategory);
-  console.log("Menus:", menus);
+  useEffect(() => {
+    const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
+    if (storedCart) {
+      setCart(JSON.parse(storedCart));
+    }
+  }, [tableNumber]);
+
+  const handleNoteChange = (menuId: number, note: string) => {
+    setNotes((prevNotes) => ({ ...prevNotes, [menuId]: note }));
+  };
+
+  const addToCart = (menu: Menu) => {
+    const note = notes[menu.id] || "";
+    const updatedCart = [...cart, { ...menu, note }];
+    setCart(updatedCart);
+    sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
+    toast.success(`${menu.name} added to cart!`);
+    setIsCartOpen(true);
+  };
+
+  const removeFromCart = (menuId: number) => {
+    const updatedCart = cart.filter(item => item.id !== menuId);
+    setCart(updatedCart);
+    sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
+  };
 
   const filteredMenu = menus.filter((item) =>
     item.category.toLowerCase().includes(selectedCategory.toLowerCase())
   );
 
-  console.log("Filtered Menu:", filteredMenu);
-
   return (
     <div className="min-h-screen">
+      <Toaster position="top-right" reverseOrder={false} />
+
       <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
         <div className="max-w-2xl text-center md:text-left">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
@@ -100,6 +125,14 @@ export default function MenuPage() {
           <p className="mt-4 text-lg text-gray-700">
             Setting a positive tone with its comforting warmth and invigorating flavor
           </p>
+        </div>
+        <div className="w-full md:w-[600px] lg:w-[700px] h-[400px] md:h-[500px] relative flex justify-center">
+          <Image
+            src="/CaramelFrappucino.png"
+            alt="Coffee Cup"
+            layout="fill"
+            objectFit="contain"
+          />
         </div>
       </section>
 
@@ -137,27 +170,74 @@ export default function MenuPage() {
                 key={item.id}
                 className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
               >
-                <div className="relative w-full h-48">
+                <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
                   <Image
-                    src={item.image.startsWith("/uploads/") ? item.image : "/default-image.jpg"}
+                    src={item.image}
                     alt={item.name}
                     layout="fill"
                     objectFit="cover"
                     className="rounded-lg"
                   />
                 </div>
-                <div className="p-4">
+                <div className="p-4 text-center">
                   <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
-                  <p className="text-gray-600">{item.description}</p>
-                  <p className="text-lg font-semibold text-orange-600 mt-2">
+                  <p className="text-gray-600 text-left">{item.description}</p>
+                  <p className="text-lg font-semibold text-orange-600 mt-2 text-left">
                     Rp{item.price.toLocaleString()}
                   </p>
+                  <input
+                    type="text"
+                    placeholder="Add a note..."
+                    value={notes[item.id] || ""}
+                    onChange={(e) => handleNoteChange(item.id, e.target.value)}
+                    className="w-full mt-2 p-2 border rounded-lg text-sm text-gray-700"
+                  />
+                  <button
+                    onClick={() => addToCart(item)}
+                    className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    Add to Cart
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {isCartOpen && (
+        <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50">
+          <div className="flex justify-between items-center border-b pb-4 mb-4">
+            <h2 className="text-2xl font-bold text-orange-600">Your Cart</h2>
+            <button onClick={() => setIsCartOpen(false)}>
+              <X className="w-6 h-6 text-gray-800 hover:text-orange-600" />
+            </button>
+          </div>
+
+          {cart.length === 0 ? (
+            <p className="text-center text-gray-500">Your cart is empty.</p>
+          ) : (
+            <ul className="space-y-4">
+              {cart.map((item) => (
+                <li key={item.id} className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
+                    <p className="text-orange-600">Rp{item.price.toLocaleString()}</p>
+                    {item.note && <p className="text-gray-500 text-sm italic">Note: {item.note}</p>}
+                  </div>
+                  <button
+                    onClick={() => removeFromCart(item.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
