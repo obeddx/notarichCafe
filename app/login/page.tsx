@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import Image from "next/image";
 import { FcGoogle } from "react-icons/fc";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useRouter } from "next/navigation"; // Import useRouter untuk navigasi

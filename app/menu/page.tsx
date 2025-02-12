@@ -20,49 +20,62 @@ interface MenuIngredient {
   ingredient: Ingredient;
 }
 
-// Perluas interface Menu untuk menyertakan field tambahan secara manual:
 interface Menu {
   id: number;
   name: string;
   image: string;
-  description?: string;
+  description: string;
   price: number;
   ingredients: MenuIngredient[];
-  // Field tambahan (tidak ada di database, diisi manual)
   category: string;
   rating: number;
   stock: boolean;
 }
 
 const categories = [
-  "Coffee", "Tea", "Frappe", "Juice", "Milk Base", "Refresher", "Cocorich", "Mocktail", "Snack", "Main Course"
+  "Coffee", "Tea", "Frappe", "Juice", "Milk Base", "Refresher", 
+  "Cocorich", "Mocktail", "Snack", "Main Course"
 ];
 
 export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("Coffee");
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMenu = async () => {
       try {
         const response = await fetch("/api/getMenu");
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not in JSON format");
+        }
         const data = await response.json();
         const menuArray = data.menu || data;
-        const transformedMenu: Menu[] = menuArray.map((item: any) => ({
-          ...item,
-          category: item.category,
+        const transformedMenu: Menu[] = menuArray.map((item: Partial<Menu>) => ({
+          id: item.id ?? 0, 
+          name: item.name ?? "Unknown",
+          image: item.image ?? "/default-image.jpg",
+          description: item.description ?? "No description available",
+          price: item.price ?? 0,
+          ingredients: item.ingredients ?? [],
+          category: item.category ?? "Uncategorized",
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
         }));
         setMenus(transformedMenu);
-      } catch (error) {
-        console.error("Error fetching menu data:", error);
+        setError(null);
+      } catch (err) {
+        setError("Failed to load menu data.");
+        console.error("Error fetching menu data:", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchMenu();
   }, []);
 
@@ -106,12 +119,12 @@ export default function MenuPage() {
           Our Popular Menu
         </h2>
 
-        <div className="flex justify-center space-x-4 mb-8">
+        <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
           {categories.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
+              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
                 selectedCategory === category
                   ? "bg-orange-600 text-white scale-105"
                   : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
@@ -124,6 +137,8 @@ export default function MenuPage() {
 
         {loading ? (
           <p className="text-center text-gray-500">Loading menu...</p>
+        ) : error ? (
+          <p className="text-center text-red-500">{error}</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMenu.map((item) => (
@@ -140,7 +155,6 @@ export default function MenuPage() {
                     className="rounded-lg"
                   />
                 </div>
-
                 <div className="p-4">
                   <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
                   <p className="text-gray-600">{item.description}</p>
@@ -148,19 +162,6 @@ export default function MenuPage() {
                     Rp{item.price.toLocaleString()}
                   </p>
                 </div>
-
-                <div className="flex items-center justify-between px-4 mb-4">
-                  <span className="text-sm text-gray-500">⭐ {item.rating}</span>
-                  {item.stock ? (
-                    <span className="text-green-600 font-medium">Tersedia</span>
-                  ) : (
-                    <span className="text-red-600 font-medium">Habis</span>
-                  )}
-                </div>
-
-                <button className="w-full py-3 bg-orange-500 text-white font-bold rounded-b-2xl transition duration-300 hover:bg-orange-600 flex justify-center items-center">
-                  🛒 Tambahkan ke Keranjang
-                </button>
               </div>
             ))}
           </div>
