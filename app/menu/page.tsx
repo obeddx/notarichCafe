@@ -33,8 +33,8 @@ interface Menu {
 }
 
 const categories = [
-  "Coffee", "Tea", "Frappe", "Juice", "Milk Base", "Refresher", 
-  "Cocorich", "Mocktail", "Snack", "Main Course"
+  "Coffee", "Tea", "Frappe", "Juice", "Milk Base", 
+  "Refresher", "Cocorich", "Mocktail", "Snack", "Main Course"
 ];
 
 export default function MenuPage() {
@@ -50,16 +50,14 @@ export default function MenuPage() {
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Response is not in JSON format");
-        }
         const data = await response.json();
-        const menuArray = data.menu || data;
-        const transformedMenu: Menu[] = menuArray.map((item: Partial<Menu>) => ({
-          id: item.id ?? 0, 
+        
+        console.log("Fetched Menu Data:", data); // Debugging API response
+
+        const transformedMenu: Menu[] = data.map((item: Partial<Menu>) => ({
+          id: item.id ?? 0,
           name: item.name ?? "Unknown",
-          image: item.image ?? "/default-image.jpg",
+          image: item.image ? item.image : "/default-image.jpg",
           description: item.description ?? "No description available",
           price: item.price ?? 0,
           ingredients: item.ingredients ?? [],
@@ -67,6 +65,7 @@ export default function MenuPage() {
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
         }));
+
         setMenus(transformedMenu);
         setError(null);
       } catch (err) {
@@ -76,12 +75,19 @@ export default function MenuPage() {
         setLoading(false);
       }
     };
+
     fetchMenu();
   }, []);
 
-  const filteredMenu = menus.filter(
-    (item) => item.category.toLowerCase() === selectedCategory.toLowerCase()
+  // Debugging kategori
+  console.log("Selected Category:", selectedCategory);
+  console.log("Menus:", menus);
+
+  const filteredMenu = menus.filter((item) =>
+    item.category.toLowerCase().includes(selectedCategory.toLowerCase())
   );
+
+  console.log("Filtered Menu:", filteredMenu);
 
   return (
     <div className="min-h-screen">
@@ -94,23 +100,6 @@ export default function MenuPage() {
           <p className="mt-4 text-lg text-gray-700">
             Setting a positive tone with its comforting warmth and invigorating flavor
           </p>
-          <div className="mt-6 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-4">
-            <button className="px-6 py-3 bg-orange-600 text-white font-bold rounded-full shadow-md hover:bg-orange-500 transition">
-              ☕ Order Online
-            </button>
-            <button className="px-6 py-3 border-2 border-orange-600 text-orange-600 font-bold rounded-full shadow-md hover:bg-orange-600 hover:text-white transition">
-              See more menu
-            </button>
-          </div>
-        </div>
-        <div className="relative flex justify-center w-full md:w-auto mt-10 md:mt-0">
-          <Image
-            src="/frappu-transparent.png"
-            alt="Delicious coffee"
-            width={300}
-            height={300}
-            className="max-w-xs md:max-w-sm object-contain drop-shadow-lg animate-float"
-          />
         </div>
       </section>
 
@@ -139,6 +128,8 @@ export default function MenuPage() {
           <p className="text-center text-gray-500">Loading menu...</p>
         ) : error ? (
           <p className="text-center text-red-500">{error}</p>
+        ) : filteredMenu.length === 0 ? (
+          <p className="text-center text-gray-500">No menu available for this category.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMenu.map((item) => (
@@ -148,7 +139,7 @@ export default function MenuPage() {
               >
                 <div className="relative w-full h-48">
                   <Image
-                    src={item.image}
+                    src={item.image.startsWith("/uploads/") ? item.image : "/default-image.jpg"}
                     alt={item.name}
                     layout="fill"
                     objectFit="cover"

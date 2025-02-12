@@ -18,7 +18,7 @@ export default function AddMenu() {
   const [price, setPrice] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [status, setStatus] = useState("tersedia");
-  const [category, setCategory] = useState("makanan");
+  const [category, setCategory] = useState("Coffee");
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [availableIngredients, setAvailableIngredients] = useState<IngredientOption[]>([]);
   const [statusValue, setStatusValue] = useState("");
@@ -90,7 +90,7 @@ export default function AddMenu() {
         setPrice("");
         setImage(null);
         setStatus("tersedia");
-        setCategory("makanan");
+        setCategory("Coffee");
         setIngredientRows([]);
       } else {
         alert("Gagal menambahkan menu: " + (data.message || "Unknown error"));
@@ -166,8 +166,8 @@ export default function AddMenu() {
                   required
                   className="w-full p-2 border border-gray-300 rounded mt-1"
                 >
-                  <option value="makanan">Coffee</option>
-                  <option value="minuman">Tea</option>
+                  <option value="Coffee">Coffee</option>
+                  <option value="Tea">Tea</option>
                   <option value="Frappe">Frappe</option>
                   <option value="Juice">Juice</option>
                   <option value="Milk Base">Milk Base</option>
