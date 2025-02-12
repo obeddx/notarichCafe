@@ -18,11 +18,7 @@ interface EditMenuModalProps {
   onMenuUpdated: () => void;
 }
 
-export default function EditMenuModal({
-  menuId,
-  onClose,
-  onMenuUpdated,
-}: EditMenuModalProps) {
+export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMenuModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -141,24 +137,13 @@ export default function EditMenuModal({
             <div>
               <label className="block font-semibold mb-2">
                 Nama Menu:
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full p-2 border border-gray-300 rounded mt-1"
-                />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1" />
               </label>
             </div>
             <div>
               <label className="block font-semibold mb-2">
                 Status:
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  required
-                  className="w-full p-2 border border-gray-300 rounded mt-1"
-                >
+                <select value={status} onChange={(e) => setStatus(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1">
                   <option value="tersedia">Tersedia</option>
                   <option value="habis">Habis</option>
                 </select>
@@ -171,24 +156,13 @@ export default function EditMenuModal({
             <div>
               <label className="block font-semibold mb-2">
                 Price:
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  required
-                  className="w-full p-2 border border-gray-300 rounded mt-1"
-                />
+                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1" />
               </label>
             </div>
             <div>
               <label className="block font-semibold mb-2">
                 Category:
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  required
-                  className="w-full p-2 border border-gray-300 rounded mt-1"
-                >
+                <select value={category} onChange={(e) => setCategory(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1">
                   <option value="makanan">Coffee</option>
                   <option value="minuman">Tea</option>
                   <option value="dessert">Frappe</option>
@@ -206,14 +180,7 @@ export default function EditMenuModal({
               <h2 className="text-xl font-semibold mb-2">Ingredients</h2>
               {ingredientRows.map((row, index) => (
                 <div key={index} className="flex gap-2 items-center mb-2">
-                  <select
-                    value={row.ingredientId}
-                    onChange={(e) =>
-                      updateIngredientRow(index, "ingredientId", parseInt(e.target.value))
-                    }
-                    required
-                    className="flex-1 p-2 border border-gray-300 rounded"
-                  >
+                  <select value={row.ingredientId} onChange={(e) => updateIngredientRow(index, "ingredientId", parseInt(e.target.value))} required className="flex-1 p-2 border border-gray-300 rounded">
                     <option value={0}>Pilih Ingredient</option>
                     {availableIngredients.map((ing) => (
                       <option key={ing.id} value={ing.id}>
@@ -221,30 +188,13 @@ export default function EditMenuModal({
                       </option>
                     ))}
                   </select>
-                  <input
-                    type="number"
-                    placeholder="Amount"
-                    value={row.amount}
-                    onChange={(e) =>
-                      updateIngredientRow(index, "amount", parseFloat(e.target.value))
-                    }
-                    required
-                    className="flex-1 p-2 border border-gray-300 rounded"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeIngredientRow(index)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
-                  >
+                  <input type="number" placeholder="Amount" value={row.amount} onChange={(e) => updateIngredientRow(index, "amount", parseFloat(e.target.value))} required className="flex-1 p-2 border border-gray-300 rounded" />
+                  <button type="button" onClick={() => removeIngredientRow(index)} className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded">
                     Remove
                   </button>
                 </div>
               ))}
-              <button
-                type="button"
-                onClick={addIngredientRow}
-                className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-              >
+              <button type="button" onClick={addIngredientRow} className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
                 Add Ingredient
               </button>
             </div>
@@ -255,11 +205,7 @@ export default function EditMenuModal({
             <div>
               <label className="block font-semibold mb-2">
                 Deskripsi:
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded mt-1 min-h-[80px] resize-y"
-                />
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-2 border border-gray-300 rounded mt-1 min-h-[80px] resize-y" />
               </label>
             </div>
             <div>
@@ -281,17 +227,10 @@ export default function EditMenuModal({
 
           {/* Tombol aksi */}
           <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
-            >
+            <button type="button" onClick={onClose} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-            >
+            <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
               Update Menu
             </button>
           </div>
