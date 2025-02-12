@@ -34,6 +34,13 @@ interface Menu {
   stock: boolean;
 }
 
+interface CartItem {
+  menu: Menu;
+  quantity: number;
+  note: string;
+}
+
+
 const categories = [
   "Coffee", "Tea", "Frappe", "Juice", "Milk Base",
   "Refresher", "Cocorich", "Mocktail", "Snack", "Main Course"
@@ -44,7 +51,12 @@ export default function MenuPage() {
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cart, setCart] = useState<Menu[]>([]);
+  interface CartItem {
+    menu: Menu;
+    quantity: number;
+  }
+  const [cart, setCart] = useState<CartItem[]>([]);
+
   const [tableNumber, setTableNumber] = useState<string>("1"); // Default nomor meja
   const [isCartOpen, setIsCartOpen] = useState(false); // State untuk pop-up keranjang
 
@@ -89,18 +101,60 @@ export default function MenuPage() {
   }, [tableNumber]);
 
   const addToCart = (menu: Menu) => {
-    const updatedCart = [...cart, menu];
-    setCart(updatedCart);
-    sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
+    setCart((prevCart) => {
+      const existingItemIndex = prevCart.findIndex((item) => item.menu.id === menu.id);
+  
+      let updatedCart;
+      if (existingItemIndex !== -1) {
+        // Jika sudah ada, tambah quantity
+        updatedCart = prevCart.map((item, index) =>
+          index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      } else {
+        // Jika belum ada, tambahkan sebagai item baru dengan quantity 1 dan note kosong
+        updatedCart = [...prevCart, { menu, quantity: 1, note: "" }];
+      }
+  
+      sessionStorage.setItem("cart_data", JSON.stringify(updatedCart));
+      return updatedCart;
+    });
+  
     toast.success(`${menu.name} added to cart!`);
-    setIsCartOpen(true); // Buka pop-up keranjang saat item ditambahkan
+    setIsCartOpen(true);
   };
+  
 
   const removeFromCart = (menuId: number) => {
-    const updatedCart = cart.filter(item => item.id !== menuId);
-    setCart(updatedCart);
-    sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
+    setCart((prevCart) => {
+      const updatedCart = prevCart.map((item) => {
+        if (item.menu.id === menuId) {
+          if (item.quantity > 1) {
+            return { ...item, quantity: item.quantity - 1 };
+          }
+          return null; // Jika quantity 1, hapus item dari cart
+        }
+        return item;
+      }).filter(Boolean) as CartItem[]; // Hapus null dari array
+
+      sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
+      return updatedCart;
+    });
+
+    toast.error("Item removed from cart!");
   };
+
+  const updateCartItemNote = (menuId: number, note: string) => {
+    setCart((prevCart) => {
+      const updatedCart = prevCart.map((item) =>
+        item.menu.id === menuId ? { ...item, note } : item
+      );
+  
+      sessionStorage.setItem("cart_data", JSON.stringify(updatedCart));
+      return updatedCart;
+    });
+  };
+  
+
 
   const filteredMenu = menus.filter((item) =>
     item.category.toLowerCase().includes(selectedCategory.toLowerCase())
@@ -143,11 +197,10 @@ export default function MenuPage() {
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
-                selectedCategory === category
-                  ? "bg-orange-600 text-white scale-105"
-                  : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
-              }`}
+              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${selectedCategory === category
+                ? "bg-orange-600 text-white scale-105"
+                : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+                }`}
             >
               {category}
             </button>
@@ -207,7 +260,7 @@ export default function MenuPage() {
 
       {/* Cart Popup */}
       {isCartOpen && (
-        <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50">
+        <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50 flex flex-col">
           <div className="flex justify-between items-center border-b pb-4 mb-4">
             <h2 className="text-2xl font-bold text-orange-600">Your Cart</h2>
             <button onClick={() => setIsCartOpen(false)}>
@@ -216,27 +269,64 @@ export default function MenuPage() {
           </div>
 
           {cart.length === 0 ? (
-            <p className="text-center text-gray-500">Your cart is empty.</p>
+            <p className="text-center text-gray-500 flex-grow">Your cart is empty.</p>
           ) : (
-            <ul className="space-y-4">
-              {cart.map((item) => (
-                <li key={item.id} className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
-                    <p className="text-orange-600">Rp{item.price.toLocaleString()}</p>
-                  </div>
-                  <button
-                    onClick={() => removeFromCart(item.id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* List Item Keranjang - Membungkus dengan flex-grow agar bisa scroll */}
+              <div className="flex-grow overflow-y-auto">
+                <ul className="space-y-4">
+                  {cart.map((item) => {
+                    const itemTotalPrice = item.menu.price * item.quantity;
+                    return (
+                      <li key={item.menu.id} className="flex flex-col border-b pb-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-semibold text-gray-900">{item.menu.name}</h3>
+                          <p className="text-orange-600 font-semibold">
+                            Rp{item.menu.price.toLocaleString()} x {item.quantity}
+                          </p>
+                        </div>
+                        <p className="text-right text-gray-700 font-semibold">
+                          Total: Rp{itemTotalPrice.toLocaleString()}
+                        </p>
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => removeFromCart(item.menu.id)}
+                              className="px-4 py-2 bg-red-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-red-700 transition"
+                            >
+                              −
+                            </button>
+                            <span className="text-xl font-bold min-w-[40px] text-center text-black">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => addToCart(item.menu)}
+                              className="px-4 py-2 bg-green-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-green-700 transition"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
+              {/* Total Harga Keseluruhan - Tetap di bawah dengan mt-auto */}
+              <div className="p-4 bg-gray-100 rounded-lg mt-auto">
+                <h3 className="text-xl font-bold text-gray-900">Total Harga:</h3>
+                <p className="text-2xl text-orange-600 font-semibold">
+                  Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+                </p>
+              </div>
+            </>
           )}
         </div>
       )}
+
+
     </div>
+
   );
 }
