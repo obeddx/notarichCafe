@@ -54,7 +54,7 @@ export default async function handler(req: NextApiRequestWithFile, res: NextApiR
     // Jalankan middleware multer untuk menangani upload
     await runMiddleware(req, res, upload.single("image"));
 
-    const { name, description, price, ingredients } = req.body;
+    const { name, description, price, ingredients, category, Status } = req.body;
     const imagePath = req.file ? `/uploads/${req.file.filename}` : "";
 
     if (!name || !price) {
@@ -80,6 +80,8 @@ export default async function handler(req: NextApiRequestWithFile, res: NextApiR
         description: description || null,
         price: menuPrice,
         image: imagePath,
+        category,  
+        Status, 
       },
     });
 

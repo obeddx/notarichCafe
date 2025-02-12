@@ -21,6 +21,7 @@ export default function AddMenu() {
   const [category, setCategory] = useState("makanan");
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [availableIngredients, setAvailableIngredients] = useState<IngredientOption[]>([]);
+  const [statusValue, setStatusValue] = useState("");
 
   // Ambil daftar ingredient yang tersedia dari API
   useEffect(() => {
@@ -66,9 +67,9 @@ export default function AddMenu() {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("description", description);
-    formData.append("price", price);
+    formData.append("price", parseFloat(price).toString()); // Pastikan price dalam format float
     formData.append("image", image);
-    formData.append("status", status);
+    formData.append("Status", status); // Gunakan state `status` yang benar
     formData.append("category", category);
     formData.append("ingredients", JSON.stringify(ingredientRows));
 
@@ -77,9 +78,10 @@ export default function AddMenu() {
         method: "POST",
         body: formData,
       });
-
+    
       const data = await res.json();
-
+      console.log("Response API:", data); // Tambahkan ini untuk debugging
+    
       if (res.ok) {
         alert("Menu berhasil ditambahkan!");
         // Reset form
@@ -91,12 +93,19 @@ export default function AddMenu() {
         setCategory("makanan");
         setIngredientRows([]);
       } else {
-        alert("Gagal menambahkan menu: " + data.message);
+        alert("Gagal menambahkan menu: " + (data.message || "Unknown error"));
       }
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      alert("Terjadi kesalahan.");
+    }  catch (error) {
+      if (error instanceof Error) {
+        console.error("Error submitting form:", error.message);
+        alert("Terjadi kesalahan: " + error.message);
+      } else {
+        console.error("Error submitting form:", error);
+        alert("Terjadi kesalahan yang tidak diketahui.");
+      }
     }
+    
+    
   };
 
   return (
