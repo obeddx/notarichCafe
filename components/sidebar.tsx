@@ -11,7 +11,7 @@ const Sidebar = () => {
         </div>
         <div className="mb-8 text-center">
           <span className="font-bruno_ace text-white text-2xl tracking-tight">Notarich Cafe</span>
-          <p className="text-white mt-2">Welcome</p>
+          <p className="text-white mt-2">Manager Site</p>
         </div>
       </div>
       <ul className="flex flex-col">

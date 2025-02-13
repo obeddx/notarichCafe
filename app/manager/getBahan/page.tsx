@@ -106,43 +106,47 @@ export default function IngredientsTable() {
   if (error) return <p className="text-red-500">{error}</p>;
 
   return (
-    <div className="p-4 mt-[85px] ml-64">
-      <h1 className="text-2xl font-bold mb-4">Daftar Ingredients</h1>
-      <Sidebar />
-      <Link href="/manager/addBahan">
-        <p className="text-blue-500 hover:underline pb-4">+ Tambah Ingredient Baru</p>
-      </Link>
-      <table className="min-w-full bg-white border border-gray-200">
-        <thead>
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock In</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wasted</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Min</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Akhir</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {ingredients.map((ingredient) => (
-            <tr key={ingredient.id} className="text-center">
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.id}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.name}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.start}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.stockIn}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.used}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.wasted}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.stockMin}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.stock}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{ingredient.unit}</td>
-              <td className="px-8 py-4 whitespace-nowrap">
+    <div className="p-4 mt-[85px] lg:ml-64">
+  <h1 className="text-2xl font-bold mb-4">Daftar Ingredients</h1>
+  <Sidebar />
+  <Link href="/manager/addBahan">
+    <p className="text-blue-500 hover:underline pb-4">+ Tambah Ingredient Baru</p>
+  </Link>
+
+  {/* Tambahkan overflow-x-auto agar tabel bisa di-scroll pada layar kecil */}
+  <div className="overflow-x-auto">
+    <table className="min-w-full bg-white border border-gray-200">
+      <thead>
+        <tr>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock In</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Used</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wasted</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Min</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Akhir</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {ingredients.map((ingredient) => (
+          <tr key={ingredient.id} className="text-center">
+            <td className="px-4 py-3">{ingredient.id}</td>
+            <td className="px-4 py-3">{ingredient.name}</td>
+            <td className="px-4 py-3">{ingredient.start}</td>
+            <td className="px-4 py-3">{ingredient.stockIn}</td>
+            <td className="px-4 py-3">{ingredient.used}</td>
+            <td className="px-4 py-3">{ingredient.wasted}</td>
+            <td className="px-4 py-3">{ingredient.stockMin}</td>
+            <td className="px-4 py-3">{ingredient.stock}</td>
+            <td className="px-4 py-3">{ingredient.unit}</td>
+            <td className="px-4 py-3">
+              <div className="flex flex-wrap justify-center gap-2">
                 <button
                   onClick={() => handleEdit(ingredient.id)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded mr-3"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
                 >
                   Edit
                 </button>
@@ -152,143 +156,74 @@ export default function IngredientsTable() {
                 >
                   Delete
                 </button>
-              </td>
-            </tr>
-          ))}
-          {ingredients.length === 0 && (
-            <tr>
-              <td className="py-2 px-4 border-b text-center" colSpan={10}>
-                Tidak ada data ingredients.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+              </div>
+            </td>
+          </tr>
+        ))}
+        {ingredients.length === 0 && (
+          <tr>
+            <td className="py-2 px-4 border-b text-center" colSpan={10}>
+              Tidak ada data ingredients.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
 
-      {/* Modal Edit Ingredient dengan kemampuan scroll */}
-      {selectedIngredient && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-screen overflow-y-auto" style={{ maxHeight: "calc(100vh - 40px)" }}>
-            <h2 className="text-xl font-bold mb-4">Edit Ingredient</h2>
-            <form onSubmit={handleEditSubmit}>
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Name:</label>
-                <input
-                  type="text"
-                  value={selectedIngredient.name}
-                  onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      name: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Start:</label>
-                <input
-                  type="number"
-                  value={selectedIngredient.start}
-                  readOnly
-                  className="w-full p-2 border border-gray-300 rounded bg-gray-100"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Stock In:</label>
-                <input
-                  type="number"
-                  value={selectedIngredient.stockIn}
-                  onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      stockIn: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                  step="any"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Used:</label>
-                <input
-                  type="number"
-                  value={selectedIngredient.used}
-                  readOnly
-                  className="w-full p-2 border border-gray-300 rounded bg-gray-100"
-                  step="any"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Wasted:</label>
-                <input
-                  type="number"
-                  value={selectedIngredient.wasted}
-                  onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      wasted: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                  step="any"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Stock Min:</label>
-                <input
-                  type="number"
-                  value={selectedIngredient.stockMin}
-                  onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      stockMin: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                  step="any"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Unit:</label>
-                <input
-                  type="text"
-                  value={selectedIngredient.unit}
-                  onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      unit: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={handleModalClose}
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
+  {/* Modal Edit Ingredient yang lebih responsif */}
+  {selectedIngredient && (
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg sm:max-w-md" style={{ maxHeight: "calc(100vh - 40px)" }}>
+        <h2 className="text-xl font-bold mb-4">Edit Ingredient</h2>
+        <form onSubmit={handleEditSubmit}>
+          <div className="mb-4">
+            <label className="block font-medium mb-1">Name:</label>
+            <input
+              type="text"
+              value={selectedIngredient.name}
+              onChange={(e) =>
+                setSelectedIngredient({ ...selectedIngredient, name: e.target.value })
+              }
+              className="w-full p-2 border border-gray-300 rounded"
+              required
+            />
           </div>
-        </div>
-      )}
-      {/* Letakkan Toaster di dalam komponen ini */}
-      <Toaster position="top-right" />
+          <div className="mb-4">
+            <label className="block font-medium mb-1">Stock In:</label>
+            <input
+              type="number"
+              value={selectedIngredient.stockIn}
+              onChange={(e) =>
+                setSelectedIngredient({ ...selectedIngredient, stockIn: parseFloat(e.target.value) })
+              }
+              className="w-full p-2 border border-gray-300 rounded"
+              required
+              step="any"
+            />
+          </div>
+          <div className="flex justify-end space-x-4">
+            <button
+              type="button"
+              onClick={handleModalClose}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
+  )}
+
+  <Toaster position="top-right" />
+</div>
+
   );
 }
