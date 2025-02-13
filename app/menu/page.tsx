@@ -257,11 +257,11 @@ export default function MenuPage() {
 
   // Filter menu berdasarkan kategori yang dipilih
   // Filter menu berdasarkan kategori yang dipilih
-const filteredMenu = selectedCategory === "All Menu"
-? menus // Tampilkan semua menu jika "All Menu" dipilih
-: menus.filter((item) =>
-    item.category.toLowerCase().includes(selectedCategory.toLowerCase())
-  );
+  const filteredMenu = selectedCategory === "All Menu"
+    ? menus // Tampilkan semua menu jika "All Menu" dipilih
+    : menus.filter((item) =>
+      item.category.toLowerCase().includes(selectedCategory.toLowerCase())
+    );
 
   // Jika tableNumber masih "Unknown", tampilkan tombol scan barcode
   if (tableNumber === "Unknown") {
@@ -412,6 +412,13 @@ const filteredMenu = selectedCategory === "All Menu"
         className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3"
       >
         <ShoppingCart className="w-6 h-6" />
+        {/* Badge untuk jumlah item di keranjang */}
+        {cart.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
+            {cart.reduce((total, item) => total + item.quantity, 0)}
+          </span>
+        )}
+
         <span className="hidden sm:block">Cart</span>
         {/* Tampilkan total harga dan tulisan Checkout di mobile */}
         <div className="sm:hidden flex flex-col items-center">
@@ -421,6 +428,7 @@ const filteredMenu = selectedCategory === "All Menu"
           <span className="text-xs">Checkout</span>
         </div>
       </button>
+
 
       {/* Cart Popup */}
       {isCartOpen && (
