@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 interface OrderItem {
   menuId: number;
+  menuName: string;
   quantity: number;
   note?: string;
 }
@@ -37,6 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         orderItems: {
           create: orderDetails.items.map((item) => ({
             menuId: item.menuId,
+            menuName: item.menuName,
             quantity: item.quantity,
             note: item.note || "", // Jika tidak ada catatan, simpan sebagai string kosong
           })),

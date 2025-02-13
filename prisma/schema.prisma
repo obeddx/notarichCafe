@@ -15,8 +15,10 @@ model Menu {
   price        Float
   category     String
   Status       String
+    orderItems OrderItem[] 
   // Relasi ke tabel join yang menghubungkan menu dengan ingredient
   ingredients  MenuIngredient[]
+  completedOrderItems CompletedOrderItem[] // Hubungan ke CompletedOrderItem
 }
 
 model Ingredient {
@@ -123,19 +125,47 @@ model Order {
   tableNumber String
   total       Float
   status      String      @default("pending")
+  paymentMethod String?   // Metode pembayaran (tunai, e-wallet, kartu)
+  paymentId   String?     // ID pembayaran untuk non-tunai
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   
   // Relasi ke OrderItem
   orderItems  OrderItem[]
+  completedOrder CompletedOrder?
 }
 
 model OrderItem {
-  id        Int     @id @default(autoincrement())
+  id        Int    @id @default(autoincrement())
+  orderId   Int
+  menuId    Int
+  quantity  Int
+  note      String?
+  
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menu      Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
+}
+
+model CompletedOrder {
+  id          Int         @id @default(autoincrement())
+  tableNumber String
+  total       Float
+  paymentMethod String?
+  paymentId   String?
+  createdAt   DateTime    @default(now())
+
+  orderItems  CompletedOrderItem[]
+    originalOrderId Int @unique
+  originalOrder   Order @relation(fields: [originalOrderId], references: [id], onDelete: Cascade)
+}
+
+model CompletedOrderItem {
+  id        Int    @id @default(autoincrement())
   orderId   Int
   menuId    Int
   quantity  Int
   note      String?
 
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     CompletedOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menu      Menu           @relation(fields: [menuId], references: [id], onDelete: Cascade)
 }
