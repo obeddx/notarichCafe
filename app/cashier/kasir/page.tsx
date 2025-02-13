@@ -124,36 +124,40 @@ export default function KasirPage() {
   const completedOrders = orders.filter((order) => order.status === "Selesai");
 
   return (
-    <div className="flex">     
-    <div className="ml-64 p-6 bg-gray-100 min-h-screen">
+    <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-64 fixed h-full">
         <SidebarCashier />
       </div>
-      <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
-        💳 Halaman Kasir
-      </h1>
-
-      {error && <p className="text-red-500 text-center">{error}</p>}
-      {loading ? (
-        <p className="text-center text-gray-500">Memuat data pesanan...</p>
-      ) : (
-        <div className="max-w-6xl mx-auto space-y-8">
-          <OrderSection
-            title="📌 Pesanan Aktif"
-            orders={activeOrders}
-            confirmPayment={confirmPayment}
-            markOrderAsCompleted={markOrderAsCompleted}
-            paymentMethod={paymentMethod}
-            setPaymentMethod={setPaymentMethod}
-            paymentId={paymentId}
-            setPaymentId={setPaymentId}
-          />
-          <OrderSection title="✅ Pesanan Selesai" orders={completedOrders} />
-        </div>
-      )}
-    </div> </div>
+  
+      {/* Konten utama */}
+      <div className="flex-1 ml-64 p-6 bg-gray-100 min-h-screen overflow-auto">
+        <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
+          💳 Halaman Kasir
+        </h1>
+  
+        {error && <p className="text-red-500 text-center">{error}</p>}
+        {loading ? (
+          <p className="text-center text-gray-500">Memuat data pesanan...</p>
+        ) : (
+          <div className="max-w-6xl mx-auto space-y-8">
+            <OrderSection
+              title="📌 Pesanan Aktif"
+              orders={activeOrders}
+              confirmPayment={confirmPayment}
+              markOrderAsCompleted={markOrderAsCompleted}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              paymentId={paymentId}
+              setPaymentId={setPaymentId}
+            />
+            <OrderSection title="✅ Pesanan Selesai" orders={completedOrders} />
+          </div>
+        )}
+      </div>
+    </div>
   );
+  
 }
 
 function OrderSection({
