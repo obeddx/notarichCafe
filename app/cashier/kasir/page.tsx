@@ -124,7 +124,8 @@ export default function KasirPage() {
   const completedOrders = orders.filter((order) => order.status === "Selesai");
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
+    <div className="flex">     
+    <div className="ml-64 p-6 bg-gray-100 min-h-screen">
       {/* Sidebar */}
       <div className="w-64 fixed h-full">
         <SidebarCashier />
@@ -151,7 +152,7 @@ export default function KasirPage() {
           <OrderSection title="✅ Pesanan Selesai" orders={completedOrders} />
         </div>
       )}
-    </div>
+    </div> </div>
   );
 }
 
