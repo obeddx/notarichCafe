@@ -63,6 +63,9 @@ export default function MenuPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableNumber, setTableNumber] = useState<string>("Unknown");
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [noteVisibility, setNoteVisibility] = useState<{ [key: number]: boolean }>({});
+  const [showOrderSummary, setShowOrderSummary] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -140,6 +143,13 @@ export default function MenuPage() {
         // Jika belum ada, tambahkan item baru
         updatedCart = [...prevCart, { menu, quantity: 1, note: "" }];
       }
+
+      // Inisialisasi noteVisibility untuk item baru
+      setNoteVisibility((prev) => ({
+        ...prev,
+        [menu.id]: false, // Default visibility untuk item baru
+      }));
+
       sessionStorage.setItem(
         `cart_table_${tableNumber}`,
         JSON.stringify(updatedCart)
@@ -147,8 +157,7 @@ export default function MenuPage() {
       return updatedCart;
     });
 
-    toast.success(`${menu.name} added to cart!`);
-    setIsCartOpen(true);
+    toast.success(`${menu.name} added to cart!`); // Notifikasi di halaman menu
   };
 
   // Hapus item dari keranjang
@@ -165,6 +174,14 @@ export default function MenuPage() {
           return item;
         })
         .filter(Boolean) as CartItem[];
+
+      // Hapus noteVisibility untuk item yang dihapus
+      setNoteVisibility((prev) => {
+        const newVisibility = { ...prev };
+        delete newVisibility[menuId];
+        return newVisibility;
+      });
+
       sessionStorage.setItem(
         `cart_table_${tableNumber}`,
         JSON.stringify(updatedCart)
@@ -186,6 +203,14 @@ export default function MenuPage() {
       );
       return updatedCart;
     });
+  };
+
+  // Fungsi untuk mengontrol visibilitas catatan
+  const toggleNoteVisibility = (menuId: number) => {
+    setNoteVisibility((prev) => ({
+      ...prev,
+      [menuId]: !prev[menuId], // Toggle visibility
+    }));
   };
 
   // Kirim pesanan ke sistem kasir
@@ -215,12 +240,18 @@ export default function MenuPage() {
 
       const result = await response.json();
       toast.success("Order placed successfully!");
-      setCart([]);
-      sessionStorage.removeItem(`cart_table_${tableNumber}`);
+      setShowOrderSummary(true); // Tampilkan ringkasan pesanan
       setIsCartOpen(false);
     } catch (err) {
-      toast.error("Failed to place order.");
+      setOrderError("Failed to place order. Please try again later."); // Set pesan error
+      toast.error("Failed to place order. Please try again later."); // Notifikasi error
     }
+  };
+
+  const handleCloseOrderSummary = () => {
+    setShowOrderSummary(false); // Tutup ringkasan pesanan
+    setCart([]); // Hapus cart
+    sessionStorage.removeItem(`cart_table_${tableNumber}`); // Hapus cart dari sessionStorage
   };
 
   // Filter menu berdasarkan kategori yang dipilih
@@ -282,11 +313,10 @@ export default function MenuPage() {
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
-                selectedCategory === category
-                  ? "bg-orange-600 text-white scale-105"
-                  : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
-              }`}
+              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${selectedCategory === category
+                ? "bg-orange-600 text-white scale-105"
+                : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+                }`}
             >
               {category}
             </button>
@@ -328,7 +358,7 @@ export default function MenuPage() {
                     onClick={() => addToCart(item)}
                     className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
                   >
-                    <ShoppingCart className="w-5 h-5" />
+                    <ShoppingCart className="w-6 h-6" />
                     Add to Cart
                   </button>
                 </div>
@@ -341,7 +371,7 @@ export default function MenuPage() {
       {/* Floating Cart Button */}
       <button
         onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-4 left-4 bg-orange-600 text-white p-4 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center z-50"
+        className="fixed bottom-4 left-4 bg-orange-600 text-white p-4 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-2"
       >
         <ShoppingCart className="w-6 h-6" />
       </button>
@@ -365,6 +395,8 @@ export default function MenuPage() {
                 <ul className="space-y-4">
                   {cart.map((item) => {
                     const itemTotalPrice = item.menu.price * item.quantity;
+                    const isNoteOpen = noteVisibility[item.menu.id] || false;
+
                     return (
                       <li key={item.menu.id} className="flex flex-col border-b pb-4">
                         <div className="flex justify-between items-center">
@@ -397,12 +429,23 @@ export default function MenuPage() {
                             </button>
                           </div>
                         </div>
-                        <textarea
-                          className="mt-2 p-2 border rounded-lg w-full"
-                          placeholder="Add note (e.g., no sugar, extra spicy)"
-                          value={item.note}
-                          onChange={(e) => updateCartItemNote(item.menu.id, e.target.value)}
-                        />
+
+                        {/* Tombol Add Note dan Textarea */}
+                        {isNoteOpen ? (
+                          <textarea
+                            className="mt-2 p-2 border rounded-lg w-full"
+                            placeholder="Add note (e.g., no sugar, extra spicy)"
+                            value={item.note}
+                            onChange={(e) => updateCartItemNote(item.menu.id, e.target.value)}
+                          />
+                        ) : (
+                          <button
+                            onClick={() => toggleNoteVisibility(item.menu.id)}
+                            className="mt-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-full text-sm hover:bg-gray-300 transition"
+                          >
+                            Add Note
+                          </button>
+                        )}
                       </li>
                     );
                   })}
@@ -427,6 +470,55 @@ export default function MenuPage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+     {/* Ringkasan Pesanan */}
+{showOrderSummary && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg w-full max-w-md">
+      <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Summary</h2>
+      <h3 className="text-1xl text-black mb-4">Table Number: {tableNumber}</h3>
+      <ul className="space-y-2">
+        {cart.map((item) => (
+          <li key={item.menu.id} className="flex justify-between text-black">
+            <span>{item.quantity}x {item.menu.name}</span>
+            <span>Rp{(item.menu.price * item.quantity).toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 border-t pt-4">
+        <p className="text-lg font-semibold text-black">
+          Total: Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+        </p>
+      </div>
+      <p className="mt-4 text-center text-red-600 font-semibold">
+        Silakan menuju kasir untuk membayar agar pesanan Anda diproses.
+      </p>
+      <button
+        onClick={handleCloseOrderSummary}
+        className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
+
+      {/* Error Popup */}
+      {orderError && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+            <p className="text-gray-700">{orderError}</p>
+            <button
+              onClick={() => setOrderError(null)}
+              className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>
