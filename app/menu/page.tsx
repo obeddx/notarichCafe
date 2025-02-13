@@ -339,27 +339,61 @@ export default function MenuPage() {
                 key={item.id}
                 className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
               >
-                <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    layout="fill"
-                    objectFit="cover"
-                    className="rounded-lg"
-                  />
+                {/* Layout untuk Desktop */}
+                <div className="hidden sm:block">
+                  <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      layout="fill"
+                      objectFit="cover"
+                      className="rounded-lg"
+                    />
+                  </div>
+                  <div className="p-4 text-center">
+                    <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
+                    <p className="text-gray-600 text-left">{item.description}</p>
+                    <p className="text-lg font-semibold text-orange-600 mt-2 text-left">
+                      Rp{item.price.toLocaleString()}
+                    </p>
+                    <button
+                      onClick={() => addToCart(item)}
+                      className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                    >
+                      <ShoppingCart className="w-5 h-5" />
+                      Add to Cart
+                    </button>
+                  </div>
                 </div>
-                <div className="p-4 text-center">
-                  <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
-                  <p className="text-gray-600 text-left">{item.description}</p>
-                  <p className="text-lg font-semibold text-orange-600 mt-2 text-left">
-                    Rp{item.price.toLocaleString()}
-                  </p>
+
+                {/* Layout untuk Mobile */}
+                <div className="sm:hidden flex items-center gap-4">
+                  {/* Gambar */}
+                  <div className="relative w-24 h-24 flex-shrink-0">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      layout="fill"
+                      objectFit="cover"
+                      className="rounded-lg"
+                    />
+                  </div>
+
+                  {/* Informasi Menu */}
+                  <div className="flex-grow">
+                    <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
+                    <p className="text-sm text-gray-600">{item.description}</p>
+                    <p className="text-md font-semibold text-orange-600 mt-1">
+                      Rp{item.price.toLocaleString()}
+                    </p>
+                  </div>
+
+                  {/* Tombol + */}
                   <button
                     onClick={() => addToCart(item)}
-                    className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                    className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition"
                   >
-                    <ShoppingCart className="w-6 h-6" />
-                    Add to Cart
+                    +
                   </button>
                 </div>
               </div>
@@ -371,9 +405,17 @@ export default function MenuPage() {
       {/* Floating Cart Button */}
       <button
         onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-4 left-4 bg-orange-600 text-white p-4 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-2"
+        className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3"
       >
         <ShoppingCart className="w-6 h-6" />
+        <span className="hidden sm:block">Cart</span>
+        {/* Tampilkan total harga dan tulisan Checkout di mobile */}
+        <div className="sm:hidden flex flex-col items-center">
+          <span className="text-sm font-semibold">
+            Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+          </span>
+          <span className="text-xs">Checkout</span>
+        </div>
       </button>
 
       {/* Cart Popup */}
@@ -473,37 +515,37 @@ export default function MenuPage() {
         </div>
       )}
 
-     {/* Ringkasan Pesanan */}
-{showOrderSummary && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg w-full max-w-md">
-      <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Summary</h2>
-      <h3 className="text-1xl text-black mb-4">Table Number: {tableNumber}</h3>
-      <ul className="space-y-2">
-        {cart.map((item) => (
-          <li key={item.menu.id} className="flex justify-between text-black">
-            <span>{item.quantity}x {item.menu.name}</span>
-            <span>Rp{(item.menu.price * item.quantity).toLocaleString()}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4 border-t pt-4">
-        <p className="text-lg font-semibold text-black">
-          Total: Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
-        </p>
-      </div>
-      <p className="mt-4 text-center text-red-600 font-semibold">
-        Silakan menuju kasir untuk membayar agar pesanan Anda diproses.
-      </p>
-      <button
-        onClick={handleCloseOrderSummary}
-        className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
+      {/* Ringkasan Pesanan */}
+      {showOrderSummary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md">
+            <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Summary</h2>
+            <h3 className="text-1xl text-black mb-4">Table Number: {tableNumber}</h3>
+            <ul className="space-y-2">
+              {cart.map((item) => (
+                <li key={item.menu.id} className="flex justify-between text-black">
+                  <span>{item.quantity}x {item.menu.name}</span>
+                  <span>Rp{(item.menu.price * item.quantity).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 border-t pt-4">
+              <p className="text-lg font-semibold text-black">
+                Total: Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+              </p>
+            </div>
+            <p className="mt-4 text-center text-red-600 font-semibold">
+              Silakan menuju kasir untuk membayar agar pesanan Anda diproses.
+            </p>
+            <button
+              onClick={handleCloseOrderSummary}
+              className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
 
       {/* Error Popup */}
