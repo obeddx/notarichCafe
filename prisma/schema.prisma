@@ -108,18 +108,6 @@ model User {
   updatedAt  DateTime @updatedAt
 }
 
-model Reservasi {
-  id           Int      @id @default(autoincrement())
-  namaCustomer String
-  nomorKontak  String
-  tanggal      DateTime
-  jam          String
-  jumlahTamu   Int
-  status       String   @default("booked")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
 model Order {
   id          Int         @id @default(autoincrement())
   tableNumber String
@@ -168,4 +156,15 @@ model CompletedOrderItem {
 
   order     CompletedOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menu      Menu           @relation(fields: [menuId], references: [id], onDelete: Cascade)
+}
+
+model Reservasi {
+  id            Int      @id @default(autoincrement())
+  namaCustomer  String
+  nomorKontak   String
+  jumlahTamu    Int
+  tanggalReservasi DateTime
+  status        String   @default("Booked")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

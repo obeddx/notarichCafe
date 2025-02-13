@@ -15,11 +15,14 @@ const SidebarCashier = () => {
         </div>
       </div>
       <ul className="flex flex-col">
-        <Link href="/cashier" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer">
+        <Link href="/cashier/kasir" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer">
           Cashier
         </Link>
         <Link href="/cashier/layoutCafe" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer border-y-2 border-neutral-700">
           Layout Cafe
+        </Link>
+        <Link href="/cashier/history" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer border-y-2 border-neutral-700">
+          Riwayat
         </Link>
       </ul>
     </div>

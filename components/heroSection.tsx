@@ -23,13 +23,13 @@ export default function HeroSection() {
                 Boost your productivity and build your mood with a glass of coffee at Notarich.
             </p>
         <div className="flex xs:flex-col lg:flex-row gap-4 xs:mt-2 lg:mt-6">
-            <Link href="/menu">
+            <Link href="/reservasi">
                 <button className="flex items-center text-white xs:text-base lg:text-xl font-light bg-[#FF8A00] border-2 border-[#FF8A00] rounded-2xl py-2 px-6 lg:px-8 w-fit transform transition-transform duration-300 hover:scale-105">
                     <Image src="/table.png" alt="" height={22} width={22} className="mr-2" />
                     Booking Table
                 </button>
             </Link>
-            <Link href="/reservasi">
+            <Link href="/menu">
                 <button className="flex items-center text-white xs:text-base lg:text-xl font-light bg-[#FF8A00] bg-opacity-50 border-2 border-[#FF8A00] rounded-2xl py-2 px-6 lg:px-8 w-fit transform transition-transform duration-300 hover:scale-105">
                     <Image src="/bottle.png" alt="" width={12} height={12} className="mr-2" />
                     Order Online
