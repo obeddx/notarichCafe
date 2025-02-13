@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,15 +5,6 @@ generator client {
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
-}
-
-model User {
-  id         Int      @id @default(autoincrement())
-  username   String   @unique
-  email      String   @unique
-  password   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 }
 
 model Menu {
@@ -42,11 +27,13 @@ model Ingredient {
   used        Float                   // Bahan yang sudah digunakan
   wasted      Float                   // Bahan yang basi/dibuang
   stock       Float                   // Stok akhir: (start + stockIn) - used - wasted
-  unit        String
-  // Relasi ke tabel join
+  stockMin    Float   @default(0)                   // Minimum stock yang diharapkan
+  unit        String                  // Satuan, misalnya "gram", "pack", "butir", dll.
+  isActive    Boolean                 @default(true) // Untuk soft delete
   menus       MenuIngredient[]
-  // Relasi ke histori stok harian
   dailyStocks DailyIngredientStock[]
+  // Relasi satu-ke-satu ke Gudang (setiap ingredient memiliki satu record gudang)
+  gudang      Gudang?
 }
 
 model MenuIngredient {
@@ -55,7 +42,6 @@ model MenuIngredient {
   ingredientId Int
   amount       Float       // Jumlah bahan yang diperlukan untuk menu ini
 
-  // Relasi
   menu         Menu        @relation(fields: [menuId], references: [id])
   ingredient   Ingredient  @relation(fields: [ingredientId], references: [id])
 
@@ -71,18 +57,85 @@ model DailyIngredientStock {
   used         Float     // Bahan yang digunakan hari itu
   wasted       Float     // Bahan yang dibuang hari itu
   stock        Float     // Stok akhir hari itu
+  stockMin     Float     // Minimum stock untuk hari tersebut
 
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
   
   @@index([date])
-  
 }
 
-model Userr {
+model Gudang {
+  id           Int       @id @default(autoincrement())
+  ingredientId Int       @unique
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  name         String
+  start        Float     // Stok awal di gudang
+  stockIn      Float     // Jumlah penerimaan stok baru ke gudang (jika diperlukan)
+  used         Float     // Jumlah stok yang sudah diambil (dipakai) dari gudang
+  wasted       Float     // Jumlah stok yang rusak atau dibuang di gudang
+  stock        Float     // Stok akhir di gudang: (start + stockIn) - used - wasted
+  stockMin     Float     // Minimum stock di gudang
+  unit         String    // Satuan, disamakan dengan Ingredient
+  isActive     Boolean   @default(true)
+  // Field back-relation untuk DailyGudangStock
+  dailyStocks  DailyGudangStock[]
+}
+
+model DailyGudangStock {
+  id       Int       @id @default(autoincrement())
+  date     DateTime  // Tanggal data dicatat
+  gudangId Int
+  start    Float     // Stok awal di gudang pada hari tersebut
+  stockIn  Float     // Penambahan stok di gudang pada hari tersebut
+  used     Float     // Jumlah stok yang diambil (dipakai) di gudang pada hari tersebut
+  wasted   Float     // Jumlah stok yang rusak atau dibuang di gudang pada hari tersebut
+  stock    Float     // Stok akhir di gudang pada hari tersebut
+  stockMin Float     // Minimum stock di gudang pada hari tersebut
+
+  gudang   Gudang    @relation(fields: [gudangId], references: [id])
+  
+  @@index([date])
+}
+
+model User {
   id         Int      @id @default(autoincrement())
   username   String   @unique
   email      String   @unique
   password   String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model Reservasi {
+  id           Int      @id @default(autoincrement())
+  namaCustomer String
+  nomorKontak  String
+  tanggal      DateTime
+  jam          String
+  jumlahTamu   Int
+  status       String   @default("booked")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  tableNumber String
+  total       Float
+  status      String      @default("pending")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relasi ke OrderItem
+  orderItems  OrderItem[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  menuId    Int
+  quantity  Int
+  note      String?
+
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }

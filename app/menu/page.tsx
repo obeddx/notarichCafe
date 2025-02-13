@@ -188,6 +188,41 @@ export default function MenuPage() {
     });
   };
 
+  // Kirim pesanan ke sistem kasir
+  const placeOrder = async () => {
+    const orderDetails = {
+      tableNumber,
+      items: cart.map((item) => ({
+        menuId: item.menu.id,
+        quantity: item.quantity,
+        note: item.note,
+      })),
+      total: cart.reduce((total, item) => total + item.menu.price * item.quantity, 0),
+    };
+
+    try {
+      const response = await fetch("/api/placeOrder", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderDetails),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      toast.success("Order placed successfully!");
+      setCart([]);
+      sessionStorage.removeItem(`cart_table_${tableNumber}`);
+      setIsCartOpen(false);
+    } catch (err) {
+      toast.error("Failed to place order.");
+    }
+  };
+
   // Filter menu berdasarkan kategori yang dipilih
   const filteredMenu = menus.filter((item) =>
     item.category.toLowerCase().includes(selectedCategory.toLowerCase())
@@ -362,6 +397,12 @@ export default function MenuPage() {
                             </button>
                           </div>
                         </div>
+                        <textarea
+                          className="mt-2 p-2 border rounded-lg w-full"
+                          placeholder="Add note (e.g., no sugar, extra spicy)"
+                          value={item.note}
+                          onChange={(e) => updateCartItemNote(item.menu.id, e.target.value)}
+                        />
                       </li>
                     );
                   })}
@@ -377,6 +418,12 @@ export default function MenuPage() {
                     .reduce((total, item) => total + item.menu.price * item.quantity, 0)
                     .toLocaleString()}
                 </p>
+                <button
+                  onClick={placeOrder}
+                  className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
+                >
+                  Pesan Sekarang
+                </button>
               </div>
             </>
           )}
