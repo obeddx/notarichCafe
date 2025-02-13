@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isManagerPage = pathname?.startsWith("/manager") ?? false;
-  const isCashierLayoutCafe = pathname === "/cashier/layoutCafe"; // Cek apakah di halaman Layout Cafe
+  const isCashierHiddenPage = pathname === "/cashier/layoutCafe" || pathname === "/cashier/history" || pathname === "/cashier/kasir"; // Cek apakah di halaman yang perlu menghilangkan Navbar dan Footer
 
   return isManagerPage ? (
     <div className="flex">
@@ -17,9 +17,9 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
     </div>
   ) : (
     <>
-      {!isCashierLayoutCafe && <NavbarGlass />} {/* Hilangkan Navbar di /cashier/layoutCafe */}
+      {!isCashierHiddenPage && <NavbarGlass />} {/* Hilangkan Navbar di halaman tertentu */}
       {children}
-      {!isCashierLayoutCafe && <Footer />} {/* Hilangkan Footer di /cashier/layoutCafe */}
+      {!isCashierHiddenPage && <Footer />} {/* Hilangkan Footer di halaman tertentu */}
     </>
   );
 }

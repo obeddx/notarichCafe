@@ -403,22 +403,12 @@ export default function MenuPage() {
       </div>
 
       {/* Floating Cart Button */}
-      {/* Floating Cart Button */}
       <button
         onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3 relative"
+        className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3"
       >
         <ShoppingCart className="w-6 h-6" />
-
-        {/* Badge untuk jumlah item di keranjang */}
-        {cart.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
-            {cart.reduce((total, item) => total + item.quantity, 0)}
-          </span>
-        )}
-
         <span className="hidden sm:block">Cart</span>
-
         {/* Tampilkan total harga dan tulisan Checkout di mobile */}
         <div className="sm:hidden flex flex-col items-center">
           <span className="text-sm font-semibold">
@@ -427,7 +417,6 @@ export default function MenuPage() {
           <span className="text-xs">Checkout</span>
         </div>
       </button>
-
 
       {/* Cart Popup */}
       {isCartOpen && (
@@ -546,7 +535,7 @@ export default function MenuPage() {
               </p>
             </div>
             <p className="mt-4 text-center text-red-600 font-semibold">
-              Silakan menuju kasir dan tunjukan pesan ini untuk membayar agar pesanan Anda diproses.
+              Silakan menuju kasir untuk membayar agar pesanan Anda diproses.
             </p>
             <button
               onClick={handleCloseOrderSummary}

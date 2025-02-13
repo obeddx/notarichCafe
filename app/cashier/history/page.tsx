@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import SidebarCashier from "@/components/sidebarCashier";
 
 interface CompletedOrder {
   id: number;
@@ -53,51 +54,57 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Riwayat Pesanan</h1>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-      {loading ? (
-        <p>Memuat data riwayat pesanan...</p>
-      ) : (
-        <table className="w-full border-collapse border border-gray-300">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border p-2">Nomor Meja</th>
-              <th className="border p-2">Total Harga</th>
-              <th className="border p-2">Metode Pembayaran</th>
-              <th className="border p-2">Pesanan</th>
-              <th className="border p-2">Tanggal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {completedOrders.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center p-4 text-gray-500">
-                  Tidak ada riwayat pesanan.
-                </td>
+    <div className="flex">
+      {/* Sidebar */}
+      <div className="w-64 h-full fixed">
+        <SidebarCashier />
+      </div>
+      <div className="flex-1 p-6 ml-64"> {/* Tambahkan margin-left untuk menyesuaikan konten */}
+        <h1 className="text-2xl font-bold mb-4">Riwayat Pesanan</h1>
+        {error && <p className="text-red-500 mb-4">{error}</p>}
+        {loading ? (
+          <p>Memuat data riwayat pesanan...</p>
+        ) : (
+          <table className="w-full border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border p-2">Nomor Meja</th>
+                <th className="border p-2">Total Harga</th>
+                <th className="border p-2">Metode Pembayaran</th>
+                <th className="border p-2">Pesanan</th>
+                <th className="border p-2">Tanggal</th>
               </tr>
-            ) : (
-              completedOrders.map((order) => (
-                <tr key={order.id} className="border">
-                  <td className="border p-2">{order.tableNumber}</td>
-                  <td className="border p-2">Rp {order.total.toLocaleString()}</td>
-                  <td className="border p-2">{order.paymentMethod || "Tunai"}</td>
-                  <td className="border p-2">
-                    <ul>
-                      {order.orderItems.map((item) => (
-                        <li key={item.id}>
-                          {item.menuName} - {item.quantity} pcs {item.note && `(${item.note})`}
-                        </li>
-                      ))}
-                    </ul>
+            </thead>
+            <tbody>
+              {completedOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center p-4 text-gray-500">
+                    Tidak ada riwayat pesanan.
                   </td>
-                  <td className="border p-2">{new Date(order.createdAt).toLocaleString()}</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      )}
+              ) : (
+                completedOrders.map((order) => (
+                  <tr key={order.id} className="border">
+                    <td className="border p-2">{order.tableNumber}</td>
+                    <td className="border p-2">Rp {order.total.toLocaleString()}</td>
+                    <td className="border p-2">{order.paymentMethod || "Tunai"}</td>
+                    <td className="border p-2">
+                      <ul>
+                        {order.orderItems.map((item) => (
+                          <li key={item.id}>
+                            {item.menuName} - {item.quantity} pcs {item.note && `(${item.note})`}
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="border p-2">{new Date(order.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
