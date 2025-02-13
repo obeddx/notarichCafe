@@ -119,6 +119,27 @@ export default function KasirPage() {
       setLoading(false);
     }
   };
+  const cancelOrder = async (orderId: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "DELETE",
+      });
+  
+      if (res.ok) {
+        alert("✅ Pesanan berhasil dibatalkan!");
+        setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+      } else {
+        throw new Error("Gagal membatalkan pesanan");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setError("Gagal membatalkan pesanan. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const activeOrders = orders.filter((order) => order.status !== "Selesai");
   const completedOrders = orders.filter((order) => order.status === "Selesai");
@@ -150,6 +171,7 @@ export default function KasirPage() {
               setPaymentMethod={setPaymentMethod}
               paymentId={paymentId}
               setPaymentId={setPaymentId}
+              cancelOrder={cancelOrder}
             />
             <OrderSection title="✅ Pesanan Selesai" orders={completedOrders} />
           </div>
@@ -169,6 +191,7 @@ function OrderSection({
   setPaymentMethod,
   paymentId,
   setPaymentId,
+  cancelOrder, // Tambahkan prop untuk fungsi cancelOrder
 }: {
   title: string;
   orders: Order[];
@@ -178,6 +201,7 @@ function OrderSection({
   setPaymentMethod?: (method: string) => void;
   paymentId?: string;
   setPaymentId?: (id: string) => void;
+  cancelOrder?: (id: number) => void; // Tambahkan prop untuk fungsi cancelOrder
 }) {
   return (
     <div>
@@ -202,6 +226,7 @@ function OrderSection({
                 ))}
               </ul>
 
+              {/* Tombol untuk pesanan berstatus "pending" */}
               {order.status === "pending" && confirmPayment && (
                 <div className="mt-4 space-y-2">
                   <select
@@ -228,15 +253,33 @@ function OrderSection({
                   >
                     💰 Konfirmasi Pembayaran
                   </button>
+                  {/* Tombol Batal */}
+                  <button
+                    onClick={() => cancelOrder && cancelOrder(order.id)}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
+                  >
+                    ❌ Batal Pesanan
+                  </button>
                 </div>
               )}
+
+              {/* Tombol untuk pesanan berstatus "Sedang Diproses" */}
               {order.status === "Sedang Diproses" && markOrderAsCompleted && (
-                <button
-                  onClick={() => markOrderAsCompleted(order.id)}
-                  className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md transition"
-                >
-                  ✅ Tandai Selesai
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => markOrderAsCompleted(order.id)}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md transition"
+                  >
+                    ✅ Tandai Selesai
+                  </button>
+                  {/* Tombol Batal */}
+                  <button
+                    onClick={() => cancelOrder && cancelOrder(order.id)}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
+                  >
+                    ❌ Batal Pesanan
+                  </button>
+                </div>
               )}
             </div>
           ))}
