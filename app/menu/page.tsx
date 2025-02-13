@@ -43,6 +43,7 @@ interface CartItem {
 }
 
 const categories = [
+  "All Menu",
   "Coffee",
   "Tea",
   "Frappe",
@@ -56,7 +57,7 @@ const categories = [
 ];
 
 export default function MenuPage() {
-  const [selectedCategory, setSelectedCategory] = useState("Coffee");
+  const [selectedCategory, setSelectedCategory] = useState("All Menu");
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -255,7 +256,10 @@ export default function MenuPage() {
   };
 
   // Filter menu berdasarkan kategori yang dipilih
-  const filteredMenu = menus.filter((item) =>
+  // Filter menu berdasarkan kategori yang dipilih
+const filteredMenu = selectedCategory === "All Menu"
+? menus // Tampilkan semua menu jika "All Menu" dipilih
+: menus.filter((item) =>
     item.category.toLowerCase().includes(selectedCategory.toLowerCase())
   );
 
