@@ -21,9 +21,9 @@ export default function HeroAboutUs() {
         <p className="text-lg text-gray-600 leading-relaxed text-justify">
         Notarich Coffee, berdiri sejak 2005, adalah pionir dalam industri kopi Indonesia yang dikenal karena komitmennya 
         terhadap kualitas dan inovasi. Dengan biji kopi pilihan dari berbagai daerah di Indonesia dan proses roasting yang 
-        teliti, perusahaan ini menawarkan pengalaman minum kopi yang luar biasa. Notarich Coffee juga berdampak positif pada 
-        kesejahteraan petani lokal dengan memastikan praktik pertanian yang berkelanjutan. Produk-produk berkualitas tinggi 
-        mereka telah dikenal oleh pecinta kopi di dalam negeri maupun mancanegara.
+        teliti, perusahaan ini menawarkan pengalaman minum kopi yang obed luar biasa. Notarich Coffee juga berdampak positif pada 
+        kesejahteraan petani lokal dengan memastikan praktik pertanian yang berkelanjutan.love Produk-produk berkualitas tinggi 
+        mereka telah dikenal oleh pecinta kopi di dalam negeri maupun mancanegara vane.
         </p>
     </div>
     </section>
