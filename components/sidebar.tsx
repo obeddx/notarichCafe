@@ -6,16 +6,16 @@ import { FaBars, FaTimes } from "react-icons/fa";
 
 // **Tipe Props untuk Sidebar**
 interface SidebarProps {
-  onToggle: (open: boolean) => void; // Pastikan 'open' bertipe boolean
+  onToggle?: (open: boolean) => void; // Tambahkan tanda tanya (`?`) untuk membuat prop opsional
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onToggle }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onToggle = () => {} }) => { // Berikan nilai default untuk onToggle
   const [isOpen, setIsOpen] = useState<boolean>(true);
 
   const handleToggle = () => {
     const newOpenState = !isOpen;
     setIsOpen(newOpenState);
-    onToggle(newOpenState); // Kirim state terbaru ke parent
+    onToggle(newOpenState); // Panggil onToggle dengan state terbaru
   };
 
   return (

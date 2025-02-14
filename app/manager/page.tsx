@@ -17,8 +17,7 @@ interface StatCardProps {
 export default function Stats() {
   const [orderCount, setOrderCount] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Tambahkan state untuk sidebar
-  
+  const [sidebarOpen, setSidebarOpen] = useState(true); // State untuk sidebar
 
   useEffect(() => {
     async function fetchStats() {
@@ -38,10 +37,10 @@ export default function Stats() {
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-[#FFFAF0] to-[#FCFFFC]">
       {/* Sidebar */}
-      <Sidebar onToggle={setSidebarOpen} />
+      <Sidebar onToggle={setSidebarOpen} /> {/* Pastikan onToggle diteruskan dengan benar */}
 
       {/* Konten utama yang otomatis menyesuaikan */}
-      <div className={`p-6 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
+      <div className={`flex-1 p-6 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
         <h1 className="text-4xl font-bold text-[#212121] mb-6">Dashboard Manager</h1>
 
         {/* Statistik Cards */}
