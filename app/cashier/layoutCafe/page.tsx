@@ -1,10 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SidebarCashier from "@/components/sidebarCashier";
+
 
 const Bookinge = () => {
   const [selectedFloor, setSelectedFloor] = useState(1); // Default Lantai 1
+  // State untuk menyimpan daftar nomor meja yang sudah dibooking
+  const [bookedTables, setBookedTables] = useState<number[]>([]);
+
+  // Fetch data nomor meja dari backend (contoh endpoint: /api/nomeja)
+  useEffect(() => {
+    async function fetchBookedTables() {
+      try {
+        const res = await fetch("/api/nomeja");
+        if (!res.ok) {
+          throw new Error("Error fetching booked tables");
+        }
+        const data = await res.json();
+        // Misal data: [{ nomorMeja: 1 }, { nomorMeja: 3 }, ...]
+        const tables = data.map((item: { nomorMeja: number }) => item.nomorMeja);
+        setBookedTables(tables);
+      } catch (error) {
+        console.error("Failed to fetch booked tables:", error);
+      }
+    }
+    fetchBookedTables();
+  }, []);
 
   return (
     <div className="flex h-screen">
@@ -16,8 +38,9 @@ const Bookinge = () => {
       {/* Main Content */}
       <div className="flex-1 ml-64 p-8">
         <div className="w-full sm:px-6 lg:px-28">
-          <h2 className="text-3xl font-semibold mb-8 text-black">Pilih Meja Anda</h2>
-          
+          <h2 className="text-3xl font-semibold mb-8 text-black">
+            Pilih Meja Anda
+          </h2>
           {/* Floor Selection */}
           <form className="mb-8">
             <label className="px-4">
@@ -47,9 +70,8 @@ const Bookinge = () => {
           {/* Floor Layout */}
           <div className="lg:w-full bg-[#F5F2E9] rounded-3xl lg:overflow-hidden xs:overflow-x-scroll xs:scroll xs:scroll-smooth xs:scrollbar-hide">
             {selectedFloor === 1 ? (
-              <>
-                <div className="xs:w-[1300px] lg:w-full flex flex-row px-40 py-28">
-                  {/* LANTAI 1 SECTION KIRI */}
+              <> <div className="xs:w-[1300px] lg:w-full flex flex-row px-40 py-28">
+                  {/* SECTION KIRI */}
                   <div className="w-1/2 flex flex-col lg:items-start">
                     <div className="flex flex-row">
                       <div className="bg-[#D9D9D9] px-44 py-2">Tangga</div>
@@ -59,30 +81,33 @@ const Bookinge = () => {
                     </div>
                     <div className="flex flex-row mt-10">
                       <div className="flex flex-col justify-center items-center mx-4">
+                        {/* Meja 1 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-20 bg-yellow-500"></div>
-                          <div className="w-12 h-20 bg-gray-800">
-                            <p className="font-bold text-white text-center">1</p>
+                          <div className={`w-12 h-20 ${ bookedTables.includes(1) ? "bg-[#D02323]" : "bg-gray-800"}`}  >
+                            <p className="font-bold text-white text-center"> 1 </p>
                           </div>
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-8 h-8 bg-yellow-500"></div>
                             <div className="w-8 h-8 bg-yellow-500"></div>
                           </div>
                         </div>
+                        {/* Meja 2 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-20 bg-yellow-500"></div>
-                          <div className="w-12 h-20 bg-gray-800">
-                            <p className="font-bold text-white text-center">2</p>
+                          <div className={`w-12 h-20 ${ bookedTables.includes(2) ? "bg-[#D02323]" : "bg-gray-800" }`} >
+                            <p className="font-bold text-white text-center"> 2 </p>
                           </div>
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-8 h-8 bg-yellow-500"></div>
                             <div className="w-8 h-8 bg-yellow-500"></div>
                           </div>
                         </div>
+                        {/* Meja 3 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-20 bg-yellow-500"></div>
-                          <div className="w-12 h-20 bg-gray-800">
-                            <p className="font-bold text-white text-center">3</p>
+                          <div className={`w-12 h-20 ${ bookedTables.includes(3) ? "bg-[#D02323]" : "bg-gray-800" }`} >
+                            <p className="font-bold text-white text-center"> 3 </p>
                           </div>
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-8 h-8 bg-yellow-500"></div>
@@ -91,31 +116,35 @@ const Bookinge = () => {
                         </div>
                       </div>
                       <div className="flex flex-col justify-center items-center mx-4">
+                        {/* Meja 4 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className="w-12 h-12 bg-gray-800">
+                          <div className={`w-12 h-12 ${bookedTables.includes(4) ? "bg-[#D02323]": "bg-gray-800"}`}>
                             <p className="font-bold text-white text-center">4</p>
                           </div>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
+                        {/* Meja 5 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className="w-12 h-12 bg-gray-800">
+                          <div className={`w-12 h-12 ${ bookedTables.includes(5) ? "bg-[#D02323]": "bg-gray-800"}`}>
                             <p className="font-bold text-white text-center">5</p>
                           </div>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
+                        {/* Meja 6 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className="w-12 h-12 bg-gray-800">
+                          <div className={`w-12 h-12 ${bookedTables.includes(6)  ? "bg-[#D02323]"  : "bg-gray-800" }`}>
                             <p className="font-bold text-white text-center">6</p>
                           </div>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
+                        {/* Meja 7 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className="w-12 h-12 bg-gray-800">
-                            <p className="font-bold text-white text-center">7</p>
+                          <div className={`w-12 h-12 ${    bookedTables.includes(7) ? "bg-[#D02323]"  : "bg-gray-800"   }`} >
+                            <p className="font-bold text-white text-center"> 7</p>
                           </div>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
@@ -134,10 +163,14 @@ const Bookinge = () => {
                         </div>
                         <div className="flex flex-row items-center">
                           <div className="w-48 h-12 bg-gray-800">
+                          <div className={`w-12 h-12 ${bookedTables.includes(8)   ? "bg-[#D02323]" : "bg-gray-800" }`}>
                             <p className="font-bold text-white text-left">8</p>
+                            </div>
                           </div>
                           <div className="w-48 h-12 bg-gray-800">
+                          <div className={`w-48 h-12 ${ bookedTables.includes(9)? "bg-[#D02323]"  : "bg-gray-800" }`}>
                             <p className="font-bold text-white text-right">9</p>
+                            </div>
                           </div>
                         </div>
                         <div className="flex flex-row items-center">
@@ -161,7 +194,8 @@ const Bookinge = () => {
                       </div>
                       <div className="flex flex-row">
                         <div className="w-10 h-80 bg-[#444243]">
-                          <p className="font-bold text-white">10</p>
+                        <div className={`w-12 h-12 ${bookedTables.includes(10) ? "bg-[#D02323]"  : "bg-gray-800" }`}>
+                          <p className="font-bold text-white">10</p> </div>
                         </div>
                       </div>
                       <div className="flex flex-col items-end">
@@ -169,7 +203,9 @@ const Bookinge = () => {
                         <div className="flex flex-row">
                           <div className="flex flex-col">
                             <div className="w-32 h-10 bg-[#444243]">
+                            <div className={`w-12 h-12 ${ bookedTables.includes(11) ? "bg-[#D02323]" : "bg-gray-800"}`}>
                               <p className="font-bold text-white">11</p>
+                              </div>
                             </div>
                             <div className="flex flex-row gap-8 mt-4">
                               <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
@@ -193,8 +229,7 @@ const Bookinge = () => {
                     <div className="text-center py-3 mx-4">Full AC</div>
                   </div>
                 </div>
-                <hr className="bg-[#D9D9D9] border-0 dark:bg-gray-700 h-1 xs:w-[1300px] lg:mx-40"></hr>
-
+                <hr className="bg-[#D9D9D9] border-0 dark:bg-gray-700 h-1 xs:w-[1300px] lg:mx-40" />
                 <div className="flex flex-col xs:w-[1300px] lg:w-full justify-center mt-4 px-40 pb-28">
                   <div className="text-center items-center px-24 py-3">
                     Keterangan
@@ -210,8 +245,8 @@ const Bookinge = () => {
                         <p>Meja Tidak Tersedia</p>
                       </div>
                       <div className="flex flex-row">
-                        <div className="w-12 h-6 bg-yellow-500 mr-2"></div>
-                        <p>Kursi/Sofa</p>
+                        <div className="w-12 h-6 bg-orange-500 mr-2"></div>
+                        <p>pending</p>
                       </div>
                       <div className="flex flex-row">
                         <div className="w-12 h-6 bg-[#FF8A00] mr-2"></div>

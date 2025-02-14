@@ -67,7 +67,7 @@ export default function MenuPage() {
   const [noteVisibility, setNoteVisibility] = useState<{ [key: number]: boolean }>({});
   const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
-
+  
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -78,11 +78,35 @@ export default function MenuPage() {
     const finalTableNumber = tableFromUrl || tableFromSession || "Unknown";
     setTableNumber(finalTableNumber);
 
-    // Jika didapat dari URL, simpan ke sessionStorage
     if (tableFromUrl) {
       sessionStorage.setItem("tableNumber", tableFromUrl);
     }
   }, [searchParams]);
+
+  // Kirim tableNumber ke API /api/nomeja
+  useEffect(() => {
+    if (tableNumber !== "Unknown") {
+      const sendTableNumber = async () => {
+        try {
+          const response = await fetch("/api/nomeja", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ tableNumber }),
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          const result = await response.json();
+          console.log("Table number sent successfully:", result);
+        } catch (error) {
+          console.error("Error sending table number:", error);
+        }
+      };
+      sendTableNumber();
+    }
+  }, [tableNumber]);
 
   // Load cart dari sessionStorage berdasarkan nomor meja
   useEffect(() => {
@@ -256,12 +280,12 @@ export default function MenuPage() {
   };
 
   // Filter menu berdasarkan kategori yang dipilih
-  // Filter menu berdasarkan kategori yang dipilih
-  const filteredMenu = selectedCategory === "All Menu"
-    ? menus // Tampilkan semua menu jika "All Menu" dipilih
-    : menus.filter((item) =>
-      item.category.toLowerCase().includes(selectedCategory.toLowerCase())
-    );
+  const filteredMenu =
+    selectedCategory === "All Menu"
+      ? menus // Tampilkan semua menu jika "All Menu" dipilih
+      : menus.filter((item) =>
+          item.category.toLowerCase().includes(selectedCategory.toLowerCase())
+        );
 
   // Jika tableNumber masih "Unknown", tampilkan tombol scan barcode
   if (tableNumber === "Unknown") {
@@ -317,10 +341,11 @@ export default function MenuPage() {
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${selectedCategory === category
-                ? "bg-orange-600 text-white scale-105"
-                : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
-                }`}
+              className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
+                selectedCategory === category
+                  ? "bg-orange-600 text-white scale-105"
+                  : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+              }`}
             >
               {category}
             </button>
@@ -429,7 +454,6 @@ export default function MenuPage() {
         </div>
       </button>
 
-
       {/* Cart Popup */}
       {isCartOpen && (
         <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50 flex flex-col">
@@ -536,14 +560,19 @@ export default function MenuPage() {
             <ul className="space-y-2">
               {cart.map((item) => (
                 <li key={item.menu.id} className="flex justify-between text-black">
-                  <span>{item.quantity}x {item.menu.name}</span>
+                  <span>
+                    {item.quantity}x {item.menu.name}
+                  </span>
                   <span>Rp{(item.menu.price * item.quantity).toLocaleString()}</span>
                 </li>
               ))}
             </ul>
             <div className="mt-4 border-t pt-4">
               <p className="text-lg font-semibold text-black">
-                Total: Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+                Total: Rp
+                {cart
+                  .reduce((total, item) => total + item.menu.price * item.quantity, 0)
+                  .toLocaleString()}
               </p>
             </div>
             <p className="mt-4 text-center text-red-600 font-semibold">
@@ -558,7 +587,6 @@ export default function MenuPage() {
           </div>
         </div>
       )}
-
 
       {/* Error Popup */}
       {orderError && (
