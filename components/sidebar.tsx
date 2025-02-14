@@ -1,18 +1,19 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react"; // Tambahkan useEffect
+import { usePathname } from "next/navigation"; // Import usePathname
+import { useState } from "react";
 import { FaBars, FaTimes } from "react-icons/fa";
 
 interface SidebarProps {
   onToggle: (open: boolean) => void;
-  isOpen: boolean; // Terima state dari parent
+  isOpen: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
   const handleToggle = () => {
     const newOpenState = !isOpen;
-    onToggle(newOpenState); // Kirim state terbaru ke parent
+    onToggle(newOpenState);
   };
 
   return (
@@ -68,16 +69,23 @@ interface SidebarItemProps {
   border?: boolean;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ href, label, isOpen, border = false }) => (
-  <Link href={href}>
-    <div
-      className={`text-white text-md leading-10 mx-4 py-2 px-4 rounded-md transition-all cursor-pointer hover:bg-[#FF8A00] ${
-        border ? "border-y-2 border-neutral-700" : ""
-      }`}
-    >
-      {isOpen ? label : label.charAt(0)}
-    </div>
-  </Link>
-);
+const SidebarItem: React.FC<SidebarItemProps> = ({ href, label, isOpen, border = false }) => {
+  const pathname = usePathname(); // Ambil path URL saat ini
+  const isActive = pathname === href; // Cek apakah item sedang aktif
+
+  return (
+    <Link href={href}>
+      <div
+        className={`text-white text-md leading-10 mx-4 py-2 px-4 rounded-md transition-all cursor-pointer hover:bg-[#FF8A00] ${
+          border ? "border-y-2 border-neutral-700" : ""
+        } ${
+          isActive ? "bg-[#FF8A00] font-bold" : "" // Tambahkan class jika item aktif
+        }`}
+      >
+        {isOpen ? label : label.charAt(0)}
+      </div>
+    </Link>
+  );
+};
 
 export default Sidebar;

@@ -1,5 +1,4 @@
-// pages/daily-ingredient-stock.tsx
-'use client'
+'use client';
 import { useState, ChangeEvent } from 'react';
 import Sidebar from "@/components/sidebar";
 
@@ -18,6 +17,7 @@ interface Ingredient {
 const DailyIngredientStock = () => {
   const [date, setDate] = useState<string>('');
   const [data, setData] = useState<Ingredient[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
 
   const fetchData = async (selectedDate: string) => {
     try {
@@ -48,13 +48,16 @@ const DailyIngredientStock = () => {
         })
       : '';
 
+  // Fungsi untuk toggle sidebar
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   return (
-    <div className="p-4 mt-[85px] ml-0 sm:ml-64">
+    <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
       <div className="bg-white shadow rounded-lg p-6">
-     
-      
         <h1 className="text-3xl font-bold text-center mb-6">Daily Ingredient Stock</h1>
-        <Sidebar />
+        <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
         <div className="flex flex-col sm:flex-row items-center justify-center mb-6">
           <label htmlFor="date" className="mr-2 font-medium text-gray-700">
             Pilih Tanggal:

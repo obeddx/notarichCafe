@@ -4,7 +4,7 @@ import Sidebar from "@/components/sidebar";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
-import { useRouter } from "next/navigation"; 
+import { useRouter } from "next/navigation";
 
 type Ingredient = {
   id: number;
@@ -23,6 +23,7 @@ export default function IngredientsTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
 
   const router = useRouter();
 
@@ -126,15 +127,19 @@ export default function IngredientsTable() {
       console.error("Error resetting daily stock:", error);
     }
   };
-  
+
+  // Fungsi untuk toggle sidebar
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
 
   if (loading) return <p>Loading ingredients...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
 
   return (
-    <div className="p-4 mt-[85px] ml-0 sm:ml-64">
+    <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
       <h1 className="text-2xl font-bold mb-4">Daftar Ingredients</h1>
-      <Sidebar />
+      <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       <Link href="/manager/addBahan">
         <p className="text-blue-500 hover:underline pb-4">+ Tambah Ingredient Baru</p>
       </Link>
@@ -192,20 +197,18 @@ export default function IngredientsTable() {
           </tbody>
         </table>
         <button 
-  onClick={handleResetDailyStock} 
-  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
->
-  Rekap Stock Cafe
-</button>
+          onClick={handleResetDailyStock} 
+          className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
+        >
+          Rekap Stock Cafe
+        </button>
 
-<div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md">
-  <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
-  <p className="text-sm text-gray-700">
-    <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Reset Stock</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk menyimpan rekap pengeluaran stok hari ini.
-  </p>
-</div>
-
-        
+        <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md">
+          <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Reset Stock</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk menyimpan rekap pengeluaran stok hari ini.
+          </p>
+        </div>
       </div>
 
       {/* Modal Edit Ingredient dengan kemampuan scroll */}
