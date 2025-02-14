@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { FaShoppingCart, FaMoneyBillWave, FaCrown } from "react-icons/fa";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const COLORS = ["#FF8A00", "#975F2C", "#8A4210", "#92700C", "#212121"];
 
@@ -27,6 +30,64 @@ export default function TopSellers() {
     fetchTopSellers();
   }, [period]);
 
+  // Fungsi untuk ekspor ke PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const title = "Laporan Top Sellers";
+    const headers = [["Menu", "Total Terjual"]];
+
+    // Format data untuk tabel PDF
+    const data = topSellers.map((item) => [item.menuName, item.totalSold]);
+
+    // Tambahkan ringkasan data
+    doc.setFontSize(18);
+    doc.text(title, 14, 22);
+    doc.setFontSize(12);
+    doc.text(`Total Pesanan: ${totalOrders}`, 14, 32);
+    doc.text(`Total Pendapatan: Rp ${totalRevenue.toLocaleString()}`, 14, 42);
+    doc.text(`Menu Terlaris: ${topSellers[0]?.menuName || "-"} (${topSellers[0]?.totalSold || 0} terjual)`, 14, 52);
+
+    // Tambahkan tabel
+    (doc as any).autoTable({
+      head: headers,
+      body: data,
+      startY: 60,
+      theme: "striped",
+      styles: { fontSize: 12, cellPadding: 3 },
+      headStyles: { fillColor: "#FF8A00" },
+    });
+
+    // Simpan file
+    doc.save("laporan_top_sellers.pdf");
+  };
+
+  // Fungsi untuk ekspor ke Excel
+  const exportToExcel = () => {
+    // Format data untuk Excel
+    const data = topSellers.map((item) => ({
+      Menu: item.menuName,
+      "Total Terjual": item.totalSold,
+    }));
+
+    // Tambahkan ringkasan data
+    const summary = [
+      { Menu: "Total Pesanan", "Total Terjual": totalOrders },
+      { Menu: "Total Pendapatan", "Total Terjual": `Rp ${totalRevenue.toLocaleString()}` },
+      { Menu: "Menu Terlaris", "Total Terjual": `${topSellers[0]?.menuName || "-"} (${topSellers[0]?.totalSold || 0} terjual)` },
+    ];
+
+    // Gabungkan data dan ringkasan
+    const finalData = [...data, ...summary];
+
+    // Buat worksheet dan workbook
+    const worksheet = XLSX.utils.json_to_sheet(finalData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Top Sellers");
+
+    // Simpan file
+    XLSX.writeFile(workbook, "laporan_top_sellers.xlsx");
+  };
+
   return (
     <div className="mt-8 p-6 bg-[#F8F8F8] rounded-lg shadow-lg min-h-[400px] w-full">
       <h2 className="text-2xl font-bold text-[#8A4210] mb-6">📊 Top Seller</h2>
@@ -44,6 +105,22 @@ export default function TopSellers() {
           <option value="weekly">Mingguan</option>
           <option value="monthly">Bulanan</option>
         </select>
+      </div>
+
+      {/* Tombol Ekspor */}
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={exportToPDF}
+          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#FF6F00] transition-all"
+        >
+          Ekspor ke PDF
+        </button>
+        <button
+          onClick={exportToExcel}
+          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#45a049] transition-all"
+        >
+          Ekspor ke Excel
+        </button>
       </div>
 
       {/* Ringkasan Data */}
