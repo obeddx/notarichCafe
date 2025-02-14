@@ -52,8 +52,39 @@ export default async function handler(
       });
     }
   } 
+  // DELETE: Menghapus data meja berdasarkan nomor meja
+  else if (req.method === 'DELETE') {
+    try {
+      const { nomorMeja } = req.body;
+      
+      if (!nomorMeja) {
+        return res.status(400).json({ message: 'Nomor meja diperlukan' });
+      }
+
+      const parsedNomorMeja = Number(nomorMeja);
+      if (isNaN(parsedNomorMeja)) {
+        return res.status(400).json({ message: 'Nomor meja harus berupa angka' });
+      }
+
+      // Hapus data meja
+      await prisma.dataMeja.deleteMany({
+        where: {
+          nomorMeja: parsedNomorMeja
+        }
+      });
+
+      res.status(200).json({ message: 'Meja berhasil direset' });
+    } catch (error) {
+      console.error('Error deleting table:', error);
+      res.status(500).json({
+        message: 'Gagal mereset meja',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
   // Jika method tidak didukung
   else {
     res.status(405).json({ message: 'Method Not Allowed' });
   }
+
 }
