@@ -111,17 +111,18 @@ model User {
 }
 
 model Order {
-  id          Int         @id @default(autoincrement())
-  tableNumber String
-  total       Float
-  status      String      @default("pending")
-  paymentMethod String?   // Metode pembayaran (tunai, e-wallet, kartu)
-  paymentId   String?     // ID pembayaran untuk non-tunai
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
+  id            Int             @id @default(autoincrement())
+  tableNumber   String
+  total         Float
+  status        String          @default("pending")
+  paymentMethod String?         // Metode pembayaran (tunai, e-wallet, kartu)
+  paymentId     String?         // ID pembayaran untuk non-tunai
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
   // Relasi ke OrderItem
-  orderItems  OrderItem[]
+  orderItems    OrderItem[]
+
   completedOrder CompletedOrder?
 }
 
@@ -137,16 +138,19 @@ model OrderItem {
 }
 
 model CompletedOrder {
-  id          Int         @id @default(autoincrement())
-  tableNumber String
-  total       Float
-  paymentMethod String?
-  paymentId   String?
-  createdAt   DateTime    @default(now())
+  id             Int         @id @default(autoincrement())
+  tableNumber    String
+  total          Float
+  paymentMethod  String?
+  paymentId      String?
+  createdAt      DateTime    @default(now())
 
-  orderItems  CompletedOrderItem[]
-    originalOrderId Int @unique
-  originalOrder   Order @relation(fields: [originalOrderId], references: [id], onDelete: Cascade)
+  // Relasi ke CompletedOrderItem
+  orderItems     CompletedOrderItem[]
+
+  // Relasi balik ke Order
+  originalOrder  Order?      @relation(fields: [originalOrderId], references: [id])
+  originalOrderId Int?   @unique      // Foreign key untuk Order
 }
 
 model CompletedOrderItem {
