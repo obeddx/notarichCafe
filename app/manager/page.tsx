@@ -37,7 +37,7 @@ export default function Stats() {
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-[#FFFAF0] to-[#FCFFFC]">
       {/* Sidebar */}
-      <Sidebar onToggle={setSidebarOpen} /> {/* Pastikan onToggle diteruskan dengan benar */}
+      <Sidebar onToggle={setSidebarOpen} isOpen={sidebarOpen} /> {/* Teruskan state ke Sidebar */}
 
       {/* Konten utama yang otomatis menyesuaikan */}
       <div className={`flex-1 p-6 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
