@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
 } from "recharts";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 // Warna kategori
 const COLORS = ["#FF8A00", "#8A4210", "#975F2C", "#92700C", "#212121"];
@@ -41,9 +44,69 @@ export default function RevenueByCategoryChart() {
     fetchData();
   }, []);
 
+  // Fungsi untuk ekspor ke PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const title = "Laporan Pendapatan per Kategori";
+    const headers = [["Kategori", "Total Pendapatan"]];
+
+    // Format data untuk tabel PDF
+    const tableData = data.map((item) => [item.category, formatCurrency(item.total)]);
+
+    // Tambahkan judul
+    doc.setFontSize(18);
+    doc.text(title, 14, 22);
+
+    // Tambahkan tabel
+    (doc as any).autoTable({
+      head: headers,
+      body: tableData,
+      startY: 30,
+      theme: "striped",
+      styles: { fontSize: 12, cellPadding: 3 },
+      headStyles: { fillColor: "#FF8A00" },
+    });
+
+    // Simpan file
+    doc.save("laporan_pendapatan_kategori.pdf");
+  };
+
+  // Fungsi untuk ekspor ke Excel
+  const exportToExcel = () => {
+    // Format data untuk Excel
+    const excelData = data.map((item) => ({
+      Kategori: item.category,
+      "Total Pendapatan": item.total,
+    }));
+
+    // Buat worksheet dan workbook
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Pendapatan");
+
+    // Simpan file
+    XLSX.writeFile(workbook, "laporan_pendapatan_kategori.xlsx");
+  };
+
   return (
     <div className="mt-8 p-6 bg-[#F8F8F8] rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold text-[#8A4210] mb-6">💰 Pendapatan per Kategori Menu</h2>
+
+      {/* Tombol Ekspor */}
+      <div className="flex gap-4 mb-6">
+        <button
+          onClick={exportToPDF}
+          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#FF6F00] transition-all"
+        >
+          Ekspor ke PDF
+        </button>
+        <button
+          onClick={exportToExcel}
+          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#45a049] transition-all"
+        >
+          Ekspor ke Excel
+        </button>
+      </div>
 
       {/* Ringkasan Pendapatan per Kategori */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
@@ -57,8 +120,6 @@ export default function RevenueByCategoryChart() {
         ))}
       </div>
 
-
-
       {/* Grafik Pendapatan */}
       <ResponsiveContainer width="100%" height={400}>
         <BarChart
@@ -71,6 +132,7 @@ export default function RevenueByCategoryChart() {
           <Tooltip
             contentStyle={{ backgroundColor: "#FF8A00", color: "#FCFFFC", borderRadius: 8, border: "none" }}
             cursor={{ fill: "rgba(255, 138, 0, 0.2)" }}
+            formatter={(value) => formatCurrency(Number(value))} // Format tooltip ke Rupiah
           />
           <Legend wrapperStyle={{ color: "#212121" }} />
 
@@ -79,7 +141,6 @@ export default function RevenueByCategoryChart() {
               <Cell key={`${item.category}-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Bar>
-
         </BarChart>
       </ResponsiveContainer>
     </div>
