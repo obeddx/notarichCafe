@@ -1,4 +1,3 @@
-// /pages/admin/add-menu.tsx
 "use client";
 import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
@@ -22,7 +21,7 @@ export default function AddMenu() {
   const [category, setCategory] = useState("Coffee");
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [availableIngredients, setAvailableIngredients] = useState<IngredientOption[]>([]);
-  const [statusValue, setStatusValue] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
 
   // Ambil daftar ingredient yang tersedia dari API
   useEffect(() => {
@@ -54,6 +53,11 @@ export default function AddMenu() {
   const removeIngredientRow = (index: number) => {
     const newRows = ingredientRows.filter((_, i) => i !== index);
     setIngredientRows(newRows);
+  };
+
+  // Fungsi untuk toggle sidebar
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -108,10 +112,10 @@ export default function AddMenu() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-200 p-4 mt-20 ml-64">
+    <div className="flex justify-center items-center min-h-screen bg-gray-200 p-4" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
       {/* Gunakan max-w-4xl agar form lebih lebar */}
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-4xl">
-        <Sidebar />
+        <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
         <h1 className="text-center text-2xl font-bold mb-6">Tambah Menu</h1>
         <form onSubmit={handleSubmit} encType="multipart/form-data">
           {/* Gunakan grid dua kolom untuk mengelompokkan input secara horizontal */}
