@@ -51,17 +51,18 @@ model MenuIngredient {
 }
 
 model DailyIngredientStock {
-  id           Int       @id @default(autoincrement())
-  date         DateTime  // Tanggal data dicatat
-  ingredientId Int
-  start        Float     // Stok awal hari itu
-  stockIn      Float     // Penambahan stok hari itu
-  used         Float     // Bahan yang digunakan hari itu
-  wasted       Float     // Bahan yang dibuang hari itu
-  stock        Float     // Stok akhir hari itu
-  stockMin     Float     // Minimum stock untuk hari tersebut
+  id             Int       @id @default(autoincrement())
+  date           DateTime  // Tanggal data dicatat
+  ingredientId   Int
+  ingredientName String    // Nama ingredient
+  start          Float     // Stok awal hari itu
+  stockIn        Float     // Penambahan stok hari itu
+  used           Float     // Bahan yang digunakan hari itu
+  wasted         Float     // Bahan yang dibuang hari itu
+  stock          Float     // Stok akhir hari itu
+  stockMin       Float     // Minimum stock untuk hari tersebut
 
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredient     Ingredient @relation(fields: [ingredientId], references: [id])
   
   @@index([date])
 }
@@ -87,6 +88,7 @@ model DailyGudangStock {
   id       Int       @id @default(autoincrement())
   date     DateTime  // Tanggal data dicatat
   gudangId Int
+  gudangName String    // Nama ingredient
   start    Float     // Stok awal di gudang pada hari tersebut
   stockIn  Float     // Penambahan stok di gudang pada hari tersebut
   used     Float     // Jumlah stok yang diambil (dipakai) di gudang pada hari tersebut

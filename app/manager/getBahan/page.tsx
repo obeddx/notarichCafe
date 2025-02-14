@@ -3,6 +3,8 @@ import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
+import { AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation"; 
 
 type Ingredient = {
   id: number;
@@ -21,6 +23,8 @@ export default function IngredientsTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+
+  const router = useRouter();
 
   // Fungsi untuk mengambil data ingredients dari API
   const fetchIngredients = async () => {
@@ -101,6 +105,29 @@ export default function IngredientsTable() {
     }
   };
 
+  const handleResetDailyStock = async () => {
+    // Menampilkan dialog konfirmasi
+    const confirmed = confirm("Apakah Anda yakin ingin mereset stok harian?");
+    
+    // Jika user tidak mengonfirmasi, batalkan eksekusi
+    if (!confirmed) return;
+  
+    try {
+      const res = await fetch("/api/resetDailyStock", {
+        method: "POST",
+      });
+      const result = await res.json();
+      console.log("Reset result:", result);
+      alert(result.message);
+      if (res.ok) {
+        router.push("/manager/rekapStokCafe");
+      }
+    } catch (error) {
+      console.error("Error resetting daily stock:", error);
+    }
+  };
+  
+
   if (loading) return <p>Loading ingredients...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
 
@@ -164,6 +191,21 @@ export default function IngredientsTable() {
             )}
           </tbody>
         </table>
+        <button 
+  onClick={handleResetDailyStock} 
+  className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
+>
+  Rekap Stock Cafe
+</button>
+
+<div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md">
+  <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
+  <p className="text-sm text-gray-700">
+    <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Reset Stock</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk menyimpan rekap pengeluaran stok hari ini.
+  </p>
+</div>
+
+        
       </div>
 
       {/* Modal Edit Ingredient dengan kemampuan scroll */}

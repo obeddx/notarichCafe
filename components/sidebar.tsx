@@ -15,11 +15,17 @@ const Sidebar = () => {
         </div>
       </div>
       <ul className="flex flex-col">
+      <Link href="/manager" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer">
+          Dashboard
+        </Link>
         <Link href="/manager/getMenu" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer">
           Menu
         </Link>
         <Link href="/manager/getBahan" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer border-y-2 border-neutral-700">
            Bahan
+        </Link>
+        <Link href="/manager/rekapStokCafe" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer border-y-2 border-neutral-700">
+           Rekap Stock Cafe
         </Link>
         
       </ul>
