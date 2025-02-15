@@ -98,9 +98,15 @@ export default async function handler(
         where: { id: ingredientId },
         data: { isActive: false },
       });
+      const updatedGudang = await prisma.gudang.updateMany({
+        where: { ingredientId: ingredientId },
+        data: { isActive: false },
+      });
+      
       return res.status(200).json({
         message: "Ingredient berhasil dihapus (soft delete)",
         ingredient: updatedIngredient,
+        gudang: updatedGudang,
       });
     } catch (error) {
       console.error("Error deleting ingredient:", error);
