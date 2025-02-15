@@ -276,17 +276,21 @@ const getTableColor = (nomorMeja: number) => {
                   {/* Lantai 1 - Bagian Kiri */}
                   <div className="w-1/2 flex flex-col lg:items-start">
                     <div className="flex flex-row">
-                      <div className="bg-[#D9D9D9] px-44 py-2">Tangga</div>
+                    <div className="relative flex items-center justify-center bg-gradient-to-r from-gray-300 to-gray-100 px-44 py-2 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
+  <span className="text-2xl font-bold text-gray-700">Tangga</span>
+</div>
                     </div>
                     <div className="flex flex-row mt-6">
-                      <div className="bg-[#D9D9D9] px-20 py-4">Toilet</div>
+                    <div className="flex flex-col items-center justify-center bg-white rounded-lg border-4 border-gray-300 px-20 py-4 shadow-lg transform transition duration-300 hover:scale-105">
+  <span className="text-4xl">🚽</span>
+  <span className="mt-2 text-xl font-bold text-gray-700">Toilet</span>
+</div>
                     </div>
                     <div className="flex flex-row mt-10">
                       <div className="flex flex-col justify-center items-center mx-4">
                         {/* Meja 1 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
-                          <div className="w-8 h-20 bg-yellow-500"></div>
-                          <button
+                        <div className="w-8 h-20 bg-amber-600 rounded-t-lg shadow-md  transform transition-all hover:scale-105"></div>                          <button
                       onClick={() => fetchTableOrders("1")}
                       className={`w-12 h-20 ${getTableColor(1)} rounded-lg transform transition-all 
                         hover:scale-105 hover:shadow-lg relative group`}
@@ -295,14 +299,12 @@ const getTableColor = (nomorMeja: number) => {
                       <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
                     </button>
                           <div className="flex flex-col items-center gap-4">
-                            <div className="w-8 h-8 bg-yellow-500"></div>
-                            <div className="w-8 h-8 bg-yellow-500"></div>
-                          </div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>                          </div>
                         </div>
                         {/* Meja 2 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
-                          <div className="w-8 h-20 bg-yellow-500"></div>
-                          <button
+                        <div className="w-8 h-20 bg-amber-600 rounded-t-lg shadow-md  transform transition-all hover:scale-105"></div>                          <button
                       onClick={() => fetchTableOrders("2")}
                       className={`w-12 h-20 ${getTableColor(2)} rounded-lg transform transition-all 
                         hover:scale-105 hover:shadow-lg relative group`}
@@ -311,14 +313,13 @@ const getTableColor = (nomorMeja: number) => {
                       <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
                     </button>
                           <div className="flex flex-col items-center gap-4">
-                            <div className="w-8 h-8 bg-yellow-500"></div>
-                            <div className="w-8 h-8 bg-yellow-500"></div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
                           </div>
                         </div>
                         {/* Meja 3 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
-                          <div className="w-8 h-20 bg-yellow-500"></div>
-                          <button
+                        <div className="w-8 h-20 bg-amber-600 rounded-t-lg shadow-md  transform transition-all hover:scale-105"></div>                          <button
                       onClick={() => fetchTableOrders("3")}
                       className={`w-12 h-20 ${getTableColor(3)} rounded-lg transform transition-all 
                         hover:scale-105 hover:shadow-lg relative group`}
@@ -327,76 +328,76 @@ const getTableColor = (nomorMeja: number) => {
                       <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
                     </button>
                           <div className="flex flex-col items-center gap-4">
-                            <div className="w-8 h-8 bg-yellow-500"></div>
-                            <div className="w-8 h-8 bg-yellow-500"></div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col justify-center items-center mx-4">
                         {/* Meja 4 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <button
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>         
+                         <button
                       onClick={() => fetchTableOrders("4")}
-                      className={`w-12 h-20 ${getTableColor(4)} rounded-lg transform transition-all 
+                      className={`w-12 h-12 ${getTableColor(4)} rounded-lg transform transition-all 
                         hover:scale-105 hover:shadow-lg relative group`}
                     >
                       <p className="font-bold text-white text-center pt-2">4</p>
                       <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
                     </button>
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                        </div>
+                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 "></div>
+                    </div>
                         {/* Meja 5 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <button
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div> 
+                                                  <button
                       onClick={() => fetchTableOrders("5")}
-                      className={`w-12 h-20 ${getTableColor(5)} rounded-lg transform transition-all 
+                      className={`w-12 h-12 ${getTableColor(5)} rounded-lg transform transition-all 
                         hover:scale-105 hover:shadow-lg relative group`}
                     >
                       <p className="font-bold text-white text-center pt-2">5</p>
                       <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
                     </button>
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                        </div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                    </div>
                         {/* Meja 6 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <button
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                                                  <button
                       onClick={() => fetchTableOrders("6")}
-                      className={`w-12 h-20 ${getTableColor(6)} rounded-lg transform transition-all 
+                      className={`w-12 h-12 ${getTableColor(6)} rounded-lg transform transition-all 
                         hover:scale-105 hover:shadow-lg relative group`}
                     >
                       <p className="font-bold text-white text-center pt-2">6</p>
                       <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
                     </button>
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                        </div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                    </div>
                         {/* Meja 7 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <button
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div> 
+                                                  <button
                       onClick={() => fetchTableOrders("7")}
-                      className={`w-12 h-20 ${getTableColor(7)} rounded-lg transform transition-all 
+                      className={`w-12 h-12 ${getTableColor(7)} rounded-lg transform transition-all 
                         hover:scale-105 hover:shadow-lg relative group`}
                     >
                       <p className="font-bold text-white text-center pt-2">7</p>
                       <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
                     </button>
-                          <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                        </div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                    </div>
                       </div>
                     </div>
                     {/* Section Bawah Kiri */}
                     <div className="flex flex-row mt-10">
                       <div className="flex flex-col gap-2 my-2">
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-6 gap-7">
-                          <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                          <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                          <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                          <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                          <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                          <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
+                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
                         </div>
                         <div className="flex flex-row items-center">
                           <button
@@ -413,7 +414,7 @@ const getTableColor = (nomorMeja: number) => {
                           </button>
                         </div>
                         <div className="flex flex-row items-center">
-                          <div className="w-96 h-8 bg-yellow-500"></div>
+                        <div className="w-96 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
                         </div>
                       </div>
                     </div>
@@ -421,14 +422,16 @@ const getTableColor = (nomorMeja: number) => {
                   {/* Lantai 1 - Bagian Kanan */}
                   <div className="w-1/2 flex flex-col lg:items-end">
                     <div className="flex flex-row">
-                      <div className="px-44 py-2 bg-[#D9D9D9]">Tangga</div>
+                    <div className="relative flex items-center justify-center bg-gradient-to-r from-gray-300 to-gray-100 px-44 py-2 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
+  <span className="text-2xl font-bold text-gray-700">Tangga</span>
+</div>
                     </div>
                     <div className="flex flex-row mt-6 mb-2">
                       <div className="flex flex-col mx-2 gap-16">
-                        <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                        <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                        <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                        <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
+                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
+                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
+                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
+                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
                       </div>
                       <div className="flex flex-row">
                       <button
@@ -443,7 +446,13 @@ const getTableColor = (nomorMeja: number) => {
                     </button>
                       </div>
                       <div className="flex flex-col items-end">
-                        <div className="px-28 py-32 bg-[#D9D9D9]">Kitchen</div>
+                      <div className="w-72 h-72 bg-gradient-to-b from-[#fff8f0] to-[#D9D9D9] border border-gray-300 rounded-xl shadow-2xl transform transition duration-300 hover:scale-105">
+  <div className="flex flex-col items-center justify-center h-full">
+    <span className="text-7xl mb-4">🍳</span>
+    <h1 className="text-4xl font-bold text-gray-800 text-center">Kitchen</h1>
+  </div>
+</div>
+
                         <div className="flex flex-row">
                           <div className="flex flex-col">
                           <button
@@ -454,14 +463,17 @@ const getTableColor = (nomorMeja: number) => {
                       <p className="font-bold text-white text-center">11</p>
                       <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
                     </button>
-
-
                             <div className="flex flex-row gap-8 mt-4">
-                              <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
-                              <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
                             </div>
                           </div>
-                          <div className="px-16 py-32 bg-[#D9D9D9]">Bar</div>
+                          <div className="w-40 h-80 bg-gradient-to-b from-[#EDE3D7] to-[#D9D9D9] border border-gray-300 rounded-xl shadow-2xl transform transition duration-300 hover:scale-105">
+  <div className="flex flex-col items-center justify-center h-full">
+    <span className="text-7xl mb-4">🍸</span>
+    <h1 className="text-4xl font-bold text-gray-800 text-center">Bar</h1>
+  </div>
+</div>
                         </div>
                       </div>
                     </div>
@@ -469,9 +481,10 @@ const getTableColor = (nomorMeja: number) => {
                 </div>
                 <div className="xs:w-[1300px] lg:w-full flex flex-row justify-between mt-12 px-40">
                   <div className="flex justify-center flex-grow">
-                    <div className="bg-[#DBAA61] text-center items-center px-24 py-3 ml-52">
-                      Pintu
-                    </div>
+                  <div className="relative flex items-center justify-center bg-gradient-to-b from-[#DBAA61] to-[#A17C5B] text-white font-bold text-xl px-16 py-6 rounded-lg shadow-xl border-4 border-[#8B4513]">
+        Pintu Cafe
+        {/* Handle Pintu */}
+      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-12 bg-[#8B4513] rounded-full"></div></div>
                   </div>
                   <div className="flex items-center">
                     <div className="text-center py-3 mx-4">Non Smoking</div>
