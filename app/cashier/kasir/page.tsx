@@ -109,35 +109,32 @@ export default function KasirPage() {
     }
   };
 
-  const markOrderAsCompleted = async (orderId: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/completeOrder", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ orderId }),
-      });
+  // Di dalam fungsi markOrderAsCompleted di KasirPage
+const markOrderAsCompleted = async (orderId: number) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await fetch("/api/completeOrder", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ orderId }),
+    });
 
-      if (res.ok) {
-        alert("✅ Pesanan berhasil diselesaikan!");
-        setOrders((prevOrders) =>
-          prevOrders.map((order) =>
-            order.id === orderId ? { ...order, status: "Selesai" } : order
-          )
-        );
-      } else {
-        throw new Error("Gagal menyelesaikan pesanan");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setError("Gagal menyelesaikan pesanan. Silakan coba lagi.");
-    } finally {
-      setLoading(false);
+    if (res.ok) {
+      alert("✅ Pesanan berhasil diselesaikan!");
+      fetchOrders(); // Refresh data pesanan
+      // Pemicu pembaruan data meja jika diperlukan
+    } else {
+      throw new Error("Gagal menyelesaikan pesanan");
     }
-  };
+  } catch (error) {
+    console.error("Error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const cancelOrder = async (orderId: number) => {
     setLoading(true);
@@ -161,31 +158,32 @@ export default function KasirPage() {
     }
   };
 
-  const resetTable = async (tableNumber: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/resetTable`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tableNumber }),
-      });
+  // Di dalam KasirPage
+const resetTable = async (tableNumber: string) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await fetch(`/api/resetTable`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tableNumber }),
+    });
 
-      if (res.ok) {
-        alert(`✅ Meja ${tableNumber} berhasil direset!`);
-        fetchOrders(); // Refresh daftar pesanan setelah meja direset
-      } else {
-        throw new Error("Gagal mereset meja");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setError("Gagal mereset meja. Silakan coba lagi.");
-    } finally {
-      setLoading(false);
+    if (res.ok) {
+      alert(`✅ Meja ${tableNumber} berhasil direset!`);
+      fetchOrders(); // Refresh daftar pesanan
+      // Tambahkan pemanggilan untuk memperbarui data di Bookinge
+    } else {
+      throw new Error("Gagal mereset meja");
     }
-  };
+  } catch (error) {
+    console.error("Error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const activeOrders = orders.filter((order) => order.status !== "Selesai");
   const completedOrders = orders.filter((order) => order.status === "Selesai");

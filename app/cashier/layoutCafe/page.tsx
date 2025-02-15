@@ -2,76 +2,278 @@
 
 import { useState, useEffect } from "react";
 import SidebarCashier from "@/components/sidebarCashier";
+import toast from "react-hot-toast";
+import { Inter } from 'next/font/google';
+const inter = Inter({ subsets: ['latin'] });
 
+type Meja = {
+  nomorMeja: number;
+  status: string;
+};
+
+interface Order {
+  id: number;
+  tableNumber: string;
+  total: number;
+  status: string;
+  paymentMethod?: string;
+  paymentId?: string;
+  createdAt: string;
+  orderItems: OrderItem[];
+}
+
+interface OrderItem {
+  id: number;
+  menuId: number;
+  quantity: number;
+  note?: string;
+  menu: Menu;
+}
+
+interface Menu {
+  id: number;
+  name: string;
+  description?: string;
+  image: string;
+  price: number;
+  category: string;
+  Status: string;
+}
 
 const Bookinge = () => {
-  const [selectedFloor, setSelectedFloor] = useState(1); // Default Lantai 1
-  // State untuk menyimpan daftar nomor meja yang sudah dibooking
-  const [bookedTables, setBookedTables] = useState<number[]>([]);
+  const [selectedFloor, setSelectedFloor] = useState(1);
+  const [mejaData, setMejaData] = useState<Meja[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [selectedTableOrders, setSelectedTableOrders] = useState<Order[]>([]);
+  const [selectedCompletedOrders, setSelectedCompletedOrders] = useState<Order[]>([]);
+  const [isPopupVisible, setIsPopupVisible] = useState(false);
+  const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
 
-  // Fetch data nomor meja dari backend (contoh endpoint: /api/nomeja)
+  // Fetch initial data
   useEffect(() => {
-    async function fetchBookedTables() {
+    const fetchData = async () => {
       try {
-        const res = await fetch("/api/nomeja");
-        if (!res.ok) {
-          throw new Error("Error fetching booked tables");
-        }
-        const data = await res.json();
-        // Misal data: [{ nomorMeja: 1 }, { nomorMeja: 3 }, ...]
-        const tables = data.map((item: { nomorMeja: number }) => item.nomorMeja);
-        setBookedTables(tables);
+        const [mejaRes, ordersRes] = await Promise.all([
+          fetch("/api/nomeja"),
+          fetch("/api/orders")
+        ]);
+        
+        if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
+        if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
+    
+        setMejaData(await mejaRes.json());
+        setAllOrders((await ordersRes.json()).orders);
       } catch (error) {
-        console.error("Failed to fetch booked tables:", error);
+        console.error("Terjadi kesalahan:", error);
       }
+    };
+    
+    // Panggil fetchData setiap kali komponen dimuat atau ada perubahan
+    fetchData();
+  }, []); // Hapus dependency array jika perlu pembaruan real-time
+
+  // Di dalam komponen Bookinge
+const getTableColor = (nomorMeja: number) => {
+  const tableOrders = allOrders.filter(order => 
+    order.tableNumber === nomorMeja.toString()
+  );
+  
+  const hasActiveOrders = tableOrders.some(order => 
+    order.status !== "Selesai"
+  );
+  
+  // Periksa apakah meja telah direset (tidak ada pesanan sama sekali)
+  const isTableReset = tableOrders.length === 0;
+  
+  return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
+};
+  
+  // Tambahkan fungsi fetchData yang bisa diakses global
+  const fetchData = async () => {
+    try {
+      const [mejaRes, ordersRes] = await Promise.all([
+        fetch("/api/nomeja"),
+        fetch("/api/orders")
+      ]);
+      
+      if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
+      if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
+  
+      setMejaData(await mejaRes.json());
+      setAllOrders((await ordersRes.json()).orders);
+    } catch (error) {
+      console.error("Terjadi kesalahan:", error);
     }
-    fetchBookedTables();
-  }, []);
+  };
+  
 
-  return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <div className="w-64 fixed h-full">
-        <SidebarCashier />
+  const fetchTableOrders = async (tableNumber: string) => {
+    try {
+      setSelectedTableNumber(tableNumber);
+      setIsPopupVisible(true);
+      
+      // Reset data pesanan sebelum mengambil yang baru
+      setSelectedTableOrders([]);
+      setSelectedCompletedOrders([]);
+  
+      const response = await fetch(`/api/orders?tableNumber=${tableNumber}`);
+      if (!response.ok) throw new Error("Gagal mengambil data pesanan");
+  
+      const data = await response.json();
+      
+      // Pastikan response hanya berisi pesanan untuk meja yang dipilih
+      const tableOrders = data.orders.filter((order: Order) => 
+        order.tableNumber === tableNumber.toString()
+      );
+  
+      const activeOrders = tableOrders.filter((order: Order) => order.status !== "Selesai");
+      const completedOrders = tableOrders.filter((order: Order) => order.status === "Selesai");
+      
+      setSelectedTableOrders(activeOrders);
+      setSelectedCompletedOrders(completedOrders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      toast.error("Gagal memuat data pesanan");
+    }
+  };
+
+  const markOrderAsCompleted = async (orderId: number) => {
+    try {
+      const res = await fetch("/api/completeOrder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+
+      if (res.ok) {
+        // Refresh data
+        const [ordersRes, tableRes] = await Promise.all([
+          fetch("/api/orders"),
+          fetch(`/api/orders?tableNumber=${selectedTableNumber}`)
+        ]);
+        
+        setAllOrders((await ordersRes.json()).orders);
+        const tableData = await tableRes.json();
+        
+        setSelectedTableOrders(tableData.orders.filter((o: Order) => o.status !== "Selesai"));
+        setSelectedCompletedOrders(tableData.orders.filter((o: Order) => o.status === "Selesai"));
+        
+        toast.success("Pesanan berhasil diselesaikan!");
+      } else {
+        throw new Error("Gagal menyelesaikan pesanan");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Gagal menyelesaikan pesanan");
+    }
+  };
+  const OrderCard = ({ order, isCompleted, onComplete }: { 
+    order: Order, 
+    isCompleted?: boolean, 
+    onComplete?: () => void 
+  }) => (
+    <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <p className="font-semibold">Order ID: {order.id}</p>
+          <p className="text-sm text-gray-600">
+            {new Date(order.createdAt).toLocaleDateString("id-ID", {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </p>
+        </div>
+        <span className={`px-3 py-1 rounded-full text-sm ${
+          order.status === "pending" ? "bg-yellow-500" :
+          order.status === "Sedang Diproses" ? "bg-blue-500" : 
+          "bg-green-500"
+        } text-white`}>
+          {order.status}
+        </span>
       </div>
+  
+      <div className="border-t pt-3 mt-3">
+        <h3 className="font-semibold mb-2">Item Pesanan:</h3>
+        <div className="grid gap-2">
+          {order.orderItems.map((item) => (
+            <div key={item.id} className="flex items-center gap-3">
+              <img
+                src={item.menu.image}
+                alt={item.menu.name}
+                className="w-12 h-12 object-cover rounded"
+              />
+              <div className="flex-1">
+                <p className="font-medium">{item.menu.name}</p>
+                <p className="text-sm text-gray-600">
+                  {item.quantity} x Rp {item.menu.price.toLocaleString()}
+                </p>
+                {item.note && (
+                  <p className="text-sm text-gray-500">Catatan: {item.note}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+  
+      <div className="border-t pt-3 mt-3 flex justify-between items-center">
+        <p className="text-lg font-bold">
+          Total: Rp {order.total.toLocaleString()}
+        </p>
+        
+        
+      </div>
+    </div>
+  );
+  return (
+    <div className={`flex h-screen ${inter.className}`}>
+    {/* Sidebar */}
+    <div className="w-64 fixed h-full bg-[#2A2A2A] shadow-xl">
+      <SidebarCashier />
+    </div>
 
-      {/* Main Content */}
-      <div className="flex-1 ml-64 p-8">
-        <div className="w-full sm:px-6 lg:px-28">
-          <h2 className="text-3xl font-semibold mb-8 text-black">
-            Pilih Meja Anda
-          </h2>
-          {/* Floor Selection */}
-          <form className="mb-8">
-            <label className="px-4">
+    {/* Main Content */}
+    <div className="flex-1 ml-64 p-8 bg-gradient-to-br from-[#FFF9F1] to-[#FFFAF5]">
+      <div className="w-full sm:px-6 lg:px-28">
+        <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">
+          🪑 Pilih Meja Anda
+        </h2>
+
+        {/* Floor Selection - Diperbarui */}
+        <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9] pb-4">
+          {[1, 2].map((floor) => (
+            <label
+              key={floor}
+              className={`flex items-center space-x-2 px-5 py-2 rounded-full transition-all ${
+                selectedFloor === floor
+                  ? 'bg-[#FF8A00] text-white shadow-md'
+                  : 'bg-[#FFEED9] text-[#666] hover:bg-[#FFE4C4]'
+              } cursor-pointer`}
+            >
               <input
                 type="radio"
                 name="floor"
-                value="1"
-                checked={selectedFloor === 1}
-                onChange={() => setSelectedFloor(1)}
-                className="checked:bg-[#FF8A00]"
-              />{" "}
-              Lantai 1
+                value={floor}
+                checked={selectedFloor === floor}
+                onChange={() => setSelectedFloor(floor)}
+                className="hidden"
+              />
+              <span className="material-icons">floor</span>
+              <span>Lantai {floor}</span>
             </label>
-            <label className="px-4">
-              <input
-                type="radio"
-                name="floor"
-                value="2"
-                checked={selectedFloor === 2}
-                onChange={() => setSelectedFloor(2)}
-                className="checked:bg-[#FF8A00]"
-              />{" "}
-              Lantai 2
-            </label>
-          </form>
+          ))}
+        </div>
 
-          {/* Floor Layout */}
-          <div className="lg:w-full bg-[#F5F2E9] rounded-3xl lg:overflow-hidden xs:overflow-x-scroll xs:scroll xs:scroll-smooth xs:scrollbar-hide">
-            {selectedFloor === 1 ? (
-              <> <div className="xs:w-[1300px] lg:w-full flex flex-row px-40 py-28">
-                  {/* SECTION KIRI */}
+        {/* Floor Layout - Diperbarui */}
+        <div className="lg:w-full bg-[#FFF5E6] rounded-3xl shadow-lg transform transition-all duration-300 hover:shadow-xl overflow-hidden">
+          {selectedFloor === 1 ? (
+            <>
+              <div className="xs:w-[1300px] lg:w-full flex flex-row px-40 py-28 space-x-8">
+                  {/* Lantai 1 - Bagian Kiri */}
                   <div className="w-1/2 flex flex-col lg:items-start">
                     <div className="flex flex-row">
                       <div className="bg-[#D9D9D9] px-44 py-2">Tangga</div>
@@ -84,9 +286,14 @@ const Bookinge = () => {
                         {/* Meja 1 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-20 bg-yellow-500"></div>
-                          <div className={`w-12 h-20 ${ bookedTables.includes(1) ? "bg-[#D02323]" : "bg-gray-800"}`}  >
-                            <p className="font-bold text-white text-center"> 1 </p>
-                          </div>
+                          <button
+                      onClick={() => fetchTableOrders("1")}
+                      className={`w-12 h-20 ${getTableColor(1)} rounded-lg transform transition-all 
+                        hover:scale-105 hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center pt-2">1</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                    </button>
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-8 h-8 bg-yellow-500"></div>
                             <div className="w-8 h-8 bg-yellow-500"></div>
@@ -95,9 +302,14 @@ const Bookinge = () => {
                         {/* Meja 2 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-20 bg-yellow-500"></div>
-                          <div className={`w-12 h-20 ${ bookedTables.includes(2) ? "bg-[#D02323]" : "bg-gray-800" }`} >
-                            <p className="font-bold text-white text-center"> 2 </p>
-                          </div>
+                          <button
+                      onClick={() => fetchTableOrders("2")}
+                      className={`w-12 h-20 ${getTableColor(2)} rounded-lg transform transition-all 
+                        hover:scale-105 hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center pt-2">2</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                    </button>
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-8 h-8 bg-yellow-500"></div>
                             <div className="w-8 h-8 bg-yellow-500"></div>
@@ -106,9 +318,14 @@ const Bookinge = () => {
                         {/* Meja 3 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-20 bg-yellow-500"></div>
-                          <div className={`w-12 h-20 ${ bookedTables.includes(3) ? "bg-[#D02323]" : "bg-gray-800" }`} >
-                            <p className="font-bold text-white text-center"> 3 </p>
-                          </div>
+                          <button
+                      onClick={() => fetchTableOrders("3")}
+                      className={`w-12 h-20 ${getTableColor(3)} rounded-lg transform transition-all 
+                        hover:scale-105 hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center pt-2">3</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                    </button>
                           <div className="flex flex-col items-center gap-4">
                             <div className="w-8 h-8 bg-yellow-500"></div>
                             <div className="w-8 h-8 bg-yellow-500"></div>
@@ -119,38 +336,58 @@ const Bookinge = () => {
                         {/* Meja 4 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className={`w-12 h-12 ${bookedTables.includes(4) ? "bg-[#D02323]": "bg-gray-800"}`}>
-                            <p className="font-bold text-white text-center">4</p>
-                          </div>
+                          <button
+                      onClick={() => fetchTableOrders("4")}
+                      className={`w-12 h-20 ${getTableColor(4)} rounded-lg transform transition-all 
+                        hover:scale-105 hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center pt-2">4</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                    </button>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
                         {/* Meja 5 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className={`w-12 h-12 ${ bookedTables.includes(5) ? "bg-[#D02323]": "bg-gray-800"}`}>
-                            <p className="font-bold text-white text-center">5</p>
-                          </div>
+                          <button
+                      onClick={() => fetchTableOrders("5")}
+                      className={`w-12 h-20 ${getTableColor(5)} rounded-lg transform transition-all 
+                        hover:scale-105 hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center pt-2">5</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                    </button>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
                         {/* Meja 6 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className={`w-12 h-12 ${bookedTables.includes(6)  ? "bg-[#D02323]"  : "bg-gray-800" }`}>
-                            <p className="font-bold text-white text-center">6</p>
-                          </div>
+                          <button
+                      onClick={() => fetchTableOrders("6")}
+                      className={`w-12 h-20 ${getTableColor(6)} rounded-lg transform transition-all 
+                        hover:scale-105 hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center pt-2">6</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                    </button>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
                         {/* Meja 7 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
-                          <div className={`w-12 h-12 ${    bookedTables.includes(7) ? "bg-[#D02323]"  : "bg-gray-800"   }`} >
-                            <p className="font-bold text-white text-center"> 7</p>
-                          </div>
+                          <button
+                      onClick={() => fetchTableOrders("7")}
+                      className={`w-12 h-20 ${getTableColor(7)} rounded-lg transform transition-all 
+                        hover:scale-105 hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center pt-2">7</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                    </button>
                           <div className="w-8 h-8 bg-yellow-500 mt-2"></div>
                         </div>
                       </div>
                     </div>
-                    {/* SECTION BAWAH KIRI */}
+                    {/* Section Bawah Kiri */}
                     <div className="flex flex-row mt-10">
                       <div className="flex flex-col gap-2 my-2">
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-6 gap-7">
@@ -162,16 +399,18 @@ const Bookinge = () => {
                           <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
                         </div>
                         <div className="flex flex-row items-center">
-                          <div className="w-48 h-12 bg-gray-800">
-                          <div className={`w-12 h-12 ${bookedTables.includes(8)   ? "bg-[#D02323]" : "bg-gray-800" }`}>
+                          <button
+                            onClick={() => fetchTableOrders("8")}
+                            className={`w-48 h-12 ${getTableColor(8)} rounded`}
+                          >
                             <p className="font-bold text-white text-left">8</p>
-                            </div>
-                          </div>
-                          <div className="w-48 h-12 bg-gray-800">
-                          <div className={`w-48 h-12 ${ bookedTables.includes(9)? "bg-[#D02323]"  : "bg-gray-800" }`}>
+                          </button>
+                          <button
+                            onClick={() => fetchTableOrders("9")}
+                            className={`w-48 h-12 ${getTableColor(9)} rounded`}
+                          >
                             <p className="font-bold text-white text-right">9</p>
-                            </div>
-                          </div>
+                          </button>
                         </div>
                         <div className="flex flex-row items-center">
                           <div className="w-96 h-8 bg-yellow-500"></div>
@@ -179,8 +418,7 @@ const Bookinge = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* SECTION KANAN */}
+                  {/* Lantai 1 - Bagian Kanan */}
                   <div className="w-1/2 flex flex-col lg:items-end">
                     <div className="flex flex-row">
                       <div className="px-44 py-2 bg-[#D9D9D9]">Tangga</div>
@@ -193,20 +431,31 @@ const Bookinge = () => {
                         <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
                       </div>
                       <div className="flex flex-row">
-                        <div className="w-10 h-80 bg-[#444243]">
-                        <div className={`w-12 h-12 ${bookedTables.includes(10) ? "bg-[#D02323]"  : "bg-gray-800" }`}>
-                          <p className="font-bold text-white">10</p> </div>
-                        </div>
+                      <button
+                      onClick={() => fetchTableOrders("10")}
+                      className={`w-10 h-80 ${getTableColor(10)} rounded-xl transform transition-all
+                        hover:scale-[1.02] hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white rotate-90 origin-left translate-x-4 translate-y-32 text-center">
+                        10
+                      </p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
+                    </button>
                       </div>
                       <div className="flex flex-col items-end">
                         <div className="px-28 py-32 bg-[#D9D9D9]">Kitchen</div>
                         <div className="flex flex-row">
                           <div className="flex flex-col">
-                            <div className="w-32 h-10 bg-[#444243]">
-                            <div className={`w-12 h-12 ${ bookedTables.includes(11) ? "bg-[#D02323]" : "bg-gray-800"}`}>
-                              <p className="font-bold text-white">11</p>
-                              </div>
-                            </div>
+                          <button
+                      onClick={() => fetchTableOrders("11")}
+                      className={`w-32 h-10 ${getTableColor(11)} rounded-xl transform transition-all
+                        hover:scale-[1.02] hover:shadow-lg relative group`}
+                    >
+                      <p className="font-bold text-white text-center">11</p>
+                      <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
+                    </button>
+
+
                             <div className="flex flex-row gap-8 mt-4">
                               <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
                               <div className="w-8 h-8 bg-yellow-500 mx-1"></div>
@@ -230,39 +479,103 @@ const Bookinge = () => {
                   </div>
                 </div>
                 <hr className="bg-[#D9D9D9] border-0 dark:bg-gray-700 h-1 xs:w-[1300px] lg:mx-40" />
-                <div className="flex flex-col xs:w-[1300px] lg:w-full justify-center mt-4 px-40 pb-28">
-                  <div className="text-center items-center px-24 py-3">
-                    Keterangan
-                  </div>
-                  <div className="text-center items-center px-24 py-3">
-                    <div className="flex flex-row items-center justify-center gap-40">
-                      <div className="flex flex-row">
-                        <div className="w-12 h-6 bg-gray-800 mr-2"></div>
-                        <p>Meja Tersedia</p>
+                <div className="px-40 pb-8">
+                  <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-inner">
+                    <h3 className="text-xl font-semibold mb-4 text-center text-[#555]">
+                      🎁 Keterangan
+                    </h3>
+                    <div className="flex justify-center gap-12">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-green-800 rounded-md shadow-inner" />
+                        <span className="text-[#666]">Tersedia</span>
                       </div>
-                      <div className="flex flex-row">
-                        <div className="w-12 h-6 bg-[#D02323] mr-2"></div>
-                        <p>Meja Tidak Tersedia</p>
-                      </div>
-                      <div className="flex flex-row">
-                        <div className="w-12 h-6 bg-orange-500 mr-2"></div>
-                        <p>pending</p>
-                      </div>
-                      <div className="flex flex-row">
-                        <div className="w-12 h-6 bg-[#FF8A00] mr-2"></div>
-                        <p>proses masak</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-[#D02323] rounded-md shadow-inner" />
+                        <span className="text-[#666]">Terisi</span>
                       </div>
                     </div>
                   </div>
                 </div>
               </>
             ) : (
-              <div>Lantai 2</div>
+              <div className="p-8 text-center text-xl text-[#666]">
+                🚧 Lantai 2 Dalam Pengembangan
+              </div>
             )}
           </div>
         </div>
       </div>
+
+    {/* Popup Completed Orders */}
+    {isPopupVisible && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#FFF5E6] p-6 border-b">
+        <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
+          📋 Daftar Pesanan - Meja {selectedTableNumber}
+          <span className="text-lg font-normal text-[#666]">
+            ({selectedTableOrders.length} aktif, {selectedCompletedOrders.length} selesai)
+          </span>
+        </h2>
+      </div>
+
+      <div className="p-6 space-y-8">
+        {/* Active Orders Section */}
+        {selectedTableOrders.length > 0 && (
+          <div>
+            <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">
+              Pesanan Aktif
+            </h3>
+            {selectedTableOrders.map((order) => (
+              <OrderCard 
+                key={order.id} 
+                order={order}
+                onComplete={() => markOrderAsCompleted(order.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Completed Orders Section */}
+        {selectedCompletedOrders.length > 0 && (
+          <div>
+            <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">
+              Pesanan Selesai
+            </h3>
+            {selectedCompletedOrders.map((order) => (
+              <OrderCard 
+                key={order.id} 
+                order={order}
+                isCompleted
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 border-t">
+      <button
+  onClick={() => {
+    setIsPopupVisible(false);
+    fetchData(); // Refetch data terbaru saat menutup popup
+  }}
+  className="w-full bg-[#FF8A00] hover:bg-[#FF6A00] text-white py-2 px-4 rounded-lg transition"
+>
+  Tutup
+</button>
+      </div>
     </div>
+  </div>
+)};
+
+</div>
   );
 };
 

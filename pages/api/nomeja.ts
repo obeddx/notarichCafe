@@ -7,7 +7,26 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // GET: Mengambil data nomor meja dari database
+  // GET: Jika query parameter type=order-status, ambil status dari database order
+  if (req.method === 'GET' && req.query.type === 'order-status') {
+    try {
+      const orderStatuses = await prisma.order.findMany({
+        select: {
+          tableNumber: true,
+          status: true,
+        },
+      });
+      return res.status(200).json(orderStatuses);
+    } catch (error) {
+      console.error('Error fetching order statuses:', error);
+      return res.status(500).json({
+        message: 'Internal Server Error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+  
+  // GET: Mengambil data nomor meja dari database (default jika tidak ada query type)
   if (req.method === 'GET') {
     try {
       const dataMeja = await prisma.dataMeja.findMany({
@@ -15,10 +34,10 @@ export default async function handler(
           nomorMeja: true,
         },
       });
-      res.status(200).json(dataMeja);
+      return res.status(200).json(dataMeja);
     } catch (error) {
       console.error('Error fetching data:', error);
-      res.status(500).json({
+      return res.status(500).json({
         message: 'Internal Server Error',
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -43,15 +62,15 @@ export default async function handler(
           nomorMeja,
         },
       });
-      res.status(201).json(newDataMeja);
+      return res.status(201).json(newDataMeja);
     } catch (error) {
       console.error('Error creating data:', error);
-      res.status(500).json({
+      return res.status(500).json({
         message: 'Internal Server Error',
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
-  } 
+  }
   // DELETE: Menghapus data meja berdasarkan nomor meja
   else if (req.method === 'DELETE') {
     try {
@@ -73,10 +92,10 @@ export default async function handler(
         }
       });
 
-      res.status(200).json({ message: 'Meja berhasil direset' });
+      return res.status(200).json({ message: 'Meja berhasil direset' });
     } catch (error) {
       console.error('Error deleting table:', error);
-      res.status(500).json({
+      return res.status(500).json({
         message: 'Gagal mereset meja',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -84,7 +103,6 @@ export default async function handler(
   }
   // Jika method tidak didukung
   else {
-    res.status(405).json({ message: 'Method Not Allowed' });
+    return res.status(405).json({ message: 'Method Not Allowed' });
   }
-
 }
