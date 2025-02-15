@@ -434,17 +434,30 @@ const getTableColor = (nomorMeja: number) => {
                       <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
                       </div>
                       <div className="flex flex-row">
-                      <button
-                      onClick={() => fetchTableOrders("10")}
-                      className={`w-10 h-80 ${getTableColor(10)} rounded-xl transform transition-all
-                        hover:scale-[1.02] hover:shadow-lg relative group`}
-                    >
-                      <p className="font-bold text-white rotate-90 origin-left translate-x-4 translate-y-32 text-center">
-                        10
-                      </p>
-                      <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
-                    </button>
-                      </div>
+                      <div className="flex flex-col items-center">
+  <button
+    onClick={() => fetchTableOrders("10")}
+    className={`w-10 h-40 ${getTableColor(10)} rounded-xl transform transition-all hover:scale-[1.02] hover:shadow-lg relative group`}
+  >
+    <p className="font-bold text-white absolute top-2 left-1/2 transform -translate-x-1/2 text-center">
+      10
+    </p>
+    <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
+  </button>
+
+  <button
+    onClick={() => fetchTableOrders("11")}
+    className={`w-10 h-40 ${getTableColor(11)} rounded-xl transform transition-all hover:scale-[1.02] hover:shadow-lg relative group`}
+  >
+    <p className="font-bold text-white absolute top-2 left-1/2 transform -translate-x-1/2 text-center">
+      11
+    </p>
+    <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
+  </button>
+</div>
+
+                                
+                              </div>
                       <div className="flex flex-col items-end">
                       <div className="w-72 h-72 bg-gradient-to-b from-[#fff8f0] to-[#D9D9D9] border border-gray-300 rounded-xl shadow-2xl transform transition duration-300 hover:scale-105">
   <div className="flex flex-col items-center justify-center h-full">
@@ -456,11 +469,11 @@ const getTableColor = (nomorMeja: number) => {
                         <div className="flex flex-row">
                           <div className="flex flex-col">
                           <button
-                      onClick={() => fetchTableOrders("11")}
-                      className={`w-32 h-10 ${getTableColor(11)} rounded-xl transform transition-all
+                      onClick={() => fetchTableOrders("12")}
+                      className={`w-32 h-10 ${getTableColor(12)} rounded-xl transform transition-all
                         hover:scale-[1.02] hover:shadow-lg relative group`}
                     >
-                      <p className="font-bold text-white text-center">11</p>
+                      <p className="font-bold text-white text-center">12</p>
                       <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
                     </button>
                             <div className="flex flex-row gap-8 mt-4">
