@@ -5,6 +5,7 @@ import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { FiSearch } from "react-icons/fi";
 
 type Ingredient = {
   id: number;
@@ -24,6 +25,8 @@ export default function IngredientsTable() {
   const [error, setError] = useState<string>("");
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredIngredient, setFilteredIngredient] = useState<Ingredient[]>([]);
 
   const router = useRouter();
 
@@ -36,6 +39,7 @@ export default function IngredientsTable() {
       }
       const data = await res.json();
       setIngredients(data);
+      setFilteredIngredient(data);
     } catch (err: any) {
       setError(err.message || "Terjadi kesalahan.");
     } finally {
@@ -46,6 +50,13 @@ export default function IngredientsTable() {
   useEffect(() => {
     fetchIngredients();
   }, []);
+
+  useEffect(() => {
+    const filtered = ingredients.filter((ingredient) =>
+      ingredient.name.toLowerCase().includes(searchQuery.toLowerCase()) 
+    );
+    setFilteredIngredient(filtered);
+  }, [searchQuery, ingredients]);
 
   // Fungsi untuk menghapus ingredient
   const handleDelete = async (id: number) => {
@@ -143,6 +154,23 @@ export default function IngredientsTable() {
       <Link href="/manager/addBahan">
         <p className="text-blue-500 hover:underline pb-4">+ Tambah Ingredient Baru</p>
       </Link>
+      <div className="flex justify-end mb-6">
+        <div className="relative w-full max-w-md">
+          <input
+            type="text"
+            placeholder="Cari menu..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pr-10 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            className="absolute right-0 top-0 mt-3 mr-3 text-gray-500"
+          >
+            <FiSearch size={20} />
+          </button>
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border border-gray-200">
           <thead>
@@ -160,7 +188,7 @@ export default function IngredientsTable() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {ingredients.map((ingredient) => (
+            {filteredIngredient.map((ingredient) => (
               <tr key={ingredient.id} className="text-center">
                 <td className="px-6 py-4 whitespace-nowrap">{ingredient.id}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{ingredient.name}</td>
@@ -187,7 +215,7 @@ export default function IngredientsTable() {
                 </td>
               </tr>
             ))}
-            {ingredients.length === 0 && (
+            {filteredIngredient.length === 0 && (
               <tr>
                 <td className="py-2 px-4 border-b text-center" colSpan={10}>
                   Tidak ada data ingredients.

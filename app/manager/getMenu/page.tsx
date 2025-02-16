@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import EditMenuModal from "../componentsManager/editMenuModal";
 import Sidebar from "@/components/sidebar";
+import { FiSearch } from "react-icons/fi";
 
 // Update interface dengan properti image, status, dan category
 interface Ingredient {
@@ -20,6 +21,7 @@ interface MenuIngredient {
 interface Menu {
   id: number;
   name: string;
+  description: string;
   image: string;
   Status: string;
   category: string;
@@ -31,12 +33,15 @@ export default function ManagerMenusPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [editMenuId, setEditMenuId] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredMenus, setFilteredMenus] = useState<Menu[]>([]);
 
   const fetchMenus = async () => {
     try {
       const res = await fetch("/api/getMenu");
       const data = await res.json();
       setMenus(data);
+      setFilteredMenus(data);
     } catch (error) {
       console.error("Error fetching menus:", error);
     } finally {
@@ -47,6 +52,16 @@ export default function ManagerMenusPage() {
   useEffect(() => {
     fetchMenus();
   }, []);
+
+   // Filter menu berdasarkan searchQuery secara realtime
+   useEffect(() => {
+    const filtered = menus.filter((menu) =>
+      menu.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (menu.description &&
+        menu.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+    setFilteredMenus(filtered);
+  }, [searchQuery, menus]);
 
   const handleDelete = async (menuId: number) => {
     if (!confirm("Apakah Anda yakin ingin menghapus menu ini?")) return;
@@ -84,6 +99,23 @@ export default function ManagerMenusPage() {
       <Link href="/manager/addMenu">
         <p className="text-blue-500 hover:underline pb-4">+ Tambah Menu Baru</p>
       </Link>
+      <div className="flex justify-end mb-6">
+        <div className="relative w-full max-w-md">
+          <input
+            type="text"
+            placeholder="Cari menu..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pr-10 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            className="absolute right-0 top-0 mt-3 mr-3 text-gray-500"
+          >
+            <FiSearch size={20} />
+          </button>
+        </div>
+      </div>
       <table className="min-w-full border border-gray-300 divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
@@ -97,7 +129,7 @@ export default function ManagerMenusPage() {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {menus.map((menu) => (
+          {filteredMenus.map((menu) => (
             <tr key={menu.id}>
               <td className="px-6 py-4 whitespace-nowrap">{menu.id}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.image ? <img src={menu.image} alt={menu.name} className="w-16 h-16 object-cover rounded" /> : "No Image"}</td>
@@ -121,7 +153,7 @@ export default function ManagerMenusPage() {
               </td>
             </tr>
           ))}
-          {menus.length === 0 && (
+          {filteredMenus.length === 0 && (
             <tr>
               <td colSpan={7} className="px-6 py-4 text-center">
                 Tidak ada data menu.
