@@ -5,7 +5,7 @@ import SidebarCashier from "@/components/sidebarCashier";
 import toast from "react-hot-toast";
 import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
-
+import Booking from "@/components/booking";
 type Meja = {
   nomorMeja: number;
   status: string;
@@ -229,15 +229,15 @@ const getTableColor = (nomorMeja: number) => {
       </div>
     </div>
   );
-  return (
-    <div className={`flex h-screen ${inter.className}`}>
+  return (<div className="flex h-screen min-w-[1400px]"> 
+    <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
     {/* Sidebar */}
-    <div className="w-64 fixed h-full bg-[#2A2A2A] shadow-xl">
-      <SidebarCashier />
+    <div className="w-64 fixed h-full bg-[#2A2A2A] shadow-xl flex-shrink-0">
+    <SidebarCashier />
     </div>
 
     {/* Main Content */}
-    <div className="flex-1 ml-64 p-8 bg-gradient-to-br from-[#FFF9F1] to-[#FFFAF5]">
+    <div className="flex-1 ml-64 p-8 ">
       <div className="w-full sm:px-6 lg:px-28">
         <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">
           🪑 Pilih Meja Anda
@@ -262,14 +262,13 @@ const getTableColor = (nomorMeja: number) => {
                 onChange={() => setSelectedFloor(floor)}
                 className="hidden"
               />
-              <span className="material-icons">floor</span>
               <span>Lantai {floor}</span>
             </label>
           ))}
         </div>
 
         {/* Floor Layout - Diperbarui */}
-        <div className="lg:w-full bg-[#FFF5E6] rounded-3xl shadow-lg transform transition-all duration-300 hover:shadow-xl overflow-hidden">
+        <div className="flex flex-col flex-row lg:w-full bg-[#FFF5E6] rounded-3xl shadow-lg transform transition-all duration-300 hover:shadow-xl overflow-hidden">
           {selectedFloor === 1 ? (
             <>
               <div className="xs:w-[1300px] lg:w-full flex flex-row px-40 py-28 space-x-8">
@@ -286,6 +285,7 @@ const getTableColor = (nomorMeja: number) => {
   <span className="mt-2 text-xl font-bold text-gray-700">Toilet</span>
 </div>
                     </div>
+                    <div className="flex flex-row flex-col"> 
                     <div className="flex flex-row mt-10">
                       <div className="flex flex-col justify-center items-center mx-4">
                         {/* Meja 1 */}
@@ -333,7 +333,7 @@ const getTableColor = (nomorMeja: number) => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col justify-center items-center mx-4">
+                      <div className="flex flex-col flex-row justify-center items-center mx-4">
                         {/* Meja 4 */}
                         <div className="xs:flex xs:flex-row lg:grid lg:grid-cols-3 gap-2 my-2">
                         <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>         
@@ -387,7 +387,7 @@ const getTableColor = (nomorMeja: number) => {
                         <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"></div>
                     </div>
                       </div>
-                    </div>
+                    </div> </div>
                     {/* Section Bawah Kiri */}
                     <div className="flex flex-row mt-10">
                       <div className="flex flex-col gap-2 my-2">
@@ -499,10 +499,15 @@ const getTableColor = (nomorMeja: number) => {
         {/* Handle Pintu */}
       <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-12 bg-[#8B4513] rounded-full"></div></div>
                   </div>
-                  <div className="flex items-center">
-                    <div className="text-center py-3 mx-4">Non Smoking</div>
-                    <div className="text-center py-3 mx-4">Full AC</div>
-                  </div>
+                  <div className="flex items-center justify-center space-x-6">
+  <div className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+    Non Smoking
+  </div>
+  <div className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+    Full AC
+  </div>
+</div>
+
                 </div>
                 <hr className="bg-[#D9D9D9] border-0 dark:bg-gray-700 h-1 xs:w-[1300px] lg:mx-40" />
                 <div className="px-40 pb-8">
@@ -525,7 +530,7 @@ const getTableColor = (nomorMeja: number) => {
               </>
             ) : (
               <div className="p-8 text-center text-xl text-[#666]">
-                🚧 Lantai 2 Dalam Pengembangan
+                <Booking/>
               </div>
             )}
           </div>
@@ -601,7 +606,7 @@ const getTableColor = (nomorMeja: number) => {
   </div>
 )};
 
-</div>
+</div> </div>
   );
 };
 
