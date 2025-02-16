@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from "react";
 import SidebarCashier from "@/components/sidebarCashier";
-// import CashierClosing from "../kasirKomponen/closingKasir";
 import toast, { Toaster } from "react-hot-toast";
 import { FiBell } from "react-icons/fi";
 import { AlertTriangle } from "lucide-react";
+import { useNotifications, MyNotification } from "../../contexts/NotificationContext";
+
 
 interface Menu {
   id: number;
@@ -43,10 +44,10 @@ interface Ingredient {
   unit: string;
 }
 
-interface Notification {
-  message: string;
-  date: string; // tanggal notifikasi dibuat
-}
+// interface MyNotification {
+//   message: string;
+//   date: string; // tanggal notifikasi dibuat
+// }
 
 
 export default function KasirPage() {
@@ -54,14 +55,31 @@ export default function KasirPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-    const [actualStocks, setActualStocks] = useState<Record<number, number>>({});
-    const [modalOpen, setModalOpen] = useState(false);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [notificationModalOpen, setNotificationModalOpen] = useState(false);
+  const [actualStocks, setActualStocks] = useState<Record<number, number>>({});
+  const [modalOpen, setModalOpen] = useState(false);
+  const { notifications, setNotifications } = useNotifications();
+  const [notificationModalOpen, setNotificationModalOpen] = useState(false);
+
+  
+
+  // useEffect(() => {
+  //   const storedNotifications = sessionStorage.getItem("notifications");
+  //   if (storedNotifications) {
+  //     setNotifications(JSON.parse(storedNotifications));
+  //   }
+  //   
+  // }, []);
+
+  // // Simpan notifikasi ke localStorage setiap kali notifikasi berubah
+  // useEffect(() => {
+  //   sessionStorage.setItem("notifications", JSON.stringify(notificationss));
+  // }, [notificationss]);
 
   useEffect(() => {
     fetchOrders();
+    
   }, []);
+
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -202,17 +220,7 @@ const resetTable = async (tableNumber: string) => {
   }, []);
 
   // Muat notifikasi dari localStorage saat inisialisasi
-  useEffect(() => {
-    const storedNotifications = localStorage.getItem("notifications");
-    if (storedNotifications) {
-      setNotifications(JSON.parse(storedNotifications));
-    }
-  }, []);
-
-  // Simpan notifikasi ke localStorage setiap kali notifikasi berubah
-  useEffect(() => {
-    localStorage.setItem("notifications", JSON.stringify(notifications));
-  }, [notifications]);
+  
 
   // Simpan input stok nyata untuk masing-masing ingredient
   const handleInputChange = (id: number, value: number) => {
@@ -222,29 +230,24 @@ const resetTable = async (tableNumber: string) => {
   // Saat submit, tampilkan konfirmasi terlebih dahulu, kemudian hitung selisih untuk setiap ingredient dan simpan notifikasi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (
-      !window.confirm(
-        "Periksa input Anda sebelum menekan Yes, perubahan tidak akan bisa diganti!"
-      )
-    ) {
+    if (!window.confirm("Periksa input Anda sebelum menekan Yes, perubahan tidak akan bisa diganti!")) {
       return;
     }
-
-    const newNotifications: Notification[] = [];
+    const newNotifs: MyNotification[] = [];
     ingredients.forEach((ingredient) => {
       const actual = actualStocks[ingredient.id];
       if (actual !== undefined && actual !== ingredient.stock) {
         const diff = actual - ingredient.stock;
-        const message = `Selisih untuk ${ingredient.name} adalah ${diff} unit.`;
+        const message = `Selisih untuk ${ingredient.name} adalah ${diff} ${ingredient.unit}.`;
         const date = new Date().toLocaleString();
-        newNotifications.push({ message, date });
+        newNotifs.push({ message, date });
         toast.success("Berhasil Validasi Stock Nyata", { position: "top-right" });
         toast.error(message, { position: "top-right" });
       }
     });
-    if (newNotifications.length > 0) {
-      setNotifications((prev) => [...prev, ...newNotifications]);
+    if (newNotifs.length > 0) {
+      setNotifications([...notifications, ...newNotifs]);
+
     }
     setModalOpen(false);
   };
