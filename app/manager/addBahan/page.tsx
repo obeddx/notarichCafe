@@ -1,7 +1,6 @@
 'use client';
 import { useState, FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
-import Sidebar from "@/components/sidebar";
 
 export default function CreateIngredient() {
   const [name, setName] = useState("");
@@ -13,12 +12,6 @@ export default function CreateIngredient() {
   const [wasted] = useState("0");
   const [stockMin, setStockMin] = useState("");
   const [unit, setUnit] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
-
-  // Fungsi untuk toggle sidebar
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -67,8 +60,7 @@ export default function CreateIngredient() {
 
   return (
     <>
-      <div className="max-w-md mx-auto p-6 bg-white rounded shadow-md mt-10" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
-        <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
+      <div className="max-w-md mx-auto p-6 bg-white rounded shadow-md mt-10">
         <h1 className="text-xl font-bold mb-4 text-center">Create Ingredient</h1>
         <form onSubmit={handleSubmit}>
           {/* Input Name */}
@@ -107,10 +99,9 @@ export default function CreateIngredient() {
                 step="any"
               />
             </div>
-          </div>
 
-          {/* Input Unit */}
-          <div className="mb-4">
+               {/* Input Unit */}
+           <div className="w-1/2">
             <label className="block font-medium mb-1">Unit:</label>
             <input
               type="text"
@@ -121,9 +112,10 @@ export default function CreateIngredient() {
               required
             />
           </div>
+          </div>
 
-          {/* Input Stock Min */}
-          <div className="mb-4">
+           {/* Input Stock Min */}
+           <div className="mb-4">
             <label className="block font-medium mb-1">Stock Min:</label>
             <input
               type="number"
@@ -134,6 +126,8 @@ export default function CreateIngredient() {
               step="any"
             />
           </div>
+
+        
 
           {/* Input Stock In (readonly) */}
           <div className="mb-4">
@@ -173,6 +167,10 @@ export default function CreateIngredient() {
               step="any"
             />
           </div>
+
+         
+
+         
 
           <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded">
             Create Ingredient

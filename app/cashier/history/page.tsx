@@ -11,7 +11,7 @@ interface CompletedOrder {
   createdAt: string;
   orderItems: {
     id: number;
-    menuName: string; // Ubah dari menuId ke menuName
+    menuName: string;
     quantity: number;
     note?: string;
   }[];
@@ -21,6 +21,7 @@ export default function HistoryPage() {
   const [completedOrders, setCompletedOrders] = useState<CompletedOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk sidebar
 
   useEffect(() => {
     fetchCompletedOrders();
@@ -39,7 +40,7 @@ export default function HistoryPage() {
           ...order,
           orderItems: order.orderItems.map((item: any) => ({
             id: item.id,
-            menuName: item.menu.name, // Ambil nama menu dari API
+            menuName: item.menu.name,
             quantity: item.quantity,
             note: item.note,
           })),
@@ -53,13 +54,23 @@ export default function HistoryPage() {
     }
   };
 
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   return (
     <div className="flex">
       {/* Sidebar */}
-      <div className="w-64 h-full fixed">
-        <SidebarCashier />
+      <div className={`h-full fixed transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
+        <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
-      <div className="flex-1 p-6 ml-64"> {/* Tambahkan margin-left untuk menyesuaikan konten */}
+
+      {/* Konten Utama */}
+      <div
+        className={`flex-1 p-6 transition-all duration-300 ${
+          isSidebarOpen ? "ml-64" : "ml-20"
+        }`}
+      >
         <h1 className="text-2xl font-bold mb-4">Riwayat Pesanan</h1>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         {loading ? (

@@ -44,7 +44,10 @@ const Bookinge = () => {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
   const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
-
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk mengontrol sidebar
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
@@ -67,22 +70,22 @@ const Bookinge = () => {
   // Di dalam komponen Bookinge
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-    
+
     // Prioritaskan tabel yang ditandai manual
     if (manuallyMarkedTables.includes(tableNumberStr)) {
       return "bg-[#D02323]";
     }
-  
-    const tableOrders = allOrders.filter(order => 
+
+    const tableOrders = allOrders.filter(order =>
       order.tableNumber === tableNumberStr
     );
-    
-    const hasActiveOrders = tableOrders.some(order => 
+
+    const hasActiveOrders = tableOrders.some(order =>
       order.status !== "Selesai"
     );
-    
+
     const isTableReset = tableOrders.length === 0;
-    
+
     return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
   };
 
@@ -201,11 +204,13 @@ const Bookinge = () => {
     <div className="flex flex-col md:flex-row h-screen min-w-[1400px]">
       <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
         {/* Sidebar */}
-        <div className="w-64 fixed h-full bg-[#2A2A2A] shadow-xl flex-shrink-0">
-          <SidebarCashier />
+        <div className={`fixed h-full bg-[#2A2A2A] shadow-xl flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"
+          }`}>
+          <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
         </div>
         {/* Main Content */}
-        <div className="flex-1 ml-64 p-8 ">
+        <div className={`flex-1 p-8 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"
+          }`}>
           <div className="w-full sm:px-6 lg:px-28">
             <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">🪑 Pilih Meja Anda</h2>
 
@@ -470,6 +475,537 @@ const Bookinge = () => {
                 </>
               ) : (
                 <div className="p-8 text-center text-xl text-[#666]">
+                  <>
+                    <div className="flex">
+                      <button
+                        onClick={() => fetchTableOrders("18")}
+                        className={`w-1/3 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(18)}`}
+                      >
+                        <p className="font-bold text-white">18</p>
+                      </button>
+                      <button
+                        onClick={() => fetchTableOrders("19")}
+                        className={`w-1/3 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(19)}`}
+                      >
+                        <p className="font-bold text-white">19</p>
+                      </button>
+                      <button
+                        onClick={() => fetchTableOrders("20")}
+                        className={`w-1/3 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(20)}`}
+                      >
+                        <p className="font-bold text-white">20</p>
+                      </button>
+                    </div>
+                    <div className="xs:w-[1500px] lg:w-full flex flex-row">
+                      <div className="w-1/2">
+                        <div className="flex flex-row">
+                          <button
+                            onClick={() => fetchTableOrders("17")}
+                            className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(17)}`}
+                          >
+                            <p className="font-bold text-white">17</p>
+                          </button>
+                          {/* LANTAI 2 SECTION 1 KIRI */}
+                          <div className="flex flex-row mt-6 gap-24 ">
+                            <div className="flex flex-col gap-8">
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-16" />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-16" />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-16" />
+                            </div>
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+
+                          </div>
+                          {/* END LANTAI 2 SECTION 1 KIRI */}
+                        </div>
+                      </div>
+                      <div className="w-1/2">
+                        <div className="flex flex-row pl-20">
+                          {/* LANTAI 2 SECTION 1 KANAN */}
+                          <div className="flex flex-row mt-6 gap-24 mr-10">
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                            <div className="flex flex-col gap-8">
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-8" />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-8" />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-8" />
+
+                            </div>
+                          </div>
+                          {/* END LANTAI 2 SECTION 1 KANAN */}
+                          <div className="flex flex-row">
+                            <button
+                              onClick={() => fetchTableOrders("21")}
+                              className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(21)} ml-10`}
+                            >
+                              <p className="font-bold text-white">21</p>
+                            </button> </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SECTION 2 */}
+                    <div className="flex flex-row xs:w-[1500px] lg:w-full -mt-10 px-40 border-b-2 border-neutral-400">
+                      {/* SECTION 2 KIRI */}
+                      <div className="w-1/3 flex flex-col ">
+                        <div className="flex flex-row items-center justify-center">
+                          <div className="flex flex-row gap-8 justify-center items-center">
+                            <div className="flex flex-col">
+                              <div className="text-center">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                              </div>
+                              <div className="flex flex-row gap-2 my-2">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"> </div>
+
+                                <button
+                                  onClick={() => fetchTableOrders("13")}
+                                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(13)}`}>
+                                  <p className="font-bold text-white">13</p>
+                                </button>
+
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 " />
+                              </div>
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="text-center">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+
+                              </div>
+                              <div className="flex flex-row gap-2 my-2">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 " />
+                                <button
+                                  onClick={() => fetchTableOrders("14")}
+                                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(14)}`}>
+                                  <p className="font-bold text-white">14</p>
+                                </button>
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2  " />
+
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* END SECTION 2 KIRI */}
+
+                      {/* SECTION 2 TENGAH */}
+                      <div className="w-1/3 flex flex-col  items-center text-center">
+                        <div className="relative w-40 h-12 mt-20 bg-yellow-600 rounded-lg border-4 border-yellow-700 shadow-lg flex items-center justify-center text-white font-bold text-xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
+                          <p className="absolute bottom-4 text-yellow-900 font-semibold">Pintu</p>
+                        </div>
+                      </div>
+                      {/* END SECTION 2 TENGAH */}
+
+                      {/* SECTION 2 KANAN */}
+                      <div className="w-1/3 flex flex-col ">
+                        <div className="flex flex-row items-center justify-center">
+                          <div className="flex flex-row gap-8 justify-center items-center">
+                            <div className="flex flex-col">
+                              <div className="text-center">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                              </div>
+                              <div className="flex flex-row gap-2 my-2">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                                <button
+                                  onClick={() => fetchTableOrders("15")}
+                                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(15)}`}>
+                                  <p className="font-bold text-white">15</p>
+                                </button>
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                              </div>
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="text-center">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                              </div>
+                              <div className="flex flex-row gap-2 my-2">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+                                <button
+                                  onClick={() => fetchTableOrders("16")}
+                                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(16)}`}>
+                                  <p className="font-bold text-white">16</p>
+                                </button>
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* END SECTION 2 KANAN */}
+                    </div>
+                    {/* END SECTION 2 */}
+
+                    {/* SECTION 3 */}
+                    <div className="flex flex-row xs:w-[1500px] lg:w-full w-full pl-32 border-neutral-400">
+                      {/* SECTION 3 KIRI */}
+                      <div className="w-1/3 flex flex-col ">
+                        <div className="flex flex-row items-center justify-center my-8">
+                          <div className="flex flex-row justify-center items-center">
+                            <div className="flex flex-col mr-96">
+                              <div className="text-center">
+                                <div className="w-60 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                              </div>
+                              <div className="flex flex-row gap-2 my-2">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+
+                                <button
+                                  onClick={() => fetchTableOrders("35")}
+                                  className={`w-60 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(35)}`}>
+                                  <p className="font-bold text-white">35</p>
+                                </button>
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
+
+                              </div>
+                              <div className="text-center">
+                                <div className="w-60 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-row items-center justify-center">
+                          <div className="flex flex-col gap-8 mt-8">
+                            <div className="flex flex-row justify-center items-center">
+
+
+                            </div>
+                            <div className="flex flex-row justify-center items-center">
+
+                              <div className="flex flex-col mx-20">
+                                <div className="text-center">
+                                  <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12 mb-2" />
+                                </div>
+                                <div className="flex flex-row gap-2">
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-10 h-32 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8"></div>
+                                    <div className="w-10 h-32 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-16"></div>
+                                  </div>
+
+                                  <div className="flex flex-col items-center">
+                                    <button
+                                      onClick={() => fetchTableOrders("32")}
+                                      className={`w-12 h-48 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(32)}`}>
+                                      <p className="font-bold text-white">32</p>
+                                    </button>
+                                    <button
+                                      onClick={() => fetchTableOrders("31")}
+                                      className={`w-12 h-48 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(31)}`}>
+                                      <p className="font-bold text-white">31</p>
+                                    </button>
+                                    <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2  mb-2" />
+
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-8  mb-2" />
+                                    <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-8  mb-2" />
+                                    <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-8  mb-2" />
+                                    <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-8  mb-2" />
+                                    <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-8  mb-2" />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex flex-col space-y-8 mb-64">
+                                {/* Div pertama */}
+                                <div className="flex flex-col mx-20 mb-24">
+                                  <div className="text-center">
+                                    <div className="flex">
+                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-12" />
+                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-1" />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-row gap-2">
+                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+
+                                    <div className="flex flex-col items-center">
+                                      <button
+                                        onClick={() => fetchTableOrders("34")}
+                                        className="flex items-center justify-center"
+                                      >
+                                        <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
+                                          <p className="font-bold text-white">3</p>
+                                        </div>
+                                        <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
+                                          <p className="font-bold text-white">4</p>
+                                        </div>
+                                      </button>
+                                      <div className="flex">
+                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2" />
+                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2 ml-1" />
+                                      </div>
+                                    </div>
+
+                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+                                  </div>
+                                </div>
+
+                                {/* Div kedua */}
+                                <div className="flex flex-col mx-20 mt-24">
+                                  <div className="text-center">
+                                    <div className="flex">
+                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-12" />
+                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-1" />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-row gap-2">
+                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+
+                                    <div className="flex flex-col items-center">
+
+                                      <button
+                                        onClick={() => fetchTableOrders("33")}
+                                        className="flex items-center justify-center"
+                                      >
+                                        <div className={`${getTableColor(33)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
+                                          <p className="font-bold text-white">3</p>
+                                        </div>
+                                        <div className={`${getTableColor(33)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
+                                          <p className="font-bold text-white">3</p>
+                                        </div>
+                                      </button>
+
+
+
+                                      <div className="flex">
+                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2" />
+                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2 ml-1" />
+                                      </div>
+                                    </div>
+                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-row justify-center items-center ml-64">
+                            </div>
+                            <div className="flex flex-row justify-center items-center">
+                              <div className="flex flex-col mx-20 gap-2">
+                                <div className="text-center">
+                                  <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-24" />
+                                </div>
+                                <div className="flex flex-row gap-2">
+                                  <div className="w-10 h-42 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                                  <button
+                                    onClick={() => fetchTableOrders("30")}
+                                    className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(30)}`}>
+                                    <p className="font-bold text-white">30</p>
+                                  </button>
+                                  <div className="w-8 h-42 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-1" />
+
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* END SECTION 3 KIRI */}
+                      {/* SECTION 3 TENGAH */}
+                      <div className="w-1/3 flex flex-col gap-y-20 items-end text-center">
+                        <div className="flex flex-col items-end">
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mb-2 mr-1 " />
+                          <div className="flex flex-row">
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3 mr-1 " />
+                            <button
+                              onClick={() => fetchTableOrders("26")}
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(26)}`}>
+                              <p className="font-bold text-white">26</p>
+                            </button>
+                          </div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mr-1 " />
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mb-1 mr-1 " />
+                          <div className="flex flex-row">
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mr-1 " />
+                            <button
+                              onClick={() => fetchTableOrders("27")}
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(27)}`}>
+                              <p className="font-bold text-white">27</p>
+                            </button>
+                          </div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mr-1 " />
+
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mb-1 mr-1 " />
+
+                          <div className="flex flex-row">
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mr-1 " />
+
+                            <button
+                              onClick={() => fetchTableOrders("28")}
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(28)}`}>
+                              <p className="font-bold text-white">28</p>
+                            </button>
+                          </div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mr-1 " />
+
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mb-1 mr-1 " />
+
+                          <div className="flex flex-row">
+                            <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2  mr-1 " />
+
+                            <button
+                              onClick={() => fetchTableOrders("29")}
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(29)}`}>
+                              <p className="font-bold text-white">29</p>
+                            </button>
+                          </div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2  mr-1 " />
+
+                        </div>
+                      </div>
+                      {/* END SECTION 3 TENGAH */}
+
+                      {/* SECTION 3 KANAN */}
+                      <div className="w-1/3 flex flex-col border-l-2 border-neutral-400">
+                        <div className="flex flex-row justify-center">
+                          <div className="flex flex-col items-center">
+                            {/* Layar TV */}
+                            <div className="relative bg-black rounded-xl shadow-lg w-48 h-24 overflow-hidden">
+                              <div className="absolute inset-0 bg-gray-800 rounded-xl flex items-center justify-center">
+                                <span className="text-white text-2xl font-bold">Screen</span>
+                              </div>
+                            </div>
+                            {/* Stand TV */}
+                            <div className="mt-2 bg-gray-700 w-20 h-2 rounded-md"></div>
+                          </div>
+
+                        </div>
+                        <div className="flex flex-row justify-end">
+                          <div className="flex flex-col mt-20">
+                            <div className="relative flex items-center justify-center p-6 bg-gradient-to-br from-[#F5E9D3] to-[#D4B483] border-2 border-[#A17C5B] rounded-lg shadow-2xl transform transition duration-300 hover:scale-105 w-60 h-12">
+                              <span className="text-xl font-bold text-[#2A2A2A]">MEETING ROOM</span>
+                            </div>
+
+                            <div className="flex flex-row gap-4 mr-24 mt-20 items-center">
+                              <div className="flex flex-col gap-2 my-1">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+
+                              </div>
+                              <div className="flex flex-row items-center">
+                                <button
+                                  onClick={() => fetchTableOrders("22")}
+                                  className={`w-28 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(22)}`}
+                                >
+                                  <p className="font-bold text-white">22</p>
+                                </button>
+                              </div>
+                              <div className="flex flex-col gap-2 my-1">
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-row">
+                            <div className="flex flex-col gap-12 my-2 mx-3">
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-4  mr-1 " />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
+                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
+
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="flex gap-4">
+                                <div className="flex flex-col">
+                                  <button
+                                    onClick={() => fetchTableOrders("23")}
+                                    className={`w-8 h-60 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(23)}`}
+                                  >
+                                    <p className="font-bold text-white">23</p>
+                                  </button>
+                                  <button
+                                    onClick={() => fetchTableOrders("24")}
+                                    className={`w-8 h-60 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(24)}`}
+                                  >
+                                    <p className="font-bold text-white">24</p>
+                                  </button>
+                                  <button
+                                    onClick={() => fetchTableOrders("25")}
+                                    className={`w-8 h-60 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
+                                  >
+                                    <p className="font-bold text-white">25</p>
+                                  </button>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* END SECTION 3 KANAN */}
+                    </div>
+                    {/* END SECTION 3 */}
+
+                    <div className="flex flex-row xs:w-[1500px] lg:w-full justify-between mt-12 mb-4 px-40">
+                      <div className="flex justify-center flex-grow">
+                        <div className="flex flex-row gap-12">
+                          <div className="relative flex items-center justify-center bg-gradient-to-r from-gray-300 to-gray-100 px-44 py-2 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
+                            <span className="text-2xl font-bold text-gray-700">Tangga</span>
+                          </div>
+
+                          <div className="relative flex items-center justify-center bg-gradient-to-r from-gray-300 to-gray-100 px-44 py-2 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
+                            <span className="text-2xl font-bold text-gray-700">Tangga</span>
+                          </div>
+                        </div>
+
+                      </div>
+                      <div className="flex items-center">
+                        <div className="flex items-center justify-center space-x-6">
+                          <div className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+                            Non Smoking
+                          </div>
+                          <div className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+                            Full AC
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                    <hr className=" bg-[#D9D9D9] border-0 dark:bg-gray-700 h-1 xs:w-[1300px] lg:w-full lg:mx-40"></hr>
+
+                    <div className="px-40 pb-8">
+                      <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-inner">
+                        <h3 className="text-xl font-semibold mb-4 text-center text-[#555]">
+                          🎁 Keterangan
+                        </h3>
+                        <div className="flex justify-center gap-12">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-green-800 rounded-md shadow-inner" />
+                            <span className="text-[#666]">Tersedia</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-[#D02323] rounded-md shadow-inner" />
+                            <span className="text-[#666]">Terisi</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                 
+
+                  </>
                 </div>
               )}
             </div>
@@ -511,31 +1047,31 @@ const Bookinge = () => {
 
                 {/* Empty State */}
                 {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
-  <div className="text-center py-8">
-    <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
-    <div className="flex justify-center gap-4">
-      <button
-        onClick={() => {
-          setManuallyMarkedTables([...manuallyMarkedTables, selectedTableNumber]);
-          toast.success("Meja berhasil ditandai sebagai terisi!");
-        }}
-        className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-      >
-        Tandai sebagai Terisi
-      </button>
-      <button
-        onClick={() => {
-          setManuallyMarkedTables(manuallyMarkedTables.filter(t => t !== selectedTableNumber));
-          fetchData();
-          toast.success("Meja berhasil direset!");
-        }}
-        className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-      >
-        Reset Meja
-      </button>
-    </div>
-  </div>
-)}
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+                    <div className="flex justify-center gap-4">
+                      <button
+                        onClick={() => {
+                          setManuallyMarkedTables([...manuallyMarkedTables, selectedTableNumber]);
+                          toast.success("Meja berhasil ditandai sebagai terisi!");
+                        }}
+                        className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+                      >
+                        Tandai sebagai Terisi
+                      </button>
+                      <button
+                        onClick={() => {
+                          setManuallyMarkedTables(manuallyMarkedTables.filter(t => t !== selectedTableNumber));
+                          fetchData();
+                          toast.success("Meja berhasil direset!");
+                        }}
+                        className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        Reset Meja
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="p-4 border-t">

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from "react";
 import SidebarCashier from "@/components/sidebarCashier";
@@ -6,7 +6,6 @@ import toast, { Toaster } from "react-hot-toast";
 import { FiBell } from "react-icons/fi";
 import { AlertTriangle } from "lucide-react";
 import { useNotifications, MyNotification } from "../../contexts/NotificationContext";
-
 
 interface Menu {
   id: number;
@@ -40,15 +39,9 @@ interface Order {
 interface Ingredient {
   id: number;
   name: string;
-  stock: number; // stok akhir yang tersimpan di database
+  stock: number;
   unit: string;
 }
-
-// interface MyNotification {
-//   message: string;
-//   date: string; // tanggal notifikasi dibuat
-// }
-
 
 export default function KasirPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -59,27 +52,11 @@ export default function KasirPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const { notifications, setNotifications } = useNotifications();
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
-
-  
-
-  // useEffect(() => {
-  //   const storedNotifications = sessionStorage.getItem("notifications");
-  //   if (storedNotifications) {
-  //     setNotifications(JSON.parse(storedNotifications));
-  //   }
-  //   
-  // }, []);
-
-  // // Simpan notifikasi ke localStorage setiap kali notifikasi berubah
-  // useEffect(() => {
-  //   sessionStorage.setItem("notifications", JSON.stringify(notificationss));
-  // }, [notificationss]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk sidebar
 
   useEffect(() => {
     fetchOrders();
-    
   }, []);
-
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -96,6 +73,10 @@ export default function KasirPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
   };
 
   const confirmPayment = async (orderId: number, paymentMethod: string, paymentId?: string) => {
@@ -115,7 +96,7 @@ export default function KasirPage() {
       });
 
       if (res.ok) {
-        fetchOrders(); // Refresh daftar pesanan setelah pembayaran dikonfirmasi
+        fetchOrders();
       } else {
         throw new Error("Gagal mengonfirmasi pembayaran");
       }
@@ -127,32 +108,30 @@ export default function KasirPage() {
     }
   };
 
-  // Di dalam fungsi markOrderAsCompleted di KasirPage
-const markOrderAsCompleted = async (orderId: number) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const res = await fetch("/api/completeOrder", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ orderId }),
-    });
+  const markOrderAsCompleted = async (orderId: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/completeOrder", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ orderId }),
+      });
 
-    if (res.ok) {
-      alert("✅ Pesanan berhasil diselesaikan!");
-      fetchOrders(); // Refresh data pesanan
-      // Pemicu pembaruan data meja jika diperlukan
-    } else {
-      throw new Error("Gagal menyelesaikan pesanan");
+      if (res.ok) {
+        alert("✅ Pesanan berhasil diselesaikan!");
+        fetchOrders();
+      } else {
+        throw new Error("Gagal menyelesaikan pesanan");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const cancelOrder = async (orderId: number) => {
     setLoading(true);
@@ -176,32 +155,30 @@ const markOrderAsCompleted = async (orderId: number) => {
     }
   };
 
-  // Di dalam KasirPage
-const resetTable = async (tableNumber: string) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const res = await fetch(`/api/resetTable`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ tableNumber }),
-    });
+  const resetTable = async (tableNumber: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/resetTable`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tableNumber }),
+      });
 
-    if (res.ok) {
-      alert(`✅ Meja ${tableNumber} berhasil direset!`);
-      fetchOrders(); // Refresh daftar pesanan
-      // Tambahkan pemanggilan untuk memperbarui data di Bookinge
-    } else {
-      throw new Error("Gagal mereset meja");
+      if (res.ok) {
+        alert(`✅ Meja ${tableNumber} berhasil direset!`);
+        fetchOrders();
+      } else {
+        throw new Error("Gagal mereset meja");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const activeOrders = orders.filter((order) => order.status !== "Selesai");
   const completedOrders = orders.filter((order) => order.status === "Selesai");
@@ -219,15 +196,10 @@ const resetTable = async (tableNumber: string) => {
     fetchIngredients();
   }, []);
 
-  // Muat notifikasi dari localStorage saat inisialisasi
-  
-
-  // Simpan input stok nyata untuk masing-masing ingredient
   const handleInputChange = (id: number, value: number) => {
     setActualStocks((prev) => ({ ...prev, [id]: value }));
   };
 
-  // Saat submit, tampilkan konfirmasi terlebih dahulu, kemudian hitung selisih untuk setiap ingredient dan simpan notifikasi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!window.confirm("Periksa input Anda sebelum menekan Yes, perubahan tidak akan bisa diganti!")) {
@@ -247,7 +219,6 @@ const resetTable = async (tableNumber: string) => {
     });
     if (newNotifs.length > 0) {
       setNotifications([...notifications, ...newNotifs]);
-
     }
     setModalOpen(false);
   };
@@ -255,13 +226,17 @@ const resetTable = async (tableNumber: string) => {
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
-      <div className="w-64 fixed h-full">
-        <SidebarCashier />
+      <div className={`h-full fixed transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
+        <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
 
       {/* Konten utama */}
-      <div className="flex-1 ml-64 p-6 bg-gray-100 min-h-screen overflow-auto">
-      <Toaster />
+      <div
+        className={`flex-1 p-6 transition-all duration-300 ${
+          isSidebarOpen ? "ml-64" : "ml-20"
+        } bg-gray-100 min-h-screen overflow-auto`}
+      >
+        <Toaster />
         <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
           💳 Halaman Kasir
         </h1>
@@ -293,21 +268,22 @@ const resetTable = async (tableNumber: string) => {
             />
           </div>
         )}
-        {/* <CashierClosing/> */}
         <div className="flex mt-4">
-        <button
-          onClick={() => setModalOpen(true)}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
-        >
-          Closing
-        </button>
-        <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md">
-          <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Closing</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk validasi stok cafe hari ini.
-          </p>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
+          >
+            Closing
+          </button>
+          <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md">
+            <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol{" "}
+              <span className="font-semibold text-red-600">Closing</span> hanya pada saat{" "}
+              <span className="font-semibold">closing cafe</span>, untuk validasi stok cafe hari ini.
+            </p>
+          </div>
         </div>
-      </div>
       </div>
 
       {/* Modal Input Stock */}
@@ -318,7 +294,6 @@ const resetTable = async (tableNumber: string) => {
             <form onSubmit={handleSubmit}>
               {ingredients.map((ingredient) => (
                 <div key={ingredient.id} className="mb-4">
-                  {/* Hanya tampilkan nama bahan dan satuan */}
                   <label className="block font-medium mb-1">
                     {ingredient.name} ({ingredient.unit})
                   </label>
@@ -381,10 +356,7 @@ const resetTable = async (tableNumber: string) => {
           </div>
         </div>
       )}
-      
     </div>
-
-    
   );
 }
 

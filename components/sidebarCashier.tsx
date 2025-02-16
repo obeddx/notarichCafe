@@ -1,31 +1,84 @@
+"use client";
 import Image from "next/image";
 import Link from "next/link";
-import React from "react";
+import { usePathname } from "next/navigation";
+import { FaBars, FaTimes } from "react-icons/fa";
 
-const SidebarCashier = () => {
+// Definisikan tipe props untuk SidebarCashier
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+const SidebarCashier: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   return (
-    <div className="fixed top-0 left-0 w-64 h-full bg-[#212121] shadow-lg z-10 pt-16 ">
-      <div className="flex flex-col items-center justify-center">
-        <div className="my-4 h-32 w-32 overflow-hidden rounded-full">
-          <Image className="bg-white h-48 w-48 -mt-8 object-cover" src="/logo-notarich-transparent.png" height={4096} width={2304} alt="Logo" />
+    <div
+      className={`fixed top-0 left-0 h-full bg-[#212121] shadow-lg z-50 transition-all duration-300 ${
+        isOpen ? "w-64" : "w-20"
+      }`}
+    >
+      <div className="flex flex-col items-center py-6">
+        {/* Tombol Toggle */}
+        <button
+          onClick={onToggle}
+          className="absolute top-4 right-4 text-white text-2xl focus:outline-none"
+        >
+          {isOpen ? <FaTimes /> : <FaBars />}
+        </button>
+
+        {/* Logo */}
+        <div className={`my-4 h-32 overflow-hidden rounded-full transition-all ${isOpen ? "w-32" : "w-16"}`}>
+          <Image
+            className="bg-white object-cover transition-all"
+            src="/logo-notarich-transparent.png"
+            height={4096}
+            width={2304}
+            alt="Logo"
+          />
         </div>
-        <div className="mb-8 text-center">
-          <span className="font-bruno_ace text-white text-2xl tracking-tight">Notarich Cafe</span>
-          <p className="text-white mt-2">Cashier Site</p>
-        </div>
+
+        {/* Nama & Deskripsi */}
+        {isOpen && (
+          <div className="text-center">
+            <span className="font-bruno_ace text-white text-2xl tracking-tight">Notarich Cafe</span>
+            <p className="text-white mt-1 text-sm">Cashier Site</p>
+          </div>
+        )}
       </div>
-      <ul className="flex flex-col">
-        <Link href="/cashier/kasir" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer">
-          Cashier
-        </Link>
-        <Link href="/cashier/layoutCafe" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer border-y-2 border-neutral-700">
-          Layout Cafe
-        </Link>
-        <Link href="/cashier/history" className="text-[#FFFFFF] text-md leading-10 mx-6 py-1 hover:bg-black cursor-pointer border-y-2 border-neutral-700">
-          Riwayat
-        </Link>
+
+      {/* Menu */}
+      <ul className="mt-6">
+        <SidebarItem href="/cashier/kasir" label="Cashier" isOpen={isOpen} />
+        <SidebarItem href="/cashier/layoutCafe" label="Layout Cafe" isOpen={isOpen} border />
+        <SidebarItem href="/cashier/history" label="Riwayat" isOpen={isOpen} border />
       </ul>
     </div>
+  );
+};
+
+interface SidebarItemProps {
+  href: string;
+  label: string;
+  isOpen: boolean;
+  border?: boolean;
+}
+
+const SidebarItem: React.FC<SidebarItemProps> = ({ href, label, isOpen, border = false }) => {
+  const pathname = usePathname();
+  const isActive = pathname === href;
+
+  return (
+    <Link href={href}>
+      <div
+        className={`text-white text-md leading-10 mx-4 py-2 px-4 rounded-md transition-all cursor-pointer hover:bg-[#FF8A00] ${
+          border ? "border-y-2 border-neutral-700" : ""
+        } ${
+          isActive ? "bg-[#FF8A00] font-bold" : ""
+        }`}
+      >
+        {isOpen ? label : label.charAt(0)}
+      </div>
+    </Link>
   );
 };
 
