@@ -54,20 +54,13 @@ export default function KasirPage() {
   const { notifications, setNotifications } = useNotifications();
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk sidebar
-  const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
+  const [, setSelectedOrders] = useState<number[]>([]);
 
   useEffect(() => {
     fetchOrders();
   }, []);
 // Define groupedOrders before using it
-const groupedOrders = orders.reduce((acc, order) => {
-  const tableNumber = order.tableNumber;
-  if (!acc[tableNumber]) {
-    acc[tableNumber] = [];
-  }
-  acc[tableNumber].push(order);
-  return acc;
-}, {} as Record<string, Order[]>);
+
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -167,9 +160,7 @@ const groupedOrders = orders.reduce((acc, order) => {
     }
   };
  // Hitung total gabungan
- const combinedTotal = orders
- .filter(order => selectedOrders.includes(order.id))
- .reduce((sum, order) => sum + order.total, 0);
+ 
 
 // Fungsi handle select order
 const handleSelectOrder = (orderId: number) => {
@@ -181,31 +172,7 @@ const handleSelectOrder = (orderId: number) => {
 };
 
 // Fungsi gabungkan pesanan
-const handleCombineOrders = async () => {
- if (selectedOrders.length < 2) {
-   toast.error("Pilih minimal 2 pesanan untuk digabungkan!");
-   return;
- }
 
- try {
-   const res = await fetch("/api/combineOrders", {
-     method: "POST",
-     headers: { "Content-Type": "application/json" },
-     body: JSON.stringify({ orderIds: selectedOrders }),
-   });
-
-   if (res.ok) {
-     toast.success("Pesanan digabungkan!");
-     setSelectedOrders([]);
-     fetchOrders();
-   } else {
-     throw new Error("Gagal menggabungkan");
-   }
- } catch (error) {
-   toast.error("Gagal menggabungkan pesanan");
-   console.error(error);
- }
-};
   const resetTable = async (tableNumber: string) => {
     setLoading(true);
     setError(null);
@@ -411,8 +378,6 @@ function OrderSection({
   markOrderAsCompleted,
   cancelOrder,
   resetTable,
-  onSelectOrder,
-  isSelected,
 }: {
   title: string;
   orders: Order[];

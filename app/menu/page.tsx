@@ -4,7 +4,7 @@ import Image from "next/image";
 import { ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 interface Ingredient {
   id: number;
@@ -70,7 +70,6 @@ export default function MenuPage() {
   const [customerName, setCustomerName] = useState("");
 
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Ambil nilai tableNumber dari URL atau sessionStorage
   useEffect(() => {
@@ -126,7 +125,7 @@ export default function MenuPage() {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         const data = await response.json();
-
+  
         const transformedMenu: Menu[] = data.map((item: Partial<Menu>) => ({
           id: item.id ?? 0,
           name: item.name ?? "Unknown",
@@ -138,17 +137,22 @@ export default function MenuPage() {
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
         }));
-
+  
         setMenus(transformedMenu);
       } catch (err) {
-        setError("Failed to load menu data.");
+        if (err instanceof Error) {
+          setError(`Failed to load menu data: ${err.message}`);
+        } else {
+          setError("Failed to load menu data.");
+        }
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchMenu();
   }, []);
+  
 
   // Tambahkan item ke keranjang
   const addToCart = (menu: Menu) => {
@@ -269,11 +273,15 @@ export default function MenuPage() {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      const result = await response.json();
       toast.success("Order placed successfully!");
       setShowOrderSummary(true); // Tampilkan ringkasan pesanan
       setIsCartOpen(false);
     } catch (err) {
+      if (err instanceof Error) {
+        setError(`Failed to load menu data: ${err.message}`);
+      } else {
+        setError("Failed to load menu data.");
+      }
       setOrderError("Failed to place order. Please try again later."); // Set pesan error
       toast.error("Failed to place order. Please try again later."); // Notifikasi error
     }
