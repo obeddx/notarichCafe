@@ -117,6 +117,7 @@ model Order {
   status        String          @default("pending")
   paymentMethod String?         // Metode pembayaran (tunai, e-wallet, kartu)
   paymentId     String?         // ID pembayaran untuk non-tunai
+  customerName  String          // Nama pelanggan
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -125,6 +126,7 @@ model Order {
 
   completedOrder CompletedOrder?
 }
+
 
 model OrderItem {
   id        Int    @id @default(autoincrement())

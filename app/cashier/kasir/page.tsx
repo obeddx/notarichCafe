@@ -27,6 +27,7 @@ interface OrderItem {
 
 interface Order {
   id: number;
+  customerName: string; // Tambahkan field
   tableNumber: string;
   total: number;
   status: string;
@@ -542,8 +543,13 @@ function OrderItemComponent({
 
   return (
     <div className="bg-[#FF8A00] p-3 rounded-lg">
-      <div className="flex justify-between items-center">
-        <h4 className="text-sm font-medium">Order ID: {order.id}</h4>
+       <div className="flex justify-between items-center">
+        <div>
+          <h4 className="text-sm font-medium">Order ID: {order.id}</h4>
+          <p className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200 px-4 py-2 rounded shadow-md">
+  Customer: {order.customerName}
+</p>
+        </div>
         <StatusBadge status={order.status} />
       </div>
       <p className="text-gray-700 mt-2">Total: <span className="font-semibold">Rp {order.total.toLocaleString()}</span></p>

@@ -67,7 +67,8 @@ export default function MenuPage() {
   const [noteVisibility, setNoteVisibility] = useState<{ [key: number]: boolean }>({});
   const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
-  
+  const [customerName, setCustomerName] = useState("");
+
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -240,7 +241,12 @@ export default function MenuPage() {
 
   // Kirim pesanan ke sistem kasir
   const placeOrder = async () => {
+    if (!customerName.trim()) {
+      toast.error("Please enter customer name!");
+      return;
+    }
     const orderDetails = {
+      customerName, // Tambahkan customerName
       tableNumber,
       items: cart.map((item) => ({
         menuId: item.menu.id,
@@ -529,7 +535,16 @@ export default function MenuPage() {
                   })}
                 </ul>
               </div>
-
+              <div className="mb-4">
+    <input
+      type="text"
+      placeholder="Customer Name (Required)"
+      value={customerName}
+      onChange={(e) => setCustomerName(e.target.value)}
+      className="w-full p-2 border border-gray-300 rounded-md"
+      required
+    />
+  </div>
               {/* Total Harga */}
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
                 <h3 className="text-xl font-bold text-gray-900">Total Harga:</h3>
