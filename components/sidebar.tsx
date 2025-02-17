@@ -17,7 +17,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
   };
 
   return (
-    <div className={`fixed top-0 left-0 h-full bg-[#212121] shadow-lg z-50 transition-all duration-300 ${isOpen ? "w-64" : "w-20"}`}>
+    <div className={`fixed top-0 left-0 h-full max-h-screen bg-[#212121] shadow-lg z-50 transition-all duration-300 overflow-y-auto pr-2 ${isOpen ? "w-64" : "w-20"}`}>
       <div className="flex flex-col items-center py-6">
         {/* Tombol Toggle */}
         <button onClick={handleToggle} className="absolute top-4 right-4 text-white text-2xl focus:outline-none">
