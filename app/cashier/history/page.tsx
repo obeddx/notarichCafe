@@ -21,7 +21,15 @@ export default function HistoryPage() {
   const [completedOrders, setCompletedOrders] = useState<CompletedOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // State untuk filter
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [tableNumber, setTableNumber] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [minTotal, setMinTotal] = useState<string>("");
+  const [maxTotal, setMaxTotal] = useState<string>("");
 
   useEffect(() => {
     fetchCompletedOrders();
@@ -31,9 +39,18 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/completedOrders");
+      const queryParams = new URLSearchParams({
+        ...(startDate && { startDate: new Date(startDate).toISOString() }), // Konversi ke ISO string
+        ...(endDate && { endDate: new Date(endDate).toISOString() }), // Konversi ke ISO string
+        ...(tableNumber && { tableNumber }),
+        ...(paymentMethod && { paymentMethod }),
+        ...(minTotal && { minTotal }),
+        ...(maxTotal && { maxTotal }),
+      }).toString();
+  
+      const response = await fetch(`/api/completedOrders?${queryParams}`);
       if (!response.ok) throw new Error("Gagal mengambil data riwayat pesanan");
-
+  
       const data = await response.json();
       setCompletedOrders(
         data.orders.map((order: any) => ({
@@ -58,62 +75,143 @@ export default function HistoryPage() {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
+  const handleFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchCompletedOrders();
+  };
+
   return (
-    <div className="flex">
+    <div className="flex min-h-screen bg-gradient-to-b from-[#FFFAF0] to-[#FFE4C4]">
       {/* Sidebar */}
       <div className={`h-full fixed transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
         <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
 
       {/* Konten Utama */}
-      <div
-        className={`flex-1 p-6 transition-all duration-300 ${
-          isSidebarOpen ? "ml-64" : "ml-20"
-        }`}
-      >
-        <h1 className="text-2xl font-bold mb-4">Riwayat Pesanan</h1>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+      <div className={`flex-1 p-6 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"}`}>
+        <h1 className="text-3xl font-bold text-center mb-6 text-[#0E0E0E]">
+          📜 Riwayat Pesanan
+        </h1>
+
+        {/* Form Filter */}
+        <form onSubmit={handleFilterSubmit} className="mb-6 p-6 bg-white rounded-lg shadow-md">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-[#979797]">Tanggal Awal</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full p-2 border border-[#92700C] rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#979797]">Tanggal Akhir</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full p-2 border border-[#92700C] rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#979797]">Nomor Meja</label>
+              <input
+                type="text"
+                value={tableNumber}
+                onChange={(e) => setTableNumber(e.target.value)}
+                className="w-full p-2 border border-[#92700C] rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#979797]">Metode Pembayaran</label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full p-2 border border-[#92700C] rounded-md"
+              >
+                <option value="">Semua</option>
+                <option value="tunai">Tunai</option>
+                <option value="kartu">Kartu</option>
+                <option value="e-wallet">E-Wallet</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#979797]">Total Minimal</label>
+              <input
+                type="number"
+                value={minTotal}
+                onChange={(e) => setMinTotal(e.target.value)}
+                className="w-full p-2 border border-[#92700C] rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#979797]">Total Maksimal</label>
+              <input
+                type="number"
+                value={maxTotal}
+                onChange={(e) => setMaxTotal(e.target.value)}
+                className="w-full p-2 border border-[#92700C] rounded-md"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="mt-4 w-full bg-[#FF8A00] hover:bg-[#92700C] text-white py-2 rounded-md"
+          >
+            Terapkan Filter
+          </button>
+        </form>
+
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
         {loading ? (
-          <p>Memuat data riwayat pesanan...</p>
+          <p className="text-center text-[#979797]">Memuat data riwayat pesanan...</p>
         ) : (
-          <table className="w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="border p-2">Nomor Meja</th>
-                <th className="border p-2">Total Harga</th>
-                <th className="border p-2">Metode Pembayaran</th>
-                <th className="border p-2">Pesanan</th>
-                <th className="border p-2">Tanggal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {completedOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center p-4 text-gray-500">
-                    Tidak ada riwayat pesanan.
-                  </td>
-                </tr>
-              ) : (
-                completedOrders.map((order) => (
-                  <tr key={order.id} className="border">
-                    <td className="border p-2">{order.tableNumber}</td>
-                    <td className="border p-2">Rp {order.total.toLocaleString()}</td>
-                    <td className="border p-2">{order.paymentMethod || "Tunai"}</td>
-                    <td className="border p-2">
-                      <ul>
-                        {order.orderItems.map((item) => (
-                          <li key={item.id}>
-                            {item.menuName} - {item.quantity} pcs {item.note && `(${item.note})`}
-                          </li>
-                        ))}
-                      </ul>
-                    </td>
-                    <td className="border p-2">{new Date(order.createdAt).toLocaleString()}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <div className="max-w-6xl mx-auto space-y-6">
+            {completedOrders.length === 0 ? (
+              <p className="text-center text-[#979797]">Tidak ada riwayat pesanan.</p>
+            ) : (
+              completedOrders.map((order) => (
+                <div key={order.id} className="bg-white shadow-md rounded-lg p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm text-[#979797]">Nomor Meja</p>
+                      <p className="font-semibold text-[#0E0E0E]">{order.tableNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-[#979797]">Total Harga</p>
+                      <p className="font-semibold text-[#0E0E0E]">Rp {order.total.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-[#979797]">Metode Pembayaran</p>
+                      <p className="font-semibold text-[#0E0E0E]">{order.paymentMethod || "Tunai"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-[#979797]">Tanggal</p>
+                      <p className="font-semibold text-[#0E0E0E]">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-sm text-[#979797]">Pesanan</p>
+                    <ul className="space-y-2">
+                      {order.orderItems.map((item) => (
+                        <li key={item.id} className="flex items-center space-x-2">
+                          <span className="text-[#0E0E0E]">
+                            {item.menuName} - {item.quantity} pcs
+                          </span>
+                          {item.note && (
+                            <span className="text-sm text-[#979797]">({item.note})</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
     </div>

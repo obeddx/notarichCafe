@@ -222,28 +222,23 @@ export default function KasirPage() {
     }
     setModalOpen(false);
   };
-
   return (
-    <div className="flex h-screen">
+    <div className="flex min-h-screen bg-gradient-to-b from-[#FFFAF0] to-[#FFE4C4]">
       {/* Sidebar */}
       <div className={`h-full fixed transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
         <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
 
       {/* Konten utama */}
-      <div
-        className={`flex-1 p-6 transition-all duration-300 ${
-          isSidebarOpen ? "ml-64" : "ml-20"
-        } bg-gray-100 min-h-screen overflow-auto`}
-      >
+      <div className={`flex-1 p-6 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"}`}>
         <Toaster />
-        <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
+        <h1 className="text-3xl font-bold text-center mb-6 text-[#0E0E0E]">
           💳 Halaman Kasir
         </h1>
         <button onClick={() => setNotificationModalOpen(true)} className="relative">
-          <FiBell className="text-3xl text-gray-700" />
+          <FiBell className="text-3xl text-[#FF8A00]" />
           {notifications.length > 0 && (
-            <span className="absolute top-0 right-0 bg-red-500 text-white rounded-full px-2 text-xs">
+            <span className="absolute top-0 right-0 bg-[#92700C] text-white rounded-full px-2 text-xs">
               {notifications.length}
             </span>
           )}
@@ -251,7 +246,7 @@ export default function KasirPage() {
 
         {error && <p className="text-red-500 text-center">{error}</p>}
         {loading ? (
-          <p className="text-center text-gray-500">Memuat data pesanan...</p>
+          <p className="text-center text-[#979797]">Memuat data pesanan...</p>
         ) : (
           <div className="max-w-6xl mx-auto space-y-8">
             <OrderSection
@@ -271,15 +266,15 @@ export default function KasirPage() {
         <div className="flex mt-4">
           <button
             onClick={() => setModalOpen(true)}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
+            className="px-6 py-3 bg-red-500 hover:bg-red-700 text-[#FCFFFC] rounded-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-all duration-300"
           >
-            Closing
+            <span>🚪 Closing</span>
           </button>
-          <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md">
-            <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
-            <p className="text-sm text-gray-700">
-              <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol{" "}
-              <span className="font-semibold text-red-600">Closing</span> hanya pada saat{" "}
+          <div className="flex items-start bg-[#FCFFFC] border-l-4 border-[#FF8A00] p-3 rounded-md ml-4">
+            <AlertTriangle className="text-[#0E0E0E] w-5 h-5 mr-2 mt-1" />
+            <p className="text-sm text-[#0E0E0E]">
+              <span className="font-semibold text-[#FF8A00]">Perhatian:</span> Tekan tombol{" "}
+              <span className="font-semibold text-[#0E0E0E]">Closing</span> hanya pada saat{" "}
               <span className="font-semibold">closing cafe</span>, untuk validasi stok cafe hari ini.
             </p>
           </div>
@@ -289,21 +284,19 @@ export default function KasirPage() {
       {/* Modal Input Stock */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white p-6 rounded shadow-md w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Input Stock Nyata Bahan</h2>
+          <div className="bg-[#FCFFFC] p-6 rounded shadow-md w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-[#0E0E0E]">Input Stock Nyata Bahan</h2>
             <form onSubmit={handleSubmit}>
               {ingredients.map((ingredient) => (
                 <div key={ingredient.id} className="mb-4">
-                  <label className="block font-medium mb-1">
+                  <label className="block font-medium mb-1 text-[#0E0E0E]">
                     {ingredient.name} ({ingredient.unit})
                   </label>
                   <input
                     type="number"
                     placeholder="Masukkan stok nyata"
-                    onChange={(e) =>
-                      handleInputChange(ingredient.id, Number(e.target.value))
-                    }
-                    className="w-full p-2 border border-gray-300 rounded"
+                    onChange={(e) => handleInputChange(ingredient.id, Number(e.target.value))}
+                    className="w-full p-2 border border-[#92700C] rounded bg-[#FCFFFC] text-[#0E0E0E]"
                     required
                   />
                 </div>
@@ -312,13 +305,13 @@ export default function KasirPage() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 border rounded"
+                  className="px-4 py-2 border border-[#92700C] rounded text-[#0E0E0E] hover:bg-[#92700C] hover:text-[#FCFFFC]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
+                  className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded"
                 >
                   Submit
                 </button>
@@ -331,16 +324,16 @@ export default function KasirPage() {
       {/* Modal Notifikasi */}
       {notificationModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white p-6 rounded shadow-md w-full max-w-md max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Notifications</h2>
+          <div className="bg-[#FCFFFC] p-6 rounded shadow-md w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-[#0E0E0E]">Notifications</h2>
             {notifications.length === 0 ? (
-              <p>Tidak ada notifikasi</p>
+              <p className="text-[#0E0E0E]">Tidak ada notifikasi</p>
             ) : (
               <ul className="space-y-2">
                 {notifications.map((notif, idx) => (
-                  <li key={idx} className="border-b pb-2">
-                    <p>{notif.message}</p>
-                    <p className="text-xs text-gray-500">{notif.date}</p>
+                  <li key={idx} className="border-b border-[#92700C] pb-2">
+                    <p className="text-[#0E0E0E]">{notif.message}</p>
+                    <p className="text-xs text-[#979797]">{notif.date}</p>
                   </li>
                 ))}
               </ul>
@@ -348,7 +341,7 @@ export default function KasirPage() {
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => setNotificationModalOpen(false)}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded"
               >
                 Close
               </button>
@@ -359,6 +352,7 @@ export default function KasirPage() {
     </div>
   );
 }
+
 
 function OrderSection({
   title,
@@ -438,7 +432,7 @@ function OrderItemComponent({
   const [paymentId, setPaymentId] = useState<string>("");
 
   return (
-    <div className="bg-gray-50 p-3 rounded-lg">
+    <div className="bg-[#FF8A00] p-3 rounded-lg">
       <div className="flex justify-between items-center">
         <h4 className="text-sm font-medium">Order ID: {order.id}</h4>
         <StatusBadge status={order.status} />
@@ -476,13 +470,13 @@ function OrderItemComponent({
           )}
           <button
             onClick={() => confirmPayment(order.id, paymentMethod, paymentId)}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md transition"
+            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
           >
             💰 Konfirmasi Pembayaran
           </button>
           <button
             onClick={() => cancelOrder && cancelOrder(order.id)}
-            className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
+            className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
           >
             ❌ Batal Pesanan
           </button>
@@ -494,13 +488,13 @@ function OrderItemComponent({
         <div className="space-y-2">
           <button
             onClick={() => markOrderAsCompleted(order.id)}
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md transition"
+            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
           >
             ✅ Tandai Selesai
           </button>
           <button
             onClick={() => cancelOrder && cancelOrder(order.id)}
-            className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
+            className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
           >
             ❌ Batal Pesanan
           </button>
@@ -511,10 +505,10 @@ function OrderItemComponent({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  let color = "bg-gray-500";
-  if (status === "pending") color = "bg-yellow-500";
-  if (status === "Sedang Diproses") color = "bg-blue-500";
-  if (status === "Selesai") color = "bg-green-500";
+  let color = "bg-[#979797]";
+  if (status === "pending") color = "bg-[#FF8A00]";
+  if (status === "Sedang Diproses") color = "bg-[#92700C]";
+  if (status === "Selesai") color = "bg-[#4CAF50]";
 
   return (
     <span className={`px-3 py-1 text-white text-sm rounded-full ${color}`}>
