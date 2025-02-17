@@ -80,6 +80,7 @@ export default async function handler(req: NextApiRequestWithFile, res: NextApiR
         description: description || null,
         price: menuPrice,
         image: imagePath,
+        hargaBakul: 2000,
         category,  
         Status, 
       },

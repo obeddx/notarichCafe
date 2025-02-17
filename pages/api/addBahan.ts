@@ -12,8 +12,19 @@ export default async function handler(
   }
 
   // Ekstrak data dari request body
-  // Pastikan client mengirimkan: name, start, warehouseStart, stockIn, used, wasted, stockMin, unit
-  const { name, start, warehouseStart, stockIn, used, wasted, stockMin, unit } = req.body;
+  // Pastikan client mengirimkan: name, start, warehouseStart, stockIn, used, wasted, stockMin, unit, unitPrice, price
+  const {
+    name,
+    start,
+    warehouseStart,
+    stockIn,
+    used,
+    wasted,
+    stockMin,
+    unit,
+    unitPrice,
+    price,
+  } = req.body;
 
   // Validasi sederhana
   if (
@@ -24,15 +35,19 @@ export default async function handler(
     used === undefined ||
     wasted === undefined ||
     stockMin === undefined ||
-    !unit
+    !unit ||
+    !unitPrice ||
+    price === undefined
   ) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
   // Hitung stok akhir untuk Ingredient
-  const calculatedStock = (Number(start) + Number(stockIn)) - Number(used) - Number(wasted);
+  const calculatedStock =
+    Number(start) + Number(stockIn) - Number(used) - Number(wasted);
   // Hitung stok akhir untuk Gudang menggunakan nilai warehouseStart
-  const calculatedGudangStock = (Number(warehouseStart) + Number(stockIn)) - Number(used) - Number(wasted);
+  const calculatedGudangStock =
+    Number(warehouseStart) + Number(stockIn) - Number(used) - Number(wasted);
 
   try {
     // Buat record Ingredient baru
@@ -45,7 +60,7 @@ export default async function handler(
         wasted: Number(wasted),
         stock: calculatedStock,
         stockMin: Number(stockMin),
-        unit,
+        unit, // Unit utama untuk ingredient
         isActive: true,
       },
     });
@@ -66,16 +81,27 @@ export default async function handler(
       },
     });
 
+    // Buat record IngredientPrice dengan unitPrice yang berbeda
+    const newIngredientPrice = await prisma.ingredientPrice.create({
+      data: {
+        ingredientId: newIngredient.id,
+        unitPrice: unitPrice, // Menggunakan unitPrice untuk harga (misalnya: "100 gram")
+        price: parseFloat(price),
+        isActive: true,
+      },
+    });
+
     return res.status(200).json({
-      message: "Ingredient and Gudang created successfully",
+      message:
+        "Ingredient, Gudang, and IngredientPrice created successfully",
       ingredient: newIngredient,
       gudang: newGudang,
-
+      ingredientPrice: newIngredientPrice,
       toast: {
         type: "success",
         color: "green",
-        text: "Ingredient berhasil dibuat!"
-      }
+        text: "Ingredient berhasil dibuat!",
+      },
     });
   } catch (error) {
     console.error("Error creating ingredient:", error);
