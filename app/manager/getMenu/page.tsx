@@ -24,6 +24,8 @@ interface Menu {
   description: string;
   image: string;
   Status: string;
+  price: number;
+  hargaBakul: number;
   category: string;
   ingredients: MenuIngredient[];
 }
@@ -38,7 +40,7 @@ export default function ManagerMenusPage() {
 
   const fetchMenus = async () => {
     try {
-      const res = await fetch("/api/getMenu");
+      const res = await fetch("/api/hitungCost");
       const data = await res.json();
       setMenus(data);
       setFilteredMenus(data);
@@ -124,6 +126,8 @@ export default function ManagerMenusPage() {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Menu</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Jual</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Bakul</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingredients</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
           </tr>
@@ -136,6 +140,9 @@ export default function ManagerMenusPage() {
               <td className="px-6 py-4 whitespace-nowrap">{menu.name}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.Status}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.category}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{menu.price}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{menu.hargaBakul}</td>
+              
               <td className="px-6 py-4 whitespace-nowrap">
                 {menu.ingredients.map((item, index) => (
                   <span key={item.id}>

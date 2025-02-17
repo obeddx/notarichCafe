@@ -13,6 +13,7 @@ model Menu {
   description  String?
   image        String
   price        Float
+  hargaBakul        Float
   category     String
   Status       String
     orderItems OrderItem[] 
@@ -29,13 +30,25 @@ model Ingredient {
   used        Float                   // Bahan yang sudah digunakan
   wasted      Float                   // Bahan yang basi/dibuang
   stock       Float                   // Stok akhir: (start + stockIn) - used - wasted
-  stockMin    Float   @default(0)                   // Minimum stock yang diharapkan
-  unit        String                  // Satuan, misalnya "gram", "pack", "butir", dll.
+  stockMin    Float                   // Minimum stock yang diharapkan
+  unit        String                  // Satuan utama, misalnya "gram", "pack", "butir", dll.
   isActive    Boolean                 @default(true) // Untuk soft delete
   menus       MenuIngredient[]
   dailyStocks DailyIngredientStock[]
-  // Relasi satu-ke-satu ke Gudang (setiap ingredient memiliki satu record gudang)
+  prices      IngredientPrice[]        // Relasi ke harga bahan
   gudang      Gudang?
+}
+
+model IngredientPrice {
+  id           Int        @id @default(autoincrement())
+  ingredientId Int
+  unitPrice    String     // Satuan harga khusus, misalnya "100 gram", "50 gram"
+  price        Float      // Harga bahan dalam satuan tersebut
+  isActive     Boolean    @default(true) // Untuk soft delete
+
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  
+  @@unique([ingredientId, unitPrice]) // Mencegah duplikasi harga dengan satuan yang sama untuk satu ingredient
 }
 
 model MenuIngredient {
