@@ -9,6 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       // Ambil semua menu beserta detail ingredient (melalui tabel join)
       const menus = await prisma.menu.findMany({
+        where: {
+          Status: { in: ["Tersedia", "tersedia"] },
+        },
         include: {
           ingredients: {
             include: {
