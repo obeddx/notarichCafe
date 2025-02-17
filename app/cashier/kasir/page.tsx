@@ -53,10 +53,20 @@ export default function KasirPage() {
   const { notifications, setNotifications } = useNotifications();
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk sidebar
+  const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
 
   useEffect(() => {
     fetchOrders();
   }, []);
+// Define groupedOrders before using it
+const groupedOrders = orders.reduce((acc, order) => {
+  const tableNumber = order.tableNumber;
+  if (!acc[tableNumber]) {
+    acc[tableNumber] = [];
+  }
+  acc[tableNumber].push(order);
+  return acc;
+}, {} as Record<string, Order[]>);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -92,9 +102,10 @@ export default function KasirPage() {
           orderId,
           paymentMethod,
           paymentId: paymentMethod !== "tunai" ? paymentId : null,
+          status: "Sedang Diproses", // Ubah status menjadi "Sedang Diproses"
         }),
       });
-
+  
       if (res.ok) {
         fetchOrders();
       } else {
@@ -154,7 +165,46 @@ export default function KasirPage() {
       setLoading(false);
     }
   };
+ // Hitung total gabungan
+ const combinedTotal = orders
+ .filter(order => selectedOrders.includes(order.id))
+ .reduce((sum, order) => sum + order.total, 0);
 
+// Fungsi handle select order
+const handleSelectOrder = (orderId: number) => {
+ setSelectedOrders(prev => 
+   prev.includes(orderId) 
+     ? prev.filter(id => id !== orderId) 
+     : [...prev, orderId]
+ );
+};
+
+// Fungsi gabungkan pesanan
+const handleCombineOrders = async () => {
+ if (selectedOrders.length < 2) {
+   toast.error("Pilih minimal 2 pesanan untuk digabungkan!");
+   return;
+ }
+
+ try {
+   const res = await fetch("/api/combineOrders", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ orderIds: selectedOrders }),
+   });
+
+   if (res.ok) {
+     toast.success("Pesanan digabungkan!");
+     setSelectedOrders([]);
+     fetchOrders();
+   } else {
+     throw new Error("Gagal menggabungkan");
+   }
+ } catch (error) {
+   toast.error("Gagal menggabungkan pesanan");
+   console.error(error);
+ }
+};
   const resetTable = async (tableNumber: string) => {
     setLoading(true);
     setError(null);
@@ -235,14 +285,12 @@ export default function KasirPage() {
         <h1 className="text-3xl font-bold text-center mb-6 text-[#0E0E0E]">
           💳 Halaman Kasir
         </h1>
-        <button onClick={() => setNotificationModalOpen(true)} className="relative">
-          <FiBell className="text-3xl text-[#FF8A00]" />
-          {notifications.length > 0 && (
-            <span className="absolute top-0 right-0 bg-[#92700C] text-white rounded-full px-2 text-xs">
-              {notifications.length}
-            </span>
-          )}
-        </button>
+        <div className="flex items-center gap-4">
+            <button onClick={() => setNotificationModalOpen(true)} className="relative">
+              <FiBell className="text-3xl text-[#FF8A00]" />
+              {/* Notification badge... */}
+            </button>
+          </div>
 
         {error && <p className="text-red-500 text-center">{error}</p>}
         {loading ? (
@@ -255,6 +303,7 @@ export default function KasirPage() {
               confirmPayment={confirmPayment}
               markOrderAsCompleted={markOrderAsCompleted}
               cancelOrder={cancelOrder}
+              onSelectOrder={handleSelectOrder} // Tambahkan prop ini
             />
             <OrderSection
               title="✅ Pesanan Selesai"
@@ -361,6 +410,8 @@ function OrderSection({
   markOrderAsCompleted,
   cancelOrder,
   resetTable,
+  onSelectOrder,
+  isSelected,
 }: {
   title: string;
   orders: Order[];
@@ -368,15 +419,48 @@ function OrderSection({
   markOrderAsCompleted?: (id: number) => void;
   cancelOrder?: (id: number) => void;
   resetTable?: (tableNumber: string) => void;
+  onSelectOrder?: (orderId: number, isChecked: boolean) => void;
+  selectedOrders?: number[]; 
+  isSelected?: boolean;
 }) {
-  // Kelompokkan pesanan berdasarkan tableNumber
-  const groupedOrders = orders.reduce((acc, order) => {
-    if (!acc[order.tableNumber]) {
-      acc[order.tableNumber] = [];
+  const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
+  const [combinedTotal, setCombinedTotal] = useState<number>(0);
+
+  const handleOrderSelection = (orderId: number, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedOrders((prev) => [...prev, orderId]);
+      const order = orders.find((o) => o.id === orderId);
+      if (order) {
+        setCombinedTotal((prev) => prev + order.total);
+      }
+    } else {
+      setSelectedOrders((prev) => prev.filter((id) => id !== orderId));
+      const order = orders.find((o) => o.id === orderId);
+      if (order) {
+        setCombinedTotal((prev) => prev - order.total);
+      }
     }
-    acc[order.tableNumber].push(order);
+  };
+
+  const handleCombinedPayment = async (paymentMethod: string, paymentId?: string) => {
+    if (confirmPayment) {
+      for (const orderId of selectedOrders) {
+        await confirmPayment(orderId, paymentMethod, paymentId);
+      }
+      setSelectedOrders([]);
+      setCombinedTotal(0);
+    }
+  };
+
+  // Define groupedOrders
+  const groupedOrders = orders.reduce((acc, order) => {
+    const tableNumber = order.tableNumber;
+    if (!acc[tableNumber]) {
+      acc[tableNumber] = [];
+    }
+    acc[tableNumber].push(order);
     return acc;
-  }, {} as { [key: string]: Order[] });
+  }, {} as Record<string, Order[]>);
 
   return (
     <div>
@@ -394,39 +478,64 @@ function OrderSection({
                     onClick={() => resetTable(tableNumber)}
                     className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md transition"
                   >
-                    🧹 Reset Meja
+                    � Reset Meja
                   </button>
                 )}
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                {tableOrders.map((order) => (
+                {tableOrders.map((order: Order) => (
                   <OrderItemComponent
                     key={order.id}
                     order={order}
                     confirmPayment={confirmPayment}
                     markOrderAsCompleted={markOrderAsCompleted}
                     cancelOrder={cancelOrder}
+                    onSelectOrder={handleOrderSelection}
+                    isSelected={selectedOrders.includes(order.id)}
                   />
                 ))}
+
               </div>
             </div>
           ))}
         </div>
       )}
+      <div>
+{selectedOrders.length > 0 && (
+  <div className="bg-white shadow-md rounded-lg p-4">
+    <h3 className="text-lg font-semibold">Gabungan Pesanan</h3>
+    <p className="text-gray-700 mt-2">
+      Total: <span className="font-semibold">Rp {combinedTotal.toLocaleString()}</span>
+    </p>
+    <CombinedPaymentForm
+      onConfirmPayment={handleCombinedPayment}
+      onCancel={() => {
+        setSelectedOrders([]);
+        setCombinedTotal(0);
+      }}
+    />
+  </div>
+)}
+</div>
     </div>
   );
 }
+
 
 function OrderItemComponent({
   order,
   confirmPayment,
   markOrderAsCompleted,
   cancelOrder,
+  onSelectOrder,
+  isSelected,
 }: {
   order: Order;
   confirmPayment?: (orderId: number, paymentMethod: string, paymentId?: string) => void;
   markOrderAsCompleted?: (id: number) => void;
   cancelOrder?: (id: number) => void;
+  onSelectOrder?: (orderId: number, isChecked: boolean) => void;
+  isSelected?: boolean;
 }) {
   const [paymentMethod, setPaymentMethod] = useState<string>("tunai");
   const [paymentId, setPaymentId] = useState<string>("");
@@ -500,10 +609,65 @@ function OrderItemComponent({
           </button>
         </div>
       )}
+{onSelectOrder && order.status === 'pending' && (
+  <div className="mt-2">
+    <input
+      type="checkbox"
+      checked={isSelected}
+      onChange={(e) => onSelectOrder(order.id, e.target.checked)}
+     className="mr-2 w-6 h-6"
+    />
+    <span className="text-sm">Pilih untuk merge</span>
+  </div>
+)}
     </div>
   );
 }
+function CombinedPaymentForm({
+  onConfirmPayment,
+  onCancel,
+}: {
+  onConfirmPayment: (paymentMethod: string, paymentId?: string) => void;
+  onCancel: () => void;
+}) {
+  const [paymentMethod, setPaymentMethod] = useState<string>("tunai");
+  const [paymentId, setPaymentId] = useState<string>("");
 
+  return (
+    <div className="mt-4 space-y-2">
+      <select
+        value={paymentMethod}
+        onChange={(e) => setPaymentMethod(e.target.value)}
+        className="w-full p-2 border border-gray-300 rounded-md"
+      >
+        <option value="tunai">Tunai</option>
+        <option value="kartu">Kartu Kredit/Debit</option>
+        <option value="e-wallet">E-Wallet</option>
+      </select>
+      {paymentMethod !== "tunai" && (
+        <input
+          type="text"
+          placeholder="Masukkan ID Pembayaran"
+          value={paymentId}
+          onChange={(e) => setPaymentId(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md"
+        />
+      )}
+      <button
+        onClick={() => onConfirmPayment(paymentMethod, paymentId)}
+        className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
+      >
+        💰 Konfirmasi Pembayaran Gabungan
+      </button>
+      <button
+        onClick={onCancel}
+        className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
+      >
+        ❌ Batalkan Gabungan
+      </button>
+    </div>
+  );
+}
 function StatusBadge({ status }: { status: string }) {
   let color = "bg-[#979797]";
   if (status === "pending") color = "bg-[#FF8A00]";
