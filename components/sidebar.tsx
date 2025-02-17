@@ -50,6 +50,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
           <SidebarItem href="/manager/getBahan" label="Bahan" isOpen={isOpen} border />
         </li>
         <li>
+          <SidebarItem href="/manager/getGudang" label="Gudang" isOpen={isOpen} border />
+        </li>
+        <li>
           <SidebarDropdown
             label="Rekap Notarich"
             isOpen={isOpen}

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { useState, FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -35,9 +35,9 @@ export default function CreateIngredient() {
       used: parseFloat(used),
       wasted: parseFloat(wasted),
       stockMin: parseFloat(stockMin),
-      unit,        // Unit untuk Ingredient
+      unit, // Unit untuk Ingredient
       price: parseFloat(price),
-      unitPrice,   // Unit harga untuk IngredientPrice
+      unitPrice, // Unit harga untuk IngredientPrice
     };
 
     try {
@@ -75,38 +75,18 @@ export default function CreateIngredient() {
           {/* Input Name */}
           <div className="mb-4">
             <label className="block font-medium mb-1">Name:</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded"
-              required
-            />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 border border-gray-300 rounded" required />
           </div>
 
           {/* Row untuk Start dan Start Gudang */}
           <div className="mb-4 flex gap-4">
             <div className="w-1/2">
               <label className="block font-medium mb-1">Start:</label>
-              <input
-                type="number"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded"
-                required
-                step="any"
-              />
+              <input type="number" value={start} onChange={(e) => setStart(e.target.value)} className="w-full p-2 border border-gray-300 rounded" required step="any" />
             </div>
             <div className="w-1/2">
               <label className="block font-medium mb-1">Start Gudang:</label>
-              <input
-                type="number"
-                value={warehouseStart}
-                onChange={(e) => setWarehouseStart(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded"
-                required
-                step="any"
-              />
+              <input type="number" value={warehouseStart} onChange={(e) => setWarehouseStart(e.target.value)} className="w-full p-2 border border-gray-300 rounded" required step="any" />
             </div>
           </div>
 
@@ -114,92 +94,42 @@ export default function CreateIngredient() {
           <div className="mb-4 flex gap-4">
             <div className="w-1/2">
               <label className="block font-medium mb-1">Ingredient Unit:</label>
-              <input
-                type="text"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded"
-                placeholder="e.g., bottle, pack"
-                required
-              />
+              <input type="text" value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full p-2 border border-gray-300 rounded" placeholder="e.g., bottle, pack" required />
             </div>
             <div className="w-1/2">
               <label className="block font-medium mb-1">Unit Price:</label>
-              <input
-                type="text"
-                value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded"
-                placeholder="e.g., 100g, 50g"
-                required
-              />
+              <input type="text" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} className="w-full p-2 border border-gray-300 rounded" placeholder="e.g., 100g, 50g" required />
             </div>
           </div>
 
           {/* Row untuk Price */}
           <div className="mb-4">
             <label className="block font-medium mb-1">Price:</label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded"
-              required
-              step="any"
-              placeholder="Price per unit price"
-            />
+            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full p-2 border border-gray-300 rounded" required step="any" placeholder="Price per unit price" />
           </div>
 
           {/* Input Stock Min */}
           <div className="mb-4">
             <label className="block font-medium mb-1">Stock Min:</label>
-            <input
-              type="number"
-              value={stockMin}
-              onChange={(e) => setStockMin(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded"
-              required
-              step="any"
-            />
+            <input type="number" value={stockMin} onChange={(e) => setStockMin(e.target.value)} className="w-full p-2 border border-gray-300 rounded" required step="any" />
           </div>
 
           {/* Input Stock In (readonly) */}
           <div className="mb-4">
             <label className="block font-medium mb-1">Stock In:</label>
-            <input
-              type="number"
-              value={stockIn}
-              readOnly
-              className="w-full p-2 border border-gray-300 rounded bg-gray-100"
-              required
-              step="any"
-            />
+            <input type="number" value={stockIn} readOnly className="w-full p-2 border border-gray-300 rounded bg-gray-100" required step="any" />
           </div>
 
           {/* Input Used (readonly) */}
           <div className="mb-4">
             <label className="block font-medium mb-1">Used:</label>
-            <input
-              type="number"
-              value={used}
-              readOnly
-              className="w-full p-2 border border-gray-300 rounded bg-gray-100"
-              required
-              step="any"
-            />
+            <input type="number" value={used} readOnly className="w-full p-2 border border-gray-300 rounded bg-gray-100" required step="any" />
           </div>
 
           {/* Input Wasted (readonly) */}
           <div className="mb-4">
             <label className="block font-medium mb-1">Wasted:</label>
-            <input
-              type="number"
-              value={wasted}
-              readOnly
-              className="w-full p-2 border border-gray-300 rounded bg-gray-100"
-              required
-              step="any"
-            />
+            <input type="number" value={wasted} readOnly className="w-full p-2 border border-gray-300 rounded bg-gray-100" required step="any" />
           </div>
 
           <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded">
