@@ -5,7 +5,7 @@ import SidebarCashier from "@/components/sidebarCashier";
 import toast from "react-hot-toast";
 import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
-
+import Link from "next/link";
 
 interface Order {
   id: number;
@@ -1047,31 +1047,37 @@ const Bookinge = () => {
 
                 {/* Empty State */}
                 {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
-                    <div className="flex justify-center gap-4">
-                      <button
-                        onClick={() => {
-                          setManuallyMarkedTables([...manuallyMarkedTables, selectedTableNumber]);
-                          toast.success("Meja berhasil ditandai sebagai terisi!");
-                        }}
-                        className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-                      >
-                        Tandai sebagai Terisi
-                      </button>
-                      <button
-                        onClick={() => {
-                          setManuallyMarkedTables(manuallyMarkedTables.filter(t => t !== selectedTableNumber));
-                          fetchData();
-                          toast.success("Meja berhasil direset!");
-                        }}
-                        className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        Reset Meja
-                      </button>
-                    </div>
-                  </div>
-                )}
+  <div className="text-center py-8">
+    <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+    <div className="flex justify-center gap-4">
+      <Link 
+        href={`/menu?table=${selectedTableNumber}`}
+        className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors"
+      >
+        Pesan Sekarang
+      </Link>
+      <button
+        onClick={() => {
+          setManuallyMarkedTables([...manuallyMarkedTables, selectedTableNumber]);
+          toast.success("Meja berhasil ditandai sebagai terisi!");
+        }}
+        className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+      >
+        Tandai sebagai Terisi
+      </button>
+      <button
+        onClick={() => {
+          setManuallyMarkedTables(manuallyMarkedTables.filter(t => t !== selectedTableNumber));
+          fetchData();
+          toast.success("Meja berhasil direset!");
+        }}
+        className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+      >
+        Reset Meja
+      </button>
+    </div>
+  </div>
+)}
               </div>
 
               <div className="p-4 border-t">
