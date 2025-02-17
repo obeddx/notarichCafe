@@ -49,6 +49,21 @@ const Bookinge = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
   // Fetch initial data
+
+  // Load manually marked tables from localStorage on component mount
+useEffect(() => {
+  const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
+  if (savedMarkedTables) {
+    setManuallyMarkedTables(JSON.parse(savedMarkedTables));
+  }
+}, []);
+
+// Save to localStorage whenever manuallyMarkedTables changes
+useEffect(() => {
+  localStorage.setItem("manuallyMarkedTables", JSON.stringify(manuallyMarkedTables));
+}, [manuallyMarkedTables]);
+
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -89,6 +104,7 @@ const Bookinge = () => {
     return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
   };
 
+  
   // Tambahkan fungsi fetchData yang bisa diakses global
   const fetchData = async () => {
     try {
@@ -1057,24 +1073,29 @@ const Bookinge = () => {
         Pesan Sekarang
       </Link>
       <button
-        onClick={() => {
-          setManuallyMarkedTables([...manuallyMarkedTables, selectedTableNumber]);
-          toast.success("Meja berhasil ditandai sebagai terisi!");
-        }}
-        className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-      >
-        Tandai sebagai Terisi
-      </button>
-      <button
-        onClick={() => {
-          setManuallyMarkedTables(manuallyMarkedTables.filter(t => t !== selectedTableNumber));
-          fetchData();
-          toast.success("Meja berhasil direset!");
-        }}
-        className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-      >
-        Reset Meja
-      </button>
+  onClick={() => {
+    const updated = [...manuallyMarkedTables, selectedTableNumber];
+    setManuallyMarkedTables(updated);
+    localStorage.setItem("manuallyMarkedTables", JSON.stringify(updated));
+    toast.success("Meja berhasil ditandai sebagai terisi!");
+  }}
+  className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+>
+  Tandai sebagai Terisi
+</button>
+
+<button
+  onClick={() => {
+    const updated = manuallyMarkedTables.filter(t => t !== selectedTableNumber);
+    setManuallyMarkedTables(updated);
+    localStorage.setItem("manuallyMarkedTables", JSON.stringify(updated));
+    fetchData();
+    toast.success("Meja berhasil direset!");
+  }}
+  className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+>
+  Reset Meja
+</button>
     </div>
   </div>
 )}
