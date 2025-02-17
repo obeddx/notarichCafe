@@ -86,6 +86,7 @@ export default function IngredientsTable() {
       }
       // Mengupdate state ingredients setelah penghapusan
       setIngredients(ingredients.filter((ing) => ing.id !== id));
+      toast.success("Ingredient berhasil dihapus!");
     } catch (err) {
       console.error(err);
       alert("Gagal menghapus ingredient.");
