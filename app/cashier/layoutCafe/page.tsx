@@ -1069,12 +1069,14 @@ useEffect(() => {
   <div className="text-center py-8">
     <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
     <div className="flex justify-center gap-4">
-      <Link 
-        href={`/menu?table=${selectedTableNumber}`}
-        className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors"
-      >
-        Pesan Sekarang
-      </Link>
+    <Link 
+  href={`/menu?table=${selectedTableNumber}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors"
+>
+  Pesan Sekarang
+</Link>
       <button
   onClick={() => {
     const updated = [...manuallyMarkedTables, selectedTableNumber];
