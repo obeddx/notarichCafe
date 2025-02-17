@@ -94,7 +94,7 @@ export default function ManagerMenusPage() {
 
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
-      <h1 className="text-2xl font-bold mb-4">Menu Manager</h1>
+      <h1 className="text-2xl font-bold mb-4">Daftar Menu </h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       <Link href="/manager/addMenu">
         <p className="text-blue-500 hover:underline pb-4">+ Tambah Menu Baru</p>

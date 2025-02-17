@@ -62,10 +62,12 @@ export default async function handler(
         });
 
         if (gudang) {
-          // Update: set used di gudang sama dengan stockIn baru dari ingredient
-          const newGudangUsed = newStockIn;
-          // Hitung ulang stockakhir untuk gudang
-          const newGudangStock = (gudang.start + gudang.stockIn) - newGudangUsed - gudang.wasted;
+           // Hitung perubahan (increment) pada stockIn
+    const increment = newStockIn - ingredient.stockIn;
+    // Tambahkan increment tersebut ke gudang.used
+    const newGudangUsed = gudang.used + increment;
+    // Hitung ulang stock akhir untuk gudang:
+    const newGudangStock = (gudang.start + gudang.stockIn) - newGudangUsed - gudang.wasted;
 
           updatedGudang = await prisma.gudang.update({
             where: { id: ingredientId },
@@ -77,9 +79,60 @@ export default async function handler(
         }
       }
 
+       // Variabel untuk menyimpan pesan notifikasi
+       let notificationMessage = "";
+
+       // Cek kondisi:
+      // 1. Jika stock akhir sama dengan stockMin dan tidak nol:
+      if (newIngredientStock <= updatedIngredient.stockMin && newIngredientStock !== 0) {
+        notificationMessage = `manager harus melakukan stock in, stock ${ingredient.name} di cafe sudah mencapai batas minimal`;
+      }
+
+       // 2. Jika stock akhir sama dengan 0:
+       else if (newIngredientStock === 0) {
+        // Cari semua Menu yang memiliki ingredient tersebut
+        const menusToUpdate = await prisma.menu.findMany({
+          where: {
+            ingredients: {
+              some: { ingredientId: ingredientId },
+            },
+          },
+        });
+
+        // Perbarui field 'status' di tiap Menu yang ditemukan menjadi "Habis"
+        for (const menu of menusToUpdate) {
+          await prisma.menu.update({
+            where: { id: menu.id },
+            data: { Status: "Habis" },
+          });
+        }
+        notificationMessage = `stock ${ingredient.name} di cafe sudah habis`;
+      }
+
+      // Jika stock akhir lebih besar dari stockMin, periksa apakah ada menu yang statusnya "Habis"
+      // dan update statusnya menjadi "Tersedia"
+      else if (newIngredientStock > updatedIngredient.stockMin) {
+        const menusToUpdate = await prisma.menu.findMany({
+          where: {
+            ingredients: {
+              some: { ingredientId: ingredientId },
+            },
+            Status: "Habis",
+          },
+        });
+
+        for (const menu of menusToUpdate) {
+          await prisma.menu.update({
+            where: { id: menu.id },
+            data: { Status: "Tersedia" },
+          });
+        }
+      }
+
       return res.status(200).json({
         message: "Ingredient berhasil diupdate",
         ingredient: updatedIngredient,
+        notificationMessage,
         gudang: updatedGudang,
         toast: {
             type: "success",

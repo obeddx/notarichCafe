@@ -6,6 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FiSearch } from "react-icons/fi";
+import { useRef } from "react";
 
 type Ingredient = {
   id: number;
@@ -20,15 +21,32 @@ type Ingredient = {
 };
 
 export default function IngredientsTable() {
+
+  // const defaultIngredient: Ingredient = {
+  //   id: 0,
+  //   name: "",
+  //   start: 0,
+  //   stockIn: 0,
+  //   used: 0,
+  //   wasted: 0,
+  //   stockMin: 0,
+  //     stock: 0,
+  //     unit: "",
+  //     // properti lain jika diperlukan
+  //   };
+  
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredIngredient, setFilteredIngredient] = useState<Ingredient[]>([]);
+  // const [notificationMessage, setNotificationMessage] = useState<string>("");
 
   const router = useRouter();
+  const wastedRef = useRef<HTMLInputElement>(null);
 
   // Fungsi untuk mengambil data ingredients dari API
   const fetchIngredients = async () => {
@@ -101,6 +119,7 @@ export default function IngredientsTable() {
       if (res.ok) {
         // Tampilkan toast sukses ketika edit berhasil
         toast.success("Ingredient berhasil diedit!");
+        
         // Perbarui state ingredients dengan data yang dikembalikan dari API
         setIngredients(
           ingredients.map((ing) =>
@@ -108,6 +127,7 @@ export default function IngredientsTable() {
           )
         );
         setSelectedIngredient(null);
+        // setNotificationMessage(data.notificationMessage || "");
       } else {
         alert(data.message || "Gagal mengupdate ingredient.");
       }
@@ -139,6 +159,11 @@ export default function IngredientsTable() {
     }
   };
 
+   // Filter ingredient yang stock akhir <= stockMin
+   const lowStockIngredients = ingredients.filter(
+    (ingredient) => ingredient.stock <= ingredient.stockMin
+  );
+
   // Fungsi untuk toggle sidebar
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -154,6 +179,17 @@ export default function IngredientsTable() {
       <Link href="/manager/addBahan">
         <p className="text-blue-500 hover:underline pb-4">+ Tambah Ingredient Baru</p>
       </Link>
+      <div className="p-4">
+      {lowStockIngredients.length > 0 ? (
+        lowStockIngredients.map((ingredient) => (
+          <p key={ingredient.id} className="text-lg font-semibold text-red-600">
+            Stock untuk {ingredient.name} {ingredient.stock} {ingredient.unit} (Minimum: {ingredient.stockMin} {ingredient.unit})
+          </p>
+        ))
+      ) : (
+        <p className="text-green-600">Semua stok dalam keadaan baik.</p>
+      )}
+    </div>
       <div className="flex justify-end mb-6">
         <div className="relative w-full max-w-md">
           <input
@@ -273,7 +309,7 @@ export default function IngredientsTable() {
                 <label className="block font-medium mb-1">Stock In:</label>
                 <input
                   type="number"
-                  value={selectedIngredient.stockIn}
+                  value={isNaN(selectedIngredient.stockIn) ? "" : selectedIngredient.stockIn}
                   onChange={(e) =>
                     setSelectedIngredient({
                       ...selectedIngredient,
@@ -298,23 +334,24 @@ export default function IngredientsTable() {
               <div className="mb-4">
                 <label className="block font-medium mb-1">Wasted:</label>
                 <input
-                  type="number"
-                  value={selectedIngredient.wasted}
-                  onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      wasted: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                  step="any"
-                />
+  type="number"
+  defaultValue={selectedIngredient?.wasted}
+  ref={wastedRef}
+  onChange={(e) => {
+    const value = parseFloat(e.target.value);
+    setSelectedIngredient(prev =>
+      prev ? { ...prev, wasted: isNaN(value) ? 0 : value } : prev
+    );
+  }}
+  className="w-full p-2 border border-gray-300 rounded"
+  required
+  step="any"
+/>
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Stock Min:</label>
                 <input
-                  type="number"
+                  type="text"
                   value={selectedIngredient.stockMin}
                   onChange={(e) =>
                     setSelectedIngredient({

@@ -9,12 +9,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Ambil semua CompletedOrder beserta OrderItem dan nama Menu
+    const {
+      startDate,
+      endDate,
+      tableNumber,
+      paymentMethod,
+      minTotal,
+      maxTotal,
+    } = req.query;
+
+    // Konversi startDate dan endDate ke tipe Date
+    const startDateFilter = startDate ? new Date(startDate as string) : null;
+    const endDateFilter = endDate ? new Date(endDate as string) : null;
+
+    // Filter berdasarkan tanggal
+    const dateFilter = {
+      ...(startDateFilter && { createdAt: { gte: startDateFilter } }),
+      ...(endDateFilter && { createdAt: { lte: endDateFilter } }),
+    };
+
+    // Filter berdasarkan nomor meja
+    const tableFilter = tableNumber ? { tableNumber: tableNumber as string } : {};
+
+    // Filter berdasarkan metode pembayaran
+    const paymentFilter = paymentMethod
+      ? { paymentMethod: paymentMethod as string }
+      : {};
+
+    // Filter berdasarkan total harga
+    const totalFilter = {
+      ...(minTotal && { total: { gte: parseFloat(minTotal as string) } }),
+      ...(maxTotal && { total: { lte: parseFloat(maxTotal as string) } }),
+    };
+
+    // Ambil semua CompletedOrder dengan filter
     const completedOrders = await prisma.completedOrder.findMany({
+      where: {
+        ...dateFilter,
+        ...tableFilter,
+        ...paymentFilter,
+        ...totalFilter,
+      },
       include: {
         orderItems: {
           include: {
-            menu: true, // Mengambil informasi menu
+            menu: true,
           },
         },
       },
