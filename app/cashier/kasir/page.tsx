@@ -124,15 +124,16 @@ export default function KasirPage() {
         },
         body: JSON.stringify({ orderId }),
       });
-
+  
       if (res.ok) {
-        alert("✅ Pesanan berhasil diselesaikan!");
+        toast.success("✅ Pesanan berhasil diselesaikan!");
         fetchOrders();
       } else {
         throw new Error("Gagal menyelesaikan pesanan");
       }
     } catch (error) {
       console.error("Error:", error);
+      toast.error("❌ Terjadi kesalahan saat menyelesaikan pesanan.");
     } finally {
       setLoading(false);
     }
@@ -145,9 +146,9 @@ export default function KasirPage() {
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "DELETE",
       });
-
+  
       if (res.ok) {
-        alert("✅ Pesanan berhasil dibatalkan!");
+        toast.success("✅ Pesanan berhasil dibatalkan!");
         setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
       } else {
         throw new Error("Gagal membatalkan pesanan");
@@ -155,6 +156,7 @@ export default function KasirPage() {
     } catch (error) {
       console.error("Error:", error);
       setError("Gagal membatalkan pesanan. Silakan coba lagi.");
+      toast.error("❌ Gagal membatalkan pesanan. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -173,30 +175,31 @@ const handleSelectOrder = (orderId: number) => {
 
 // Fungsi gabungkan pesanan
 
-  const resetTable = async (tableNumber: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/resetTable`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tableNumber }),
-      });
+const resetTable = async (tableNumber: string) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await fetch(`/api/resetTable`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tableNumber }),
+    });
 
-      if (res.ok) {
-        alert(`✅ Meja ${tableNumber} berhasil direset!`);
-        fetchOrders();
-      } else {
-        throw new Error("Gagal mereset meja");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setLoading(false);
+    if (res.ok) {
+      toast.success(`✅ Meja ${tableNumber} berhasil direset!`);
+      fetchOrders();
+    } else {
+      throw new Error("Gagal mereset meja");
     }
-  };
+  } catch (error) {
+    console.error("Error:", error);
+    toast.error("❌ Terjadi kesalahan saat mereset meja. Silakan coba lagi.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const activeOrders = orders.filter((order) => order.status !== "Selesai");
   const completedOrders = orders.filter((order) => order.status === "Selesai");
@@ -300,42 +303,54 @@ const handleSelectOrder = (orderId: number) => {
 
       {/* Modal Input Stock */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-[#FCFFFC] p-6 rounded shadow-md w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4 text-[#0E0E0E]">Input Stock Nyata Bahan</h2>
-            <form onSubmit={handleSubmit}>
-              {ingredients.map((ingredient) => (
-                <div key={ingredient.id} className="mb-4">
-                  <label className="block font-medium mb-1 text-[#0E0E0E]">
-                    {ingredient.name} ({ingredient.unit})
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Masukkan stok nyata"
-                    onChange={(e) => handleInputChange(ingredient.id, Number(e.target.value))}
-                    className="w-full p-2 border border-[#92700C] rounded bg-[#FCFFFC] text-[#0E0E0E]"
-                    required
-                  />
-                </div>
-              ))}
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 border border-[#92700C] rounded text-[#0E0E0E] hover:bg-[#92700C] hover:text-[#FCFFFC]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded"
-                >
-                  Submit
-                </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="relative bg-white p-8 rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+          {/* Tombol Tutup */}
+          <button
+            onClick={() => setModalOpen(false)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+      
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">Input Stock Nyata Bahan</h2>
+          <form onSubmit={handleSubmit}>
+            {ingredients.map((ingredient) => (
+              <div key={ingredient.id} className="mb-5">
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  {ingredient.name} <span className="text-gray-500">({ingredient.unit})</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="Masukkan stok nyata"
+                  onChange={(e) => handleInputChange(ingredient.id, Number(e.target.value))}
+                  className="block w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  required
+                />
               </div>
-            </form>
-          </div>
+            ))}
+      
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition"
+              >
+                Submit
+              </button>
+            </div>
+          </form>
         </div>
+      </div>
+      
       )}
 
       {/* Modal Notifikasi */}

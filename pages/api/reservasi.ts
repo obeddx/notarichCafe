@@ -1,34 +1,43 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
-
+// import moment from "moment-timezone";
 
 const prisma = new PrismaClient();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === "POST") {
-    try {
-      const { namaCustomer, nomorKontak, jumlahTamu, tanggalReservasi } = req.body;
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method Not Allowed" });
+  }
 
-      // Validasi input
-      if (!namaCustomer || !nomorKontak || !jumlahTamu || !tanggalReservasi) {
-        return res.status(400).json({ error: "Semua field harus diisi!" });
-      }
-      // Simpan ke database
-      const newReservation = await prisma.reservasi.create({
-        data: {
-          namaCustomer,
-          nomorKontak,
-          jumlahTamu: Number(jumlahTamu),
-          tanggalReservasi: new Date(tanggalReservasi), // Pastikan format datetime benar
-        },
-      });
+  try {
+    const { namaCustomer, nomorKontak, tanggalReservasi, jumlahTamu, durasiPemesanan, nomorMeja, kodeBooking } = req.body;
 
-      return res.status(201).json(newReservation);
-    } catch (error) {
-      console.error("Error saat menyimpan reservasi:", error);
-      return res.status(500).json({ error: "Gagal menyimpan reservasi" });
+    // Validasi field yang diperlukan
+    if (!namaCustomer || !nomorKontak || !tanggalReservasi || !jumlahTamu || !durasiPemesanan || !nomorMeja || !kodeBooking) {
+      return res.status(400).json({ message: "Semua field harus diisi!" });
     }
-  } else {
-    return res.status(405).json({ error: "Method not allowed" });
+
+    // // Konversi tanggalReservasi ke zona waktu yang diinginkan (misalnya: Asia/Jakarta)
+    // const reservasiDate = moment.tz(tanggalReservasi, "Asia/Jakarta").toDate();
+        const reservasiDate = new Date(tanggalReservasi);
+
+    // Simpan reservasi ke database dengan kode booking dari frontend
+    const newReservasi = await prisma.reservasi.create({
+      data: {
+        namaCustomer,
+        nomorKontak,
+        tanggalReservasi: reservasiDate, // Gunakan tanggal yang sudah dikonversi
+        jumlahTamu,
+        durasiPemesanan,
+        nomorMeja,
+        kodeBooking, // Gunakan kode booking dari frontend
+        status: "BOOKED", // Status default
+      },
+    });
+
+    return res.status(201).json(newReservasi);
+  } catch (error) {
+    console.error("Error saat menyimpan reservasi:", error);
+    return res.status(500).json({ message: "Terjadi kesalahan pada server" });
   }
 }

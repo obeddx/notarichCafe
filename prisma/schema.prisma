@@ -166,18 +166,31 @@ model CompletedOrderItem {
   menu      Menu           @relation(fields: [menuId], references: [id], onDelete: Cascade)
 }
 
-model Reservasi {
-  id            Int      @id @default(autoincrement())
-  namaCustomer  String
-  nomorKontak   String
-  jumlahTamu    Int
-  tanggalReservasi DateTime
-  status        String   @default("Booked")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
 
 model DataMeja {
   id         Int  @id @default(autoincrement()) @map("id")
   nomorMeja  Int  @unique @map("nomor_meja")
+}
+
+model Reservasi {
+  id               Int              @id @default(autoincrement())
+  namaCustomer     String
+  nomorKontak      String
+  jumlahTamu       Int
+  tanggalReservasi DateTime
+  nomorMeja        String
+  durasiPemesanan  Int              @default(60) // Default 60 menit agar tidak error
+  kodeBooking      String           @unique
+  status           StatusReservasi  @default(BOOKED)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+
+enum StatusReservasi {
+  BOOKED    // Saat reservasi baru dibuat
+  RESERVED  // Meja telah dikonfirmasi
+  OCCUPIED  // Meja sudah ditempati
+  COMPLETED // Reservasi selesai
+  CANCELED  // Reservasi dibatalkan
 }

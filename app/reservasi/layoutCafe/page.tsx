@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import SidebarCashier from "@/components/sidebarCashier";
 import toast from "react-hot-toast";
 import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
-import Link from "next/link";
+import { useRouter } from 'next/navigation';
 
 interface Order {
   id: number;
@@ -36,6 +35,7 @@ interface Menu {
   Status: string;
 }
 
+
 const Bookinge = () => {
   const [selectedFloor, setSelectedFloor] = useState(1);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -43,27 +43,27 @@ const Bookinge = () => {
   const [selectedCompletedOrders, setSelectedCompletedOrders] = useState<Order[]>([]);
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
-  const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk mengontrol sidebar
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+  const router = useRouter(); // Tambahkan ini
+
+ 
+  const getCapacityMessage = (tableNumber: string) => {
+    const num = parseInt(tableNumber, 10);
+    if (isNaN(num)) return '';
+  
+    if (num >= 1 && num <= 3) return 'Dapat digunakan untuk 3-5 orang';
+    if (num >= 4 && num <= 7) return 'Dapat digunakan untuk 1-2 orang';
+    if (num >= 8 && num <= 9) return 'Dapat digunakan untuk 4-6 orang';
+    if (num >= 10 && num <= 12) return 'Dapat digunakan untuk 1-2 orang';
+    if (num >= 13 && num <= 16) return 'Dapat digunakan untuk 1-3 orang';
+    if (num >= 17 && num <= 21) return 'Dapat digunakan untuk 2-3 orang';
+    if (num === 22) return 'Dapat digunakan sebagai ruangan meeting untuk 8-12 orang';
+    if (num >= 23 && num <= 25) return 'Dapat digunakan sebagai ruangan meeting untuk 2-4 orang';
+    if (num >= 26 && num <= 29) return 'Dapat digunakan untuk 2-3 orang';
+    if (num >= 30 && num <= 35) return 'Dapat digunakan untuk 4-6 orang';
+    return '';
   };
+
   // Fetch initial data
-
-  // Load manually marked tables from localStorage on component mount
-useEffect(() => {
-  const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
-  if (savedMarkedTables) {
-    setManuallyMarkedTables(JSON.parse(savedMarkedTables));
-  }
-}, []);
-
-// Save to localStorage whenever manuallyMarkedTables changes
-useEffect(() => {
-  localStorage.setItem("manuallyMarkedTables", JSON.stringify(manuallyMarkedTables));
-}, [manuallyMarkedTables]);
-
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -87,9 +87,9 @@ useEffect(() => {
     const tableNumberStr = nomorMeja.toString();
 
     // Prioritaskan tabel yang ditandai manual
-    if (manuallyMarkedTables.includes(tableNumberStr)) {
-      return "bg-[#D02323]";
-    }
+    // if (manuallyMarkedTables.includes(tableNumberStr)) {
+    //   return "bg-[#D02323]";
+    // }
 
     const tableOrders = allOrders.filter(order =>
       order.tableNumber === tableNumberStr
@@ -104,7 +104,6 @@ useEffect(() => {
     return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
   };
 
-  
   // Tambahkan fungsi fetchData yang bisa diakses global
   const fetchData = async () => {
     try {
@@ -147,87 +146,85 @@ useEffect(() => {
     }
   };
 
-  const markOrderAsCompleted = async (orderId: number) => {
-    try {
-      const res = await fetch("/api/completeOrder", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
+  // const markOrderAsCompleted = async (orderId: number) => {
+  //   try {
+  //     const res = await fetch("/api/completeOrder", {
+  //       method: "PUT",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ orderId }),
+  //     });
 
-      if (res.ok) {
-        // Refresh data
-        const [ordersRes, tableRes] = await Promise.all([fetch("/api/orders"), fetch(`/api/orders?tableNumber=${selectedTableNumber}`)]);
+  //     if (res.ok) {
+  //       // Refresh data
+  //       const [ordersRes, tableRes] = await Promise.all([fetch("/api/orders"), fetch(`/api/orders?tableNumber=${selectedTableNumber}`)]);
 
-        setAllOrders((await ordersRes.json()).orders);
-        const tableData = await tableRes.json();
+  //       setAllOrders((await ordersRes.json()).orders);
+  //       const tableData = await tableRes.json();
 
-        setSelectedTableOrders(tableData.orders.filter((o: Order) => o.status !== "Selesai"));
-        setSelectedCompletedOrders(tableData.orders.filter((o: Order) => o.status === "Selesai"));
+  //       setSelectedTableOrders(tableData.orders.filter((o: Order) => o.status !== "Selesai"));
+  //       setSelectedCompletedOrders(tableData.orders.filter((o: Order) => o.status === "Selesai"));
 
-        toast.success("Pesanan berhasil diselesaikan!");
-      } else {
-        throw new Error("Gagal menyelesaikan pesanan");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      toast.error("Gagal menyelesaikan pesanan");
-    }
-  };
-  const OrderCard = ({ order }: { order: Order; isCompleted?: boolean; onComplete?: () => void }) => (
-    <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <p className="font-semibold">Order ID: {order.id}</p>
-          <p className="text-sm text-gray-600">
-            {new Date(order.createdAt).toLocaleDateString("id-ID", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-sm ${order.status === "pending" ? "bg-yellow-500" : order.status === "Sedang Diproses" ? "bg-blue-500" : "bg-green-500"} text-white`}>{order.status}</span>
-      </div>
+  //       toast.success("Pesanan berhasil diselesaikan!");
+  //     } else {
+  //       throw new Error("Gagal menyelesaikan pesanan");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error:", error);
+  //     toast.error("Gagal menyelesaikan pesanan");
+  //   }
+  // };
 
-      <div className="border-t pt-3 mt-3">
-        <h3 className="font-semibold mb-2">Item Pesanan:</h3>
-        <div className="grid gap-2">
-          {order.orderItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-3">
-              <img src={item.menu.image} alt={item.menu.name} className="w-12 h-12 object-cover rounded" />
-              <div className="flex-1">
-                <p className="font-medium">{item.menu.name}</p>
-                <p className="text-sm text-gray-600">
-                  {item.quantity} x Rp {item.menu.price.toLocaleString()}
-                </p>
-                {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+  // const OrderCard = ({ order }: { order: Order; isCompleted?: boolean; onComplete?: () => void }) => (
+  //   <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
+  //     <div className="flex justify-between items-start mb-2">
+  //       <div>
+  //         <p className="font-semibold">Order ID: {order.id}</p>
+  //         <p className="text-sm text-gray-600">
+  //           {new Date(order.createdAt).toLocaleDateString("id-ID", {
+  //             weekday: "long",
+  //             day: "numeric",
+  //             month: "long",
+  //             year: "numeric",
+  //             hour: "2-digit",
+  //             minute: "2-digit",
+  //           })}
+  //         </p>
+  //       </div>
+  //       <span className={`px-3 py-1 rounded-full text-sm ${order.status === "pending" ? "bg-yellow-500" : order.status === "Sedang Diproses" ? "bg-blue-500" : "bg-green-500"} text-white`}>{order.status}</span>
+  //     </div>
 
-      <div className="border-t pt-3 mt-3 flex justify-between items-center">
-        <p className="text-lg font-bold">Total: Rp {order.total.toLocaleString()}</p>
-      </div>
-    </div>
-  );
+  //     {/* <div className="border-t pt-3 mt-3">
+  //       <h3 className="font-semibold mb-2">Item Pesanan:</h3>
+  //       <div className="grid gap-2">
+  //         {order.orderItems.map((item) => (
+  //           <div key={item.id} className="flex items-center gap-3">
+  //             <img src={item.menu.image} alt={item.menu.name} className="w-12 h-12 object-cover rounded" />
+  //             <div className="flex-1">
+  //               <p className="font-medium">{item.menu.name}</p>
+  //               <p className="text-sm text-gray-600">
+  //                 {item.quantity} x Rp {item.menu.price.toLocaleString()}
+  //               </p>
+  //               {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
+  //             </div>
+  //           </div>
+  //         ))}
+  //       </div>
+  //     </div> */}
+
+  //     {/* <div className="border-t pt-3 mt-3 flex justify-between items-center">
+  //       <p className="text-lg font-bold">Total: Rp {order.total.toLocaleString()}</p>
+  //     </div> */}
+
+  //   </div>
+  // );
   return (
     <div className="flex flex-col md:flex-row h-screen min-w-[1400px]">
       <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
-        {/* Sidebar */}
-        <div className={`fixed h-full bg-[#2A2A2A] shadow-xl flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"
-          }`}>
-          <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
-        </div>
+       
         {/* Main Content */}
-        <div className={`flex-1 p-8 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"
+        <div className={`flex-1 p-8 transition-all duration-300"
           }`}>
-          <div className="w-full sm:px-6 lg:px-28">
+          <div className="w-full sm:px-6 lg:px-28 pt-16">
             <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">🪑 Pilih Meja Anda</h2>
 
             {/* Floor Selection - Diperbarui */}
@@ -615,9 +612,12 @@ useEffect(() => {
                       <div className="relative w-48 h-16  bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl border border-yellow-700 shadow-xl flex items-center justify-center transform transition duration-300 hover:scale-105 hover:rotate-2">
   <p className="text-white font-extrabold text-2xl drop-shadow-lg">OUTDOOR</p>
 </div>
+
+                        
                         <div className="relative w-40 h-12 mt-5 bg-yellow-600 rounded-lg border-4 border-yellow-700 shadow-lg flex items-center justify-center text-white font-bold text-xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
                           <p className="absolute bottom-4 text-yellow-900 font-semibold">Pintu</p>
                         </div>
+
                       </div>
                       {/* END SECTION 2 TENGAH */}
 
@@ -787,7 +787,6 @@ useEffect(() => {
                                           <p className="font-bold text-white">3</p>
                                         </div>
                                       </button>
-
 
 
                                       <div className="flex">
@@ -1021,103 +1020,94 @@ useEffect(() => {
                         </div>
                       </div>
                     </div>
-
-                 
-
                   </>
                 </div>
               )}
+
             </div>
           </div>
         </div>
         {/* Popup Completed Orders */}
         {isPopupVisible && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="bg-[#FFF5E6] p-6 border-b">
-                <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
-                  📋 Daftar Pesanan - Meja {selectedTableNumber}
-                  <span className="text-lg font-normal text-[#666]">
-                    ({selectedTableOrders.length} aktif, {selectedCompletedOrders.length} selesai)
-                  </span>
-                </h2>
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#FFF5E6] p-6 border-b">
+        <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
+          📋 Meja {selectedTableNumber}
+        </h2>
+      </div>
+
+      <div className="p-6 space-y-8">
+        {/* Status dan Kapasitas */}
+        <div className="space-y-4">
+          {getTableColor(Number(selectedTableNumber)) === 'bg-[#D02323]' ? (
+            <div className="space-y-4">
+              <div className="bg-red-100 border border-red-200 text-red-700 p-4 rounded-lg flex items-center gap-2">
+                ⚠️ Meja sedang digunakan
               </div>
+              <div className="bg-blue-100 text-blue-700 p-3 rounded-lg flex items-center gap-2">
+                💺 {getCapacityMessage(selectedTableNumber)}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-green-100 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
+                ✅ Meja tersedia
+              </div>
+              <div className="bg-blue-100 text-blue-700 p-3 rounded-lg flex items-center gap-2">
+                💺 {getCapacityMessage(selectedTableNumber)}
+              </div>
+              
+              {/* Daftar Pesanan Aktif */}
+              {selectedTableOrders.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Pesanan Aktif</h3>
+                  {/* ... existing order cards ... */}
+                </div>
+              )}
 
-              <div className="p-6 space-y-8">
-                {/* Active Orders Section */}
-                {selectedTableOrders.length > 0 && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Pesanan Aktif</h3>
-                    {selectedTableOrders.map((order) => (
-                      <OrderCard key={order.id} order={order} onComplete={() => markOrderAsCompleted(order.id)} />
-                    ))}
-                  </div>
-                )}
+              {/* Daftar Pesanan Selesai */}
+              {selectedCompletedOrders.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Riwayat Pesanan</h3>
+                  {/* ... existing order cards ... */}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-                {/* Completed Orders Section */}
-                {selectedCompletedOrders.length > 0 && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">Pesanan Selesai</h3>
-                    {selectedCompletedOrders.map((order) => (
-                      <OrderCard key={order.id} order={order} isCompleted />
-                    ))}
-                  </div>
-                )}
+        {/* Empty State untuk meja tersedia tanpa pesanan */}
+        
+      </div>
 
-                {/* Empty State */}
-                {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
-  <div className="text-center py-8">
-    <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
-    <div className="flex justify-center gap-4">
-      <Link 
-        href={`/menu?table=${selectedTableNumber}`}
-        className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors"
-      >
-        Pesan Sekarang
-      </Link>
-      <button
-  onClick={() => {
-    const updated = [...manuallyMarkedTables, selectedTableNumber];
-    setManuallyMarkedTables(updated);
-    localStorage.setItem("manuallyMarkedTables", JSON.stringify(updated));
-    toast.success("Meja berhasil ditandai sebagai terisi!");
-  }}
-  className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
->
-  Tandai sebagai Terisi
-</button>
+      <div className="p-4 border-t">
+        <button
+          onClick={() => {
+            setIsPopupVisible(false);
+            fetchData();
+          }}
+          className="w-full bg-[#FF8A00] hover:bg-[#FF6A00] text-white py-2 px-4 rounded-lg transition"
+        >
+          Tutup
+        </button>
 
-<button
-  onClick={() => {
-    const updated = manuallyMarkedTables.filter(t => t !== selectedTableNumber);
-    setManuallyMarkedTables(updated);
-    localStorage.setItem("manuallyMarkedTables", JSON.stringify(updated));
-    fetchData();
-    toast.success("Meja berhasil direset!");
-  }}
-  className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
->
-  Reset Meja
-</button>
+        {/* Tombol Pilih Meja hanya muncul jika meja tersedia */}
+        {getTableColor(Number(selectedTableNumber)) === "bg-green-800" && (
+          <button
+            onClick={() => {
+              router.push(`/reservasi?meja=${selectedTableNumber}`);
+              setIsPopupVisible(false);
+            }}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition mt-3"
+          >
+            Pilih Meja
+          </button>
+        )}
+      </div>
     </div>
   </div>
 )}
-              </div>
-
-              <div className="p-4 border-t">
-                <button
-                  onClick={() => {
-                    setIsPopupVisible(false);
-                    fetchData(); // Refetch data terbaru saat menutup popup
-                  }}
-                  className="w-full bg-[#FF8A00] hover:bg-[#FF6A00] text-white py-2 px-4 rounded-lg transition"
-                >
-                  Tutup
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>{" "}
     </div>
   );
