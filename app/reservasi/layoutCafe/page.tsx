@@ -44,7 +44,8 @@ const Booking1 = () => {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
   const router = useRouter(); // Tambahkan ini
-  const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
+  const [, setManuallyMarkedTables] = useState<string[]>([]);
+  const [backendMarkedTables, setBackendMarkedTables] = useState<string[]>([]);
 
  
   const getCapacityMessage = (tableNumber: string) => {
@@ -63,6 +64,14 @@ const Booking1 = () => {
     if (num >= 30 && num <= 35) return 'Dapat digunakan untuk 4-6 orang';
     return '';
   };
+
+  useEffect(() => {
+    fetchData();
+    
+    // Optional: Refresh data setiap 30 detik
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
@@ -85,43 +94,59 @@ const Booking1 = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [mejaRes, ordersRes] = await Promise.all([fetch("/api/nomeja"), fetch("/api/orders")]);
-
+        const [mejaRes, ordersRes] = await Promise.all([
+          fetch("/api/nomeja"),
+          fetch("/api/orders")
+        ]);
+    
         if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
         if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
-
-        setAllOrders((await ordersRes.json()).orders);
+    
+        const mejaData = await mejaRes.json();
+        const ordersData = await ordersRes.json();
+    
+        // Ekstrak nomor meja dari response API
+        const markedTables = mejaData.map((meja: { nomorMeja: number }) => 
+          meja.nomorMeja.toString()
+        );
+        
+        setBackendMarkedTables(markedTables);
+        setAllOrders(ordersData.orders);
       } catch (error) {
         console.error("Terjadi kesalahan:", error);
       }
     };
-
     // Panggil fetchData setiap kali komponen dimuat atau ada perubahan
     fetchData();
   }, []); // Hapus dependency array jika perlu pembaruan real-time
 
+  useEffect(() => {
+    fetchData(); // Initial fetch
+    
+    const interval = setInterval(fetchData, 5000); // Refresh setiap 5 detik
+    return () => clearInterval(interval);
+  }, []);
+
   // Di dalam komponen Bookinge
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-  
-    // Prioritaskan tabel yang ditandai manual
-    if (manuallyMarkedTables.includes(tableNumberStr)) {
+    
+    // Prioritas 1: Data dari backend
+    if (backendMarkedTables.includes(tableNumberStr)) {
       return "bg-[#D02323]";
     }
-  
-    const tableOrders = allOrders.filter(order =>
+    
+    // Prioritas 2: Pesanan aktif
+    const tableOrders = allOrders.filter(order => 
       order.tableNumber === tableNumberStr
     );
-  
-    const hasActiveOrders = tableOrders.some(order =>
+    
+    const hasActiveOrders = tableOrders.some(order => 
       order.status !== "Selesai"
     );
-  
-    const isTableReset = tableOrders.length === 0;
-  
-    return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
+    
+    return hasActiveOrders ? "bg-[#D02323]" : "bg-green-800";
   };
-
   // Tambahkan fungsi fetchData yang bisa diakses global
   const fetchData = async () => {
     try {
@@ -164,6 +189,7 @@ const Booking1 = () => {
     }
   };
 
+  
   // const markOrderAsCompleted = async (orderId: number) => {
   //   try {
   //     const res = await fetch("/api/completeOrder", {

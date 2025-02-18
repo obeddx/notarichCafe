@@ -166,7 +166,6 @@ const ReservationForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
- 
     const now = new Date();
     const selectedTime = new Date(form.selectedDateTime);
     if (selectedTime < now) {
