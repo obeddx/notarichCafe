@@ -34,7 +34,7 @@ export default function LoginPage() {
         // Simpan data user ke sessionStorage
         sessionStorage.setItem("user", JSON.stringify(data.user));
         // Redirect ke halaman /manager/addMenu
-        router.push("/manager/addMenu");
+        router.push("/manager/");
       } else {
         setErrorMessage(data.message || "Login failed");
       }

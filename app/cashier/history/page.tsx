@@ -33,15 +33,15 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchCompletedOrders();
-  }, []);
+  }, [startDate, endDate]); 
 
   const fetchCompletedOrders = async () => {
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams({
-        ...(startDate && { startDate: new Date(startDate).toISOString() }), // Konversi ke ISO string
-        ...(endDate && { endDate: new Date(endDate).toISOString() }), // Konversi ke ISO string
+        ...(startDate && { startDate }), // Kirim langsung sebagai string 'YYYY-MM-DD'
+        ...(endDate && { endDate }),     // Kirim langsung sebagai string 'YYYY-MM-DD'
         ...(tableNumber && { tableNumber }),
         ...(paymentMethod && { paymentMethod }),
         ...(minTotal && { minTotal }),

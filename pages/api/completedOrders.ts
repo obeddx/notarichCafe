@@ -18,38 +18,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       maxTotal,
     } = req.query;
 
-    // Konversi startDate dan endDate ke tipe Date
-    const startDateFilter = startDate ? new Date(startDate as string) : null;
-    const endDateFilter = endDate ? new Date(endDate as string) : null;
+    // 1. Handle date filtering dengan UTC
+    let startDateFilter: Date | null = null;
+    let endDateFilter: Date | null = null;
+    
+    if (startDate && typeof startDate === "string") {
+      // Set ke awal hari dalam UTC (00:00:00)
+      startDateFilter = new Date(`${startDate}T00:00:00.000Z`);
+    }
+    
+    if (endDate && typeof endDate === "string") {
+      // Set ke akhir hari dalam UTC (23:59:59.999)
+      endDateFilter = new Date(`${endDate}T23:59:59.999Z`);
+    }
 
-    // Filter berdasarkan tanggal
-    const dateFilter = {
-      ...(startDateFilter && { createdAt: { gte: startDateFilter } }),
-      ...(endDateFilter && { createdAt: { lte: endDateFilter } }),
-    };
+    // 2. Build filter conditions
+    const whereConditions: any = {};
+    
+    // Date filter
+    if (startDateFilter || endDateFilter) {
+      whereConditions.createdAt = {};
+      if (startDateFilter) whereConditions.createdAt.gte = startDateFilter;
+      if (endDateFilter) whereConditions.createdAt.lte = endDateFilter;
+    }
+    
+    // Table number filter
+    if (tableNumber && typeof tableNumber === "string") {
+      whereConditions.tableNumber = tableNumber;
+    }
+    
+    // Payment method filter
+    if (paymentMethod && typeof paymentMethod === "string") {
+      whereConditions.paymentMethod = paymentMethod;
+    }
+    
+    // Total price range filter
+    if (minTotal || maxTotal) {
+      whereConditions.total = {};
+      if (minTotal) whereConditions.total.gte = parseFloat(minTotal as string);
+      if (maxTotal) whereConditions.total.lte = parseFloat(maxTotal as string);
+    }
 
-    // Filter berdasarkan nomor meja
-    const tableFilter = tableNumber ? { tableNumber: tableNumber as string } : {};
-
-    // Filter berdasarkan metode pembayaran
-    const paymentFilter = paymentMethod
-      ? { paymentMethod: paymentMethod as string }
-      : {};
-
-    // Filter berdasarkan total harga
-    const totalFilter = {
-      ...(minTotal && { total: { gte: parseFloat(minTotal as string) } }),
-      ...(maxTotal && { total: { lte: parseFloat(maxTotal as string) } }),
-    };
-
-    // Ambil semua CompletedOrder dengan filter
+    // 3. Query database
     const completedOrders = await prisma.completedOrder.findMany({
-      where: {
-        ...dateFilter,
-        ...tableFilter,
-        ...paymentFilter,
-        ...totalFilter,
-      },
+      where: whereConditions,
       include: {
         orderItems: {
           include: {
@@ -62,9 +74,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    return res.status(200).json({ orders: completedOrders });
+    // 4. Transform data untuk response
+    const transformedOrders = completedOrders.map(order => ({
+      ...order,
+      createdAt: order.createdAt.toISOString(),
+      orderItems: order.orderItems.map(item => ({
+        ...item,
+        menuName: item.menu.name,
+      })),
+    }));
+
+    return res.status(200).json({ orders: transformedOrders });
+    
   } catch (error) {
     console.error("❌ Error fetching completed orders:", error);
-    return res.status(500).json({ message: "Gagal mengambil data riwayat pesanan." });
+    return res.status(500).json({ 
+      message: "Gagal mengambil data riwayat pesanan",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  } finally {
+    await prisma.$disconnect();
   }
 }
