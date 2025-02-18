@@ -36,7 +36,7 @@ interface Menu {
 }
 
 
-const Bookinge = () => {
+const Booking1 = () => {
   const [selectedFloor, setSelectedFloor] = useState(1);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [selectedTableOrders, setSelectedTableOrders] = useState<Order[]>([]);
@@ -44,6 +44,7 @@ const Bookinge = () => {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
   const router = useRouter(); // Tambahkan ini
+  const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
 
  
   const getCapacityMessage = (tableNumber: string) => {
@@ -63,6 +64,23 @@ const Bookinge = () => {
     return '';
   };
 
+  useEffect(() => {
+    const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
+    if (savedMarkedTables) {
+      setManuallyMarkedTables(JSON.parse(savedMarkedTables));
+    }
+    
+    // Listen for storage changes from other tabs/windows
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "manuallyMarkedTables") {
+        setManuallyMarkedTables(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+  
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
@@ -85,22 +103,22 @@ const Bookinge = () => {
   // Di dalam komponen Bookinge
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-
+  
     // Prioritaskan tabel yang ditandai manual
-    // if (manuallyMarkedTables.includes(tableNumberStr)) {
-    //   return "bg-[#D02323]";
-    // }
-
+    if (manuallyMarkedTables.includes(tableNumberStr)) {
+      return "bg-[#D02323]";
+    }
+  
     const tableOrders = allOrders.filter(order =>
       order.tableNumber === tableNumberStr
     );
-
+  
     const hasActiveOrders = tableOrders.some(order =>
       order.status !== "Selesai"
     );
-
+  
     const isTableReset = tableOrders.length === 0;
-
+  
     return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
   };
 
@@ -1113,4 +1131,4 @@ const Bookinge = () => {
   );
 };
 
-export default Bookinge;
+export default Booking1;
