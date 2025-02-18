@@ -13,13 +13,12 @@ model Menu {
   description  String?
   image        String
   price        Float
-  hargaBakul        Float
+  hargaBakul   Float           @default(0.0) // Tambahkan nilai default
   category     String
   Status       String
-    orderItems OrderItem[] 
-  // Relasi ke tabel join yang menghubungkan menu dengan ingredient
+  orderItems   OrderItem[] 
   ingredients  MenuIngredient[]
-  completedOrderItems CompletedOrderItem[] // Hubungan ke CompletedOrderItem
+  completedOrderItems CompletedOrderItem[]
 }
 
 model Ingredient {
@@ -191,9 +190,9 @@ model Reservasi {
   nomorKontak      String
   jumlahTamu       Int
   tanggalReservasi DateTime
-  nomorMeja        String
+  nomorMeja        String?
   durasiPemesanan  Int              @default(60) // Default 60 menit agar tidak error
-  kodeBooking      String           @unique
+  kodeBooking      String?           @unique
   status           StatusReservasi  @default(BOOKED)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
