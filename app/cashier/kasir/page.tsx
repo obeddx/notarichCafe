@@ -7,6 +7,18 @@ import { FiBell } from "react-icons/fi";
 import { AlertTriangle } from "lucide-react";
 import { useNotifications, MyNotification } from "../../contexts/NotificationContext";
 import CombinedPaymentForm from "@/components/combinedPaymentForm";
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:3000", {
+  path: "/api/socket",
+  transports: ["websocket"], // Prioritaskan WebSocket, bukan polling
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 3000,
+  autoConnect: true,
+  withCredentials: true,
+});
+
 
 interface Menu {
   id: number;
@@ -57,12 +69,7 @@ export default function KasirPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk sidebar
   const [, setSelectedOrders] = useState<number[]>([]);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-// Define groupedOrders before using it
-
-
+  
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
@@ -80,6 +87,48 @@ export default function KasirPage() {
     }
   };
 
+  useEffect(() => {
+    fetchOrders(); // Panggil fetchOrders saat komponen dimuat
+  
+    socket.on("connect", () => {
+      console.log("✅ Terhubung ke WebSocket server");
+    });
+  
+    socket.on("disconnect", () => {
+      console.log("❌ Terputus dari WebSocket server");
+    });
+  
+    socket.on("connect_error", (err) => {
+      console.error("❌ Koneksi WebSocket gagal:", err.message);
+    });
+  
+    socket.on("new-order", (order) => {
+      setOrders((prevOrders) => [...prevOrders, order]);
+    });
+  
+    socket.on("order-updated", (updatedOrder) => {
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === updatedOrder.id ? updatedOrder : order
+        )
+      );
+    });
+  
+    socket.on("order-deleted", (orderId) => {
+      setOrders((prevOrders) =>
+        prevOrders.filter((order) => order.id !== orderId)
+      );
+    });
+  
+    return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("connect_error");
+      socket.off("new-order");
+      socket.off("order-updated");
+      socket.off("order-deleted");
+    };
+  }, []);
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -102,6 +151,8 @@ export default function KasirPage() {
       });
   
       if (res.ok) {
+        const updatedOrder = await res.json();
+        socket.emit("order-updated", updatedOrder); // Kirim event ke server WebSocket
         fetchOrders();
       } else {
         throw new Error("Gagal mengonfirmasi pembayaran");

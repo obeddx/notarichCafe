@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { NextApiRequest, NextApiResponse } from "next";
+import type { Server as SocketServer } from "socket.io";
 
 const prisma = new PrismaClient();
 
@@ -14,10 +15,12 @@ interface OrderDetails {
   tableNumber: string;
   items: OrderItem[];
   total: number;
+  customerName: string;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { customerName, } = req.body;
+  const { customerName } = req.body;
+
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -33,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Simpan Order ke database
     const newOrder = await prisma.order.create({
       data: {
-        customerName, // Tambahkan field
+        customerName,
         tableNumber: orderDetails.tableNumber,
         total: orderDetails.total,
         status: "pending",
@@ -47,10 +50,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       },
       include: {
-        orderItems: true, // Pastikan orderItems dikembalikan dalam respons
+        orderItems: {
+          include: {
+            menu: true, // Pastikan gambar menu ikut dikembalikan
+          },
+        },
       },
     });
 
+    // Mengambil instance WebSocket
+    const io = (res.socket as any)?.server?.io as SocketServer;
+    if (io) {
+      // Kirim event 'new-order' ke semua klien terhubung
+      io.emit("new-order", newOrder);
+    }
+
+    // Kembalikan order beserta item beserta gambar menu
     res.status(200).json({
       success: true,
       message: "Order placed successfully",
@@ -58,6 +73,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error("Error placing order:", error);
-    res.status(500).json({ message: "Failed to place order" });
+    res.status(500).json({ message: "Failed to place order", error: error.message });
   }
 }
