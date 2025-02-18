@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { NextApiRequest, NextApiResponse } from "next";
-import type { Server as SocketServer } from "socket.io";
 
 const prisma = new PrismaClient();
 
@@ -58,14 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Mengambil instance WebSocket
-    const io = (res.socket as any)?.server?.io as SocketServer;
-    if (io) {
-      // Kirim event 'new-order' ke semua klien terhubung
-      io.emit("new-order", newOrder);
-    }
-
-    // Kembalikan order beserta item beserta gambar menu
+    // Kirim respons dengan pesanan baru
     res.status(200).json({
       success: true,
       message: "Order placed successfully",

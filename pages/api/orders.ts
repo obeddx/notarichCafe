@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { NextApiRequest, NextApiResponse } from "next";
-import type { Server as SocketServer } from "socket.io";
 
 const prisma = new PrismaClient();
 
@@ -38,12 +37,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: "Sedang Diproses",
         },
       });
-
-      // 👇 Kirim event WebSocket ke semua klien
-      const io = (res.socket as any)?.server?.io as SocketServer;
-      if (io) {
-        io.emit("order-updated", updatedOrder); // 🚀 Event untuk pembaruan pesanan
-      }
 
       res.status(200).json({ success: true, order: updatedOrder });
     } catch (error) {
