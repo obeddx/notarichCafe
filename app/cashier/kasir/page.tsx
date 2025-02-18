@@ -590,12 +590,12 @@ function OrderItemComponent({
       </div>
       <p className="text-gray-700 mt-2">Total: <span className="font-semibold">Rp {order.total.toLocaleString()}</span></p>
       <ul className="mt-3 space-y-1">
-        {order.orderItems.map((item) => (
-          <li key={item.id} className="flex items-center space-x-2">
-            <img src={item.menu.image} alt={item.menu.name} className="w-8 h-8 object-cover rounded" />
-            <span>{item.menu.name} - {item.quantity} pcs</span>
-          </li>
-        ))}
+      {order.orderItems && order.orderItems.map((item) => (
+  <li key={item.id} className="flex items-center space-x-2">
+    <img src={item.menu.image} alt={item.menu.name} className="w-8 h-8 object-cover rounded" />
+    <span>{item.menu.name} - {item.quantity} pcs</span>
+  </li>
+))}
       </ul>
 
       {/* Tombol untuk pesanan berstatus "pending" */}
