@@ -1,12 +1,16 @@
 "use client";
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import Sidebar from "@/components/sidebar";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FiSearch } from "react-icons/fi";
-import { useRef } from "react";
+
+type Price = {
+  unitPrice: string;
+  price: number;
+};
 
 type Ingredient = {
   id: number;
@@ -18,23 +22,13 @@ type Ingredient = {
   stockMin: number;
   stock: number; // Stock akhir
   unit: string;
+  prices: Price[]; // Data harga dari API
+  // Properti tambahan untuk keperluan edit di modal:
+  price?: number; // Mengambil nilai price dari prices[0].price
+  unitPriceQuantity?: number; // Mengambil nilai unitPrice dari prices[0].unitPrice (dikonversi ke number)
 };
 
 export default function IngredientsTable() {
-
-  // const defaultIngredient: Ingredient = {
-  //   id: 0,
-  //   name: "",
-  //   start: 0,
-  //   stockIn: 0,
-  //   used: 0,
-  //   wasted: 0,
-  //   stockMin: 0,
-  //     stock: 0,
-  //     unit: "",
-  //     // properti lain jika diperlukan
-  //   };
-  
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
@@ -43,7 +37,6 @@ export default function IngredientsTable() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredIngredient, setFilteredIngredient] = useState<Ingredient[]>([]);
-  // const [notificationMessage, setNotificationMessage] = useState<string>("");
 
   const router = useRouter();
   const wastedRef = useRef<HTMLInputElement>(null);
@@ -71,7 +64,7 @@ export default function IngredientsTable() {
 
   useEffect(() => {
     const filtered = ingredients.filter((ingredient) =>
-      ingredient.name.toLowerCase().includes(searchQuery.toLowerCase()) 
+      ingredient.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredIngredient(filtered);
   }, [searchQuery, ingredients]);
@@ -84,7 +77,6 @@ export default function IngredientsTable() {
       if (!res.ok) {
         throw new Error("Gagal menghapus ingredient.");
       }
-      // Mengupdate state ingredients setelah penghapusan
       setIngredients(ingredients.filter((ing) => ing.id !== id));
       toast.success("Ingredient berhasil dihapus!");
     } catch (err) {
@@ -93,11 +85,16 @@ export default function IngredientsTable() {
     }
   };
 
-  // Fungsi untuk membuka modal edit ingredient
+  // Fungsi untuk membuka modal edit ingredient dan menginisialisasi field tambahan
   const handleEdit = (id: number) => {
     const ing = ingredients.find((i) => i.id === id);
     if (ing) {
-      setSelectedIngredient(ing);
+      setSelectedIngredient({
+        ...ing,
+        // Inisialisasi field price dan unitPriceQuantity dari prices (elemen pertama)
+        price: ing.prices[0]?.price ?? 0,
+        unitPriceQuantity: ing.prices[0]?.unitPrice ? parseFloat(ing.prices[0].unitPrice) : 0,
+      });
     }
   };
 
@@ -114,21 +111,18 @@ export default function IngredientsTable() {
       const res = await fetch(`/api/bahan/${selectedIngredient.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        // Kirim seluruh data ingredient, termasuk field tambahan price dan unitPriceQuantity
         body: JSON.stringify(selectedIngredient),
       });
       const data = await res.json();
       if (res.ok) {
-        // Tampilkan toast sukses ketika edit berhasil
         toast.success("Ingredient berhasil diedit!");
-        
-        // Perbarui state ingredients dengan data yang dikembalikan dari API
         setIngredients(
           ingredients.map((ing) =>
             ing.id === selectedIngredient.id ? data.ingredient : ing
           )
         );
         setSelectedIngredient(null);
-        // setNotificationMessage(data.notificationMessage || "");
       } else {
         alert(data.message || "Gagal mengupdate ingredient.");
       }
@@ -139,10 +133,7 @@ export default function IngredientsTable() {
   };
 
   const handleResetDailyStock = async () => {
-    // Menampilkan dialog konfirmasi
     const confirmed = confirm("Apakah Anda yakin ingin mereset stok harian?");
-    
-    // Jika user tidak mengonfirmasi, batalkan eksekusi
     if (!confirmed) return;
   
     try {
@@ -160,8 +151,8 @@ export default function IngredientsTable() {
     }
   };
 
-   // Filter ingredient yang stock akhir <= stockMin
-   const lowStockIngredients = ingredients.filter(
+  // Filter ingredient dengan stock akhir <= stockMin
+  const lowStockIngredients = ingredients.filter(
     (ingredient) => ingredient.stock <= ingredient.stockMin
   );
 
@@ -181,16 +172,16 @@ export default function IngredientsTable() {
         <p className="text-blue-500 hover:underline pb-4">+ Tambah Ingredient Baru</p>
       </Link>
       <div className="p-4">
-      {lowStockIngredients.length > 0 ? (
-        lowStockIngredients.map((ingredient) => (
-          <p key={ingredient.id} className="text-lg font-semibold text-red-600">
-            Stock untuk {ingredient.name} {ingredient.stock} {ingredient.unit} (Minimum: {ingredient.stockMin} {ingredient.unit})
-          </p>
-        ))
-      ) : (
-        <p className="text-green-600">Semua stok dalam keadaan baik.</p>
-      )}
-    </div>
+        {lowStockIngredients.length > 0 ? (
+          lowStockIngredients.map((ingredient) => (
+            <p key={ingredient.id} className="text-lg font-semibold text-red-600">
+              Stock untuk {ingredient.name} {ingredient.stock} {ingredient.unit} (Minimum: {ingredient.stockMin} {ingredient.unit})
+            </p>
+          ))
+        ) : (
+          <p className="text-green-600">Semua stok dalam keadaan baik.</p>
+        )}
+      </div>
       <div className="flex justify-end mb-6">
         <div className="relative w-full max-w-md">
           <input
@@ -200,10 +191,7 @@ export default function IngredientsTable() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pr-10 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <button
-            type="button"
-            className="absolute right-0 top-0 mt-3 mr-3 text-gray-500"
-          >
+          <button type="button" className="absolute right-0 top-0 mt-3 mr-3 text-gray-500">
             <FiSearch size={20} />
           </button>
         </div>
@@ -220,6 +208,8 @@ export default function IngredientsTable() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wasted</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Min</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Akhir</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Satuan Harga</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
             </tr>
@@ -235,6 +225,16 @@ export default function IngredientsTable() {
                 <td className="px-6 py-4 whitespace-nowrap">{ingredient.wasted}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{ingredient.stockMin}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{ingredient.stock}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {ingredient.prices.map((price, index) => (
+                    <span key={index}>{price.price}</span>
+                  ))}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {ingredient.prices.map((price, index) => (
+                    <span key={index}>{price.unitPrice}</span>
+                  ))}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">{ingredient.unit}</td>
                 <td className="px-8 py-4 whitespace-nowrap">
                   <button
@@ -268,7 +268,7 @@ export default function IngredientsTable() {
           Rekap Stock Cafe
         </button>
 
-        <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md">
+        <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4">
           <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
           <p className="text-sm text-gray-700">
             <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Reset Stock</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk menyimpan rekap pengeluaran stok hari ini.
@@ -276,10 +276,13 @@ export default function IngredientsTable() {
         </div>
       </div>
 
-      {/* Modal Edit Ingredient dengan kemampuan scroll */}
+      {/* Modal Edit Ingredient */}
       {selectedIngredient && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-screen overflow-y-auto" style={{ maxHeight: "calc(100vh - 40px)" }}>
+          <div
+            className="bg-white rounded-lg p-6 w-full max-w-lg max-h-screen overflow-y-auto"
+            style={{ maxHeight: "calc(100vh - 40px)" }}
+          >
             <h2 className="text-xl font-bold mb-4">Edit Ingredient</h2>
             <form onSubmit={handleEditSubmit}>
               <div className="mb-4">
@@ -335,24 +338,23 @@ export default function IngredientsTable() {
               <div className="mb-4">
                 <label className="block font-medium mb-1">Wasted:</label>
                 <input
-  type="number"
-  defaultValue={selectedIngredient?.wasted}
-  ref={wastedRef}
-  onChange={(e) => {
-    const value = parseFloat(e.target.value);
-    setSelectedIngredient(prev =>
-      prev ? { ...prev, wasted: isNaN(value) ? 0 : value } : prev
-    );
-  }}
-  className="w-full p-2 border border-gray-300 rounded"
-  required
-  step="any"
-/>
+                  type="number"
+                  value={selectedIngredient.wasted}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    setSelectedIngredient((prev) =>
+                      prev ? { ...prev, wasted: isNaN(value) ? 0 : value } : prev
+                    );
+                  }}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                  step="any"
+                />
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Stock Min:</label>
                 <input
-                  type="text"
+                  type="number"
                   value={selectedIngredient.stockMin}
                   onChange={(e) =>
                     setSelectedIngredient({
@@ -380,6 +382,52 @@ export default function IngredientsTable() {
                   required
                 />
               </div>
+              {/* Field input untuk Price */}
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Price:</label>
+                <input
+                  type="number"
+                  value={selectedIngredient.price ?? ""}
+                  onChange={(e) =>
+                    setSelectedIngredient({
+                      ...selectedIngredient,
+                      price: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                  step="any"
+                />
+              </div>
+              {/* Field Satuan Harga (2 kolom) */}
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Satuan Harga:</label>
+                <div className="flex space-x-2">
+                  {/* Kolom untuk input jumlah satuan */}
+                  <input
+                    type="number"
+                    value={selectedIngredient.unitPriceQuantity ?? ""}
+                    onChange={(e) =>
+                      setSelectedIngredient({
+                        ...selectedIngredient,
+                        unitPriceQuantity: e.target.value ? parseFloat(e.target.value) : 0,
+                      })
+                    }
+                    className="w-1/2 p-2 border border-gray-300 rounded"
+                    required
+                    step="any"
+                    placeholder="Jumlah satuan"
+                  />
+                  {/* Kolom otomatis terisi (readonly) dari perubahan unit */}
+                  <input
+                    type="text"
+                    value={selectedIngredient.unit}
+                    readOnly
+                    className="w-1/2 p-2 border border-gray-300 rounded bg-gray-100"
+                    placeholder="Satuan"
+                  />
+                </div>
+              </div>
               <div className="flex justify-end space-x-4">
                 <button
                   type="button"
@@ -399,7 +447,8 @@ export default function IngredientsTable() {
           </div>
         </div>
       )}
-      {/* Letakkan Toaster di dalam komponen ini */}
+
+      {/* Toaster untuk notifikasi */}
       <Toaster position="top-right" />
     </div>
   );

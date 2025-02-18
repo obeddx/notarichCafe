@@ -16,12 +16,25 @@ export default async function handler(
   }
 
   if (req.method === "PUT") {
-    const { name, start, stockIn, used, wasted, stockMin, unit, isActive } = req.body;
+    // Destructure field tambahan price dan unitPriceQuantity
+    const { 
+      name, 
+      start, 
+      stockIn, 
+      used, 
+      wasted, 
+      stockMin, 
+      unit, 
+      isActive,
+      price, 
+      unitPriceQuantity 
+    } = req.body;
 
     try {
-      // Ambil data ingredient saat ini
+      // Ambil data ingredient saat ini beserta data harga terkait
       const ingredient = await prisma.ingredient.findUnique({
         where: { id: ingredientId },
+        include: { prices: true }
       });
 
       if (!ingredient) {
@@ -34,10 +47,12 @@ export default async function handler(
       const newUsed = used !== undefined ? Number(used) : ingredient.used;
       const newWasted = wasted !== undefined ? Number(wasted) : ingredient.wasted;
 
-      // Hitung ulang stockakhir untuk ingredient
+      // Hitung ulang stock akhir untuk ingredient
       const newIngredientStock = (newStart + newStockIn) - newUsed - newWasted;
 
-      // Update data ingredient
+      // Update data ingredient beserta nested update untuk ingredientPrice.
+      // Untuk field unitPrice, gabungkan nilai numeric dan unit secara otomatis,
+      // misalnya "1 butir" jika unitPriceQuantity=1 dan unit="butir".
       const updatedIngredient = await prisma.ingredient.update({
         where: { id: ingredientId },
         data: {
@@ -50,7 +65,23 @@ export default async function handler(
           unit,
           ...(isActive !== undefined && { isActive }),
           stock: newIngredientStock,
+          // Nested update pada tabel ingredientPrice
+          ...((price !== undefined || unitPriceQuantity !== undefined) && {
+            prices: {
+              updateMany: {
+                // Update semua record harga yang terkait (asumsi hanya ada 1 record)
+                where: {},
+                data: {
+                  ...(price !== undefined ? { price: Number(price) } : {}),
+                  ...(unitPriceQuantity !== undefined
+                    ? { unitPrice: `${unitPriceQuantity} ${unit}` }
+                    : {})
+                }
+              }
+            }
+          })
         },
+        include: { prices: true }
       });
 
       // Jika ada perubahan pada stockIn, lakukan update pada tabel gudang
@@ -62,12 +93,12 @@ export default async function handler(
         });
 
         if (gudang) {
-           // Hitung perubahan (increment) pada stockIn
-    const increment = newStockIn - ingredient.stockIn;
-    // Tambahkan increment tersebut ke gudang.used
-    const newGudangUsed = gudang.used + increment;
-    // Hitung ulang stock akhir untuk gudang:
-    const newGudangStock = (gudang.start + gudang.stockIn) - newGudangUsed - gudang.wasted;
+          // Hitung perubahan (increment) pada stockIn
+          const increment = newStockIn - ingredient.stockIn;
+          // Tambahkan increment tersebut ke gudang.used
+          const newGudangUsed = gudang.used + increment;
+          // Hitung ulang stock akhir untuk gudang:
+          const newGudangStock = (gudang.start + gudang.stockIn) - newGudangUsed - gudang.wasted;
 
           updatedGudang = await prisma.gudang.update({
             where: { id: ingredientId },
@@ -79,18 +110,14 @@ export default async function handler(
         }
       }
 
-       // Variabel untuk menyimpan pesan notifikasi
-       let notificationMessage = "";
+      // Variabel untuk menyimpan pesan notifikasi
+      let notificationMessage = "";
 
-       // Cek kondisi:
-      // 1. Jika stock akhir sama dengan stockMin dan tidak nol:
+      // Cek kondisi:
       if (newIngredientStock <= updatedIngredient.stockMin && newIngredientStock !== 0) {
         notificationMessage = `manager harus melakukan stock in, stock ${ingredient.name} di cafe sudah mencapai batas minimal`;
-      }
-
-       // 2. Jika stock akhir sama dengan 0:
-       else if (newIngredientStock === 0) {
-        // Cari semua Menu yang memiliki ingredient tersebut
+      } else if (newIngredientStock === 0) {
+        // Cari dan update menu yang terkait menjadi "Habis"
         const menusToUpdate = await prisma.menu.findMany({
           where: {
             ingredients: {
@@ -99,7 +126,6 @@ export default async function handler(
           },
         });
 
-        // Perbarui field 'status' di tiap Menu yang ditemukan menjadi "Habis"
         for (const menu of menusToUpdate) {
           await prisma.menu.update({
             where: { id: menu.id },
@@ -107,11 +133,8 @@ export default async function handler(
           });
         }
         notificationMessage = `stock ${ingredient.name} di cafe sudah habis`;
-      }
-
-      // Jika stock akhir lebih besar dari stockMin, periksa apakah ada menu yang statusnya "Habis"
-      // dan update statusnya menjadi "Tersedia"
-      else if (newIngredientStock > updatedIngredient.stockMin) {
+      } else if (newIngredientStock > updatedIngredient.stockMin) {
+        // Update menu yang statusnya "Habis" menjadi "Tersedia"
         const menusToUpdate = await prisma.menu.findMany({
           where: {
             ingredients: {
@@ -135,17 +158,16 @@ export default async function handler(
         notificationMessage,
         gudang: updatedGudang,
         toast: {
-            type: "success",
-            color: "green",
-            text: "Ingredient berhasil dibuat!"
-          }
+          type: "success",
+          color: "green",
+          text: "Ingredient berhasil dibuat!"
+        }
       });
     } catch (error) {
       console.error("Error updating ingredient:", error);
       return res.status(500).json({ message: "Internal server error" });
     }
   } else if (req.method === "DELETE") {
-    // Contoh metode DELETE untuk soft delete (update isActive menjadi false)
     try {
       const updatedIngredient = await prisma.ingredient.update({
         where: { id: ingredientId },
