@@ -1,8 +1,14 @@
 "use client";
 import { useState, FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
+import Sidebar from "@/components/sidebar";
 
 export default function CreateIngredient() {
+  // State untuk Sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+
+  // State untuk form ingredient
   const [name, setName] = useState("");
   const [start, setStart] = useState("");
   const [warehouseStart, setWarehouseStart] = useState("");
@@ -68,7 +74,10 @@ export default function CreateIngredient() {
   };
 
   return (
-    <>
+    <div className="p-4 mt-[85px] transition-all" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
+      {/* Sidebar dengan properti onToggle yang benar */}
+      <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
+
       <div className="max-w-md mx-auto p-6 bg-white rounded shadow-md mt-10">
         <h1 className="text-xl font-bold mb-4 text-center">Create Ingredient</h1>
         <form onSubmit={handleSubmit}>
@@ -138,6 +147,6 @@ export default function CreateIngredient() {
         </form>
       </div>
       <Toaster position="top-right" />
-    </>
+    </div>
   );
 }

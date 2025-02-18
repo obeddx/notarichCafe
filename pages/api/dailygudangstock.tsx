@@ -43,10 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const data = await prisma.dailyGudangStock.groupBy({
       by: ["gudangId", "gudangName"],
       where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
+        date: { gte: startDate, lte: endDate },
+        gudang: { isActive: true },
       },
       _sum: {
         start: true,
