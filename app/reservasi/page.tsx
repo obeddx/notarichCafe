@@ -166,6 +166,7 @@ const ReservationForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
+ 
     const now = new Date();
     const selectedTime = new Date(form.selectedDateTime);
     if (selectedTime < now) {
@@ -327,7 +328,7 @@ const ReservationForm = () => {
               <div className="relative">
                 <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
-                  type="number"
+                  type="tel"
                   name="nomorKontak"
                   value={form.nomorKontak}
                   onChange={handleChange}

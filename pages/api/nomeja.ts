@@ -50,13 +50,12 @@ export default async function handler(
       if (!tableNumber) {
         return res.status(400).json({ message: 'tableNumber is required' });
       }
-
-      // Konversi tableNumber menjadi number karena field di database bertipe Int
+  
       const nomorMeja = Number(tableNumber);
       if (isNaN(nomorMeja)) {
         return res.status(400).json({ message: 'tableNumber must be a valid number' });
       }
-
+  
       const newDataMeja = await prisma.dataMeja.create({
         data: {
           nomorMeja,
@@ -79,19 +78,18 @@ export default async function handler(
       if (!nomorMeja) {
         return res.status(400).json({ message: 'Nomor meja diperlukan' });
       }
-
+  
       const parsedNomorMeja = Number(nomorMeja);
       if (isNaN(parsedNomorMeja)) {
         return res.status(400).json({ message: 'Nomor meja harus berupa angka' });
       }
-
-      // Hapus data meja
+  
       await prisma.dataMeja.deleteMany({
         where: {
           nomorMeja: parsedNomorMeja
         }
       });
-
+  
       return res.status(200).json({ message: 'Meja berhasil direset' });
     } catch (error) {
       console.error('Error deleting table:', error);
