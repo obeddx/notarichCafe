@@ -1,5 +1,5 @@
-'use client';
-import { useState, ChangeEvent } from 'react';
+"use client";
+import { useState, ChangeEvent } from "react";
 import Sidebar from "@/components/sidebar";
 
 interface Ingredient {
@@ -15,38 +15,47 @@ interface Ingredient {
 }
 
 const DailyIngredientStock = () => {
-  const [date, setDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [data, setData] = useState<Ingredient[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
 
-  const fetchData = async (selectedDate: string) => {
+  const fetchData = async (start: string, end?: string) => {
     try {
-      const res = await fetch(`/api/dailyingredientstock?date=${selectedDate}`);
+      // Mengubah parameter query ke startDate dan endDate
+      const url = end ? `/api/dailyingredientstock?startDate=${start}&endDate=${end}` : `/api/dailyingredientstock?startDate=${start}`;
+      const res = await fetch(url);
+
       if (!res.ok) {
-        throw new Error('Error fetching data');
+        throw new Error("Error fetching data");
       }
+
       const json: Ingredient[] = await res.json();
       setData(json);
     } catch (error) {
-      console.error('Error: ', error);
+      console.error("Error:", error);
       setData([]);
     }
   };
 
   const handleSearch = () => {
-    if (date) {
-      fetchData(date);
+    if (startDate && !endDate) {
+      fetchData(startDate);
+    } else if (startDate && endDate) {
+      fetchData(startDate, endDate);
     }
   };
 
-  const formattedDate =
-    data.length > 0
-      ? new Date(data[0].date).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: '2-digit',
-        })
-      : '';
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formattedDate = data.length > 0 ? (endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}` : `${formatDate(startDate)}`) : "";
 
   // Fungsi untuk toggle sidebar
   const toggleSidebar = () => {
@@ -54,33 +63,48 @@ const DailyIngredientStock = () => {
   };
 
   return (
-    <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
-      <div className="bg-white shadow rounded-lg p-6">
-        <h1 className="text-3xl font-bold text-center mb-6">Daily Ingredient Stock</h1>
+    <div className="p-4 mt-[85px] transition-all" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <h1 className="text-3xl font-bold text-center mb-6 text-blue-600">Daily Ingredient Stock</h1>
         <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-        <div className="flex flex-col sm:flex-row items-center justify-center mb-6">
-          <label htmlFor="date" className="mr-2 font-medium text-gray-700">
-            Pilih Tanggal:
-          </label>
-          <input
-            type="date"
-            id="date"
-            value={date}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
-          />
-          <button 
-            onClick={handleSearch}
-            className="ml-2 mt-2 sm:mt-0 bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded shadow">
+
+        {/* Input tanggal */}
+        <div className="flex justify-center mb-6 gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <label htmlFor="start-date" className="font-medium text-gray-700">
+              Tanggal:
+            </label>
+            <input
+              type="date"
+              id="start-date"
+              value={startDate}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-400"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label htmlFor="end-date" className="font-medium text-gray-700">
+              Sampai (Opsional):
+            </label>
+            <input
+              type="date"
+              id="end-date"
+              value={endDate}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-400"
+              disabled={!startDate}
+            />
+          </div>
+
+          <button onClick={handleSearch} className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded shadow">
             Cari
           </button>
         </div>
 
         {data.length > 0 ? (
           <>
-            <div className="mb-4 text-center text-lg font-semibold text-gray-800">
-              Tanggal: {formattedDate}
-            </div>
+            <div className="mb-4 text-center text-lg font-semibold text-gray-800">Periode: {formattedDate}</div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-100">
@@ -113,7 +137,7 @@ const DailyIngredientStock = () => {
             </div>
           </>
         ) : (
-          <p className="text-center text-gray-600">Tidak ada data untuk tanggal yang dipilih.</p>
+          <p className="text-center text-gray-600">Tidak ada data dalam periode yang dipilih.</p>
         )}
       </div>
     </div>

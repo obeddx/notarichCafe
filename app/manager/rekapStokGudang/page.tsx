@@ -45,10 +45,11 @@ const RekapStokGudang = () => {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("id-ID", {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("id-ID", {
       day: "2-digit",
-      month: "2-digit",
-      year: "2-digit",
+      month: "long",
+      year: "numeric",
     });
   };
 

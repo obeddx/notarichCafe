@@ -1,43 +1,33 @@
-// pages/api/dailyingredientstock.tsx
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  const { date } = req.query;
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { startDate, endDate } = req.query;
 
-  if (!date || typeof date !== "string") {
-    return res
-      .status(400)
-      .json({ error: "Query parameter 'date' diperlukan." });
+  // Memeriksa apakah startDate dan endDate ada dan dalam format yang benar
+  if (!startDate || !endDate || typeof startDate !== "string" || typeof endDate !== "string") {
+    return res.status(400).json({ error: "Query parameter 'startDate' dan 'endDate' diperlukan." });
   }
 
-  // Parsing tanggal dari query string menjadi Date object
-  const parsedDate = new Date(date);
+  // Parsing startDate dan endDate menjadi objek Date
+  const parsedStartDate = new Date(startDate);
+  parsedStartDate.setHours(0, 0, 0, 0); // Menentukan waktu mulai dari jam 00:00:00
 
-  // Menentukan awal dan akhir hari (rentang waktu hari tersebut)
-  const startOfDay = new Date(parsedDate);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(parsedDate);
-  endOfDay.setHours(23, 59, 59, 999);
+  const parsedEndDate = new Date(endDate);
+  parsedEndDate.setHours(23, 59, 59, 999); // Menentukan waktu akhir pada jam 23:59:59
 
   try {
-    // Mengambil data berdasarkan rentang waktu pada field DateTime
-    // dan menyertakan data ingredient agar bisa menampilkan ingredient name
+    // Mengambil data berdasarkan rentang waktu yang diberikan oleh startDate dan endDate
     const data = await prisma.dailyIngredientStock.findMany({
       where: {
         date: {
-          gte: startOfDay,
-          lte: endOfDay,
+          gte: parsedStartDate, // Greater than or equal to startDate
+          lte: parsedEndDate, // Less than or equal to endDate
         },
       },
-      include: { ingredient: true },
+      include: { ingredient: true }, // Menyertakan data ingredient agar bisa ditampilkan
     });
 
     res.status(200).json(data);
