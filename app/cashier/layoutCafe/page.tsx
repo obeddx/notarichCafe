@@ -68,7 +68,7 @@ const Bookinge = () => {
       console.error("Error:", error);
       toast.error("Gagal menyimpan data meja");
     }
-  };  
+  };
   
   const resetTable = async (tableNumber: string) => {
     try {
@@ -107,11 +107,14 @@ const Bookinge = () => {
     }
   }, []);
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+  
 // Save to localStorage whenever manuallyMarkedTables changes
 useEffect(() => {
   localStorage.setItem("manuallyMarkedTables", JSON.stringify(manuallyMarkedTables));
 }, [manuallyMarkedTables]);
-
 
   useEffect(() => {
     const fetchData = async () => {
@@ -137,7 +140,7 @@ useEffect(() => {
     
     // Prioritaskan tabel yang ditandai manual
     if (manuallyMarkedTables.includes(tableNumberStr)) {
-      return "bg-[#D02323]";
+      return "bg-[#D02323]"; // Warna merah untuk meja terisi
     }
     
     const tableOrders = allOrders.filter(order =>
@@ -150,7 +153,7 @@ useEffect(() => {
     
     const isTableReset = tableOrders.length === 0;
     
-    return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
+    return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800"; // Warna hijau untuk meja tersedia
   };
   
   // Tambahkan fungsi fetchData yang bisa diakses global
@@ -1125,18 +1128,21 @@ useEffect(() => {
               >
                 Pesan Sekarang
               </Link>
-              <button
-                onClick={() => markTableAsOccupied(selectedTableNumber)}
-                className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-              >
-                Tandai sebagai Terisi
-              </button>
-              <button
-                onClick={() => resetTable(selectedTableNumber)}
-                className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Reset Meja
-              </button>
+              {manuallyMarkedTables.includes(selectedTableNumber) ? (
+                <button
+                  onClick={() => resetTable(selectedTableNumber)}
+                  className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Reset Meja
+                </button>
+              ) : (
+                <button
+                  onClick={() => markTableAsOccupied(selectedTableNumber)}
+                  className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+                >
+                  Tandai sebagai Terisi
+                </button>
+              )}
             </div>
           </div>
         )}
