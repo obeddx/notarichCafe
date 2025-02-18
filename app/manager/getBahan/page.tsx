@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, FormEvent, useRef } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
@@ -39,7 +39,7 @@ export default function IngredientsTable() {
   const [filteredIngredient, setFilteredIngredient] = useState<Ingredient[]>([]);
 
   const router = useRouter();
-  const wastedRef = useRef<HTMLInputElement>(null);
+  
 
   // Fungsi untuk mengambil data ingredients dari API
   const fetchIngredients = async () => {

@@ -18,7 +18,32 @@ model Menu {
   Status       String
   orderItems   OrderItem[] 
   ingredients  MenuIngredient[]
+  bundleMenus BundleMenu[]
   completedOrderItems CompletedOrderItem[]
+}
+
+model Bundle {
+  id          Int           @id @default(autoincrement())
+  name        String        // Nama paket, misalnya "Paket Ayam"
+  description String?       // Deskripsi paket (opsional)
+  image       String
+  bundlePrice Float?        // Jika ada harga khusus paket
+  isActive    Boolean       @default(true)
+
+  // Relasi ke tabel pivot
+  bundleMenus BundleMenu[]
+}
+
+model BundleMenu {
+  id       Int   @id @default(autoincrement())
+  bundleId Int
+  menuId   Int
+  quantity Int   // Jumlah menu dalam paket
+
+  bundle   Bundle @relation(fields: [bundleId], references: [id])
+  menu     Menu   @relation(fields: [menuId], references: [id])
+
+  @@unique([bundleId, menuId])
 }
 
 model Ingredient {
