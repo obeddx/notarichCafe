@@ -22,6 +22,23 @@ export default function SalesTransactionChart() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // State untuk detail sales per transaction
+  const [selectedDetail, setSelectedDetail] = useState<{
+    date: string;
+    summary: {
+      netSales: number;
+      transactionCount: number;
+      salesPerTransaction: number;
+    };
+    details: {
+      menuName: string;
+      sellingPrice: number;
+      quantity: number;
+      totalSales: number;
+    }[];
+  } | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
   useEffect(() => {
     async function fetchSalesData() {
       try {
@@ -42,15 +59,38 @@ export default function SalesTransactionChart() {
   const formatDate = (dateString: string) => {
     if (period === "daily") {
       const date = new Date(dateString);
-      return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
+      return date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+      });
     } else if (period === "weekly") {
-      // Untuk mingguan, kita asumsikan format date sudah "YYYY-Www"
-      return dateString;
+        const weekNumber = dateString.split("-W")[1];
+        return `Minggu ke-${weekNumber}`;
     } else {
-      // Untuk bulanan, ubah format "YYYY-MM" menjadi format lokal
+      // monthly
       const [year, month] = dateString.split("-");
       const date = new Date(Number(year), Number(month) - 1);
       return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    }
+  };
+
+  // Handler untuk klik pada bar grafik
+  const handleBarClick = async (data: any) => {
+    const clickedDate = data.date;
+    setLoadingDetail(true);
+    try {
+      const detailUrl = `/api/salesTransactionDetail?date=${clickedDate}&period=${period}`;
+      const res = await fetch(detailUrl);
+      const detailData = await res.json();
+      setSelectedDetail({
+        date: clickedDate,
+        summary: detailData.summary,
+        details: detailData.details,
+      });
+    } catch (error) {
+      console.error("Error fetching sales detail:", error);
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
@@ -101,7 +141,9 @@ export default function SalesTransactionChart() {
           <select
             id="period"
             value={period}
-            onChange={(e) => setPeriod(e.target.value as "daily" | "weekly" | "monthly")}
+            onChange={(e) =>
+              setPeriod(e.target.value as "daily" | "weekly" | "monthly")
+            }
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Harian</option>
@@ -147,7 +189,10 @@ export default function SalesTransactionChart() {
       </div>
 
       <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={salesData} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
+        <BarChart
+          data={salesData}
+          margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+        >
           <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
           <XAxis
             dataKey="date"
@@ -170,9 +215,87 @@ export default function SalesTransactionChart() {
             }}
           />
           <Legend verticalAlign="top" align="right" iconType="circle" />
-          <Bar dataKey="salesPerTransaction" fill="#4CAF50" radius={[8, 8, 0, 0]} />
+          <Bar
+            dataKey="salesPerTransaction"
+            fill="#4CAF50"
+            radius={[8, 8, 0, 0]}
+            onClick={(data) => handleBarClick(data.payload)}
+          />
         </BarChart>
       </ResponsiveContainer>
+
+      {/* Modal Detail */}
+      {selectedDetail && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg w-2/3 max-h-screen overflow-auto">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold">
+                Detail Sales per Transaction{" "}
+                <span className="text-sm text-gray-500">
+                  (Tanggal {formatDate(selectedDetail.date)})
+                </span>
+              </h2>
+              <button
+                onClick={() => setSelectedDetail(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                &times;
+              </button>
+            </div>
+            {loadingDetail ? (
+              <p>Loading...</p>
+            ) : (
+              <div className="mt-4">
+                {/* Ringkasan Summary */}
+                <div className="mb-4 p-4 bg-gray-100 rounded">
+                  <p>
+                    <strong>Net Sales:</strong> Rp{" "}
+                    {Number(selectedDetail.summary.netSales).toLocaleString()}
+                  </p>
+                  <p>
+                    <strong>Jumlah Transaksi:</strong>{" "}
+                    {selectedDetail.summary.transactionCount}
+                  </p>
+                  <p>
+                    <strong>Sales per Transaction:</strong>{" "}
+                    {selectedDetail.summary.salesPerTransaction.toFixed(2)}
+                  </p>
+                </div>
+                {/* Tabel Detail Menu */}
+                <h3 className="text-lg font-semibold mb-2">Detail Menu</h3>
+                {selectedDetail.details.length > 0 ? (
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr>
+                        <th className="border px-2 py-1">Menu</th>
+                        <th className="border px-2 py-1">Harga Jual</th>
+                        <th className="border px-2 py-1">Jumlah Terjual</th>
+                        <th className="border px-2 py-1">Total Sales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDetail.details.map((item, index) => (
+                        <tr key={index}>
+                          <td className="border px-2 py-1">{item.menuName}</td>
+                          <td className="border px-2 py-1">
+                            Rp {Number(item.sellingPrice).toLocaleString()}
+                          </td>
+                          <td className="border px-2 py-1">{item.quantity}</td>
+                          <td className="border px-2 py-1">
+                            Rp {Number(item.totalSales).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p>Tidak ada detail menu untuk tanggal ini.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

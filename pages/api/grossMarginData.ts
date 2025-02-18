@@ -53,22 +53,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }));
             } else if (period === "monthly") {
                 const rawData: any[] = await prisma.$queryRaw`
-          SELECT 
-            YEAR(co.createdAt) as year,
-            MONTH(co.createdAt) as month,
-            SUM(co.total) as netSales,
-            SUM(m.hargaBakul * ci.quantity) as hpp
-          FROM CompletedOrder co
-          JOIN CompletedOrderItem ci ON co.id = ci.orderId
-          JOIN Menu m ON ci.menuId = m.id
-          WHERE (${startDate} IS NULL OR co.createdAt >= ${startDate})
-            AND (${endDate} IS NULL OR co.createdAt <= ${endDate})
-          GROUP BY YEAR(co.createdAt), MONTH(co.createdAt)
-          ORDER BY YEAR(co.createdAt), MONTH(co.createdAt) ASC
-        `;
+                  SELECT 
+                    YEAR(co.createdAt) as year,
+                    MONTH(co.createdAt) as month,
+                    SUM(co.total) as netSales,
+                    SUM(m.hargaBakul * ci.quantity) as hpp
+                  FROM CompletedOrder co
+                  JOIN CompletedOrderItem ci ON co.id = ci.orderId
+                  JOIN Menu m ON ci.menuId = m.id
+                  WHERE (${startDate} IS NULL OR co.createdAt >= ${startDate})
+                    AND (${endDate} IS NULL OR co.createdAt <= ${endDate})
+                  GROUP BY YEAR(co.createdAt), MONTH(co.createdAt)
+                  ORDER BY YEAR(co.createdAt), MONTH(co.createdAt) ASC
+                `;
                 grossMarginData = rawData.map((item) => ({
-                    date: item.date,
-                    grossMargin: Number((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales) * 100), // Pastikan grossMargin adalah number
+                    // Format date sebagai "YYYY-MM"
+                    date: `${item.year}-${String(item.month).padStart(2, "0")}`,
+                    grossMargin: Number(((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales)) * 100),
                 }));
             } else {
                 return res.status(400).json({ error: "Invalid period" });
