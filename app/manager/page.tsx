@@ -5,6 +5,7 @@ import SalesChart from "@/components/SalesChart";
 import TopSellers from "@/components/TopSellers";
 import RevenueByCategoryChart from "@/components/RevenueByCategoryChart";
 import RevenueComparisonChart from "@/components/RevenueComparisonChart";
+import GrossMarginChart from "@/components/GrossMarginChart";
 
 interface StatCardProps {
   title: string;
@@ -77,6 +78,10 @@ export default function Stats() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           <TopSellers />
           <RevenueByCategoryChart />
+        </div>
+        
+        <div>
+          <GrossMarginChart />
         </div>
       </div>
     </div>

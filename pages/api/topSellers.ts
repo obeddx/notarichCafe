@@ -7,8 +7,9 @@ const prisma = new PrismaClient();
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     try {
-      const { period } = req.query;
+      const { period, start, end } = req.query;
       let startDate = new Date();
+      let endDate = new Date();
 
       if (period === "daily") {
         startDate = subDays(new Date(), 1);
@@ -18,6 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         startDate = startOfMonth(new Date());
       }
 
+      // Jika ada parameter start dan end, gunakan itu
+      if (start && end) {
+        startDate = new Date(start as string);
+        endDate = new Date(end as string);
+      }
+
       // Ambil data top seller berdasarkan jumlah terjual
       const topSellers = await prisma.completedOrderItem.groupBy({
         by: ["menuId"],
@@ -25,6 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           order: {
             createdAt: {
               gte: startDate,
+              lte: endDate,
             },
           },
         },
@@ -57,6 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         where: {
           createdAt: {
             gte: startDate,
+            lte: endDate,
           },
         },
       });
@@ -69,6 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         where: {
           createdAt: {
             gte: startDate,
+            lte: endDate,
           },
         },
       });

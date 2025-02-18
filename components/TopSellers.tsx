@@ -13,11 +13,17 @@ export default function TopSellers() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     async function fetchTopSellers() {
       try {
-        const res = await fetch(`/api/topSellers?period=${period}`);
+        let url = `/api/topSellers?period=${period}`;
+        if (startDate && endDate) {
+          url += `&start=${startDate}&end=${endDate}`;
+        }
+        const res = await fetch(url);
         const data = await res.json();
         setTopSellers(data.topSellers);
         setTotalOrders(data.totalOrders);
@@ -28,7 +34,7 @@ export default function TopSellers() {
     }
 
     fetchTopSellers();
-  }, [period]);
+  }, [period, startDate, endDate]);
 
   // Fungsi untuk ekspor ke PDF
   const exportToPDF = () => {
@@ -105,6 +111,28 @@ export default function TopSellers() {
           <option value="weekly">Mingguan</option>
           <option value="monthly">Bulanan</option>
         </select>
+      </div>
+
+      {/* Input Tanggal */}
+      <div className="mb-6 flex gap-4">
+        <div className="flex gap-2 items-center">
+          <label className="text-[#212121] font-medium">Dari:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
+          />
+        </div>
+        <div className="flex gap-2 items-center">
+          <label className="text-[#212121] font-medium">Sampai:</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
+          />
+        </div>
       </div>
 
       {/* Tombol Ekspor */}
