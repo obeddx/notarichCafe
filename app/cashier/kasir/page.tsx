@@ -6,6 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { FiBell } from "react-icons/fi";
 import { AlertTriangle } from "lucide-react";
 import { useNotifications, MyNotification } from "../../contexts/NotificationContext";
+import CombinedPaymentForm from "@/components/combinedPaymentForm";
 
 interface Menu {
   id: number;
@@ -401,11 +402,11 @@ function OrderSection({
   cancelOrder?: (id: number) => void;
   resetTable?: (tableNumber: string) => void;
   onSelectOrder?: (orderId: number, isChecked: boolean) => void;
-  selectedOrders?: number[]; 
   isSelected?: boolean;
 }) {
   const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
   const [combinedTotal, setCombinedTotal] = useState<number>(0);
+  const [isCombinedPaymentModalOpen, setIsCombinedPaymentModalOpen] = useState<boolean>(false);
 
   const handleOrderSelection = (orderId: number, isChecked: boolean) => {
     if (isChecked) {
@@ -430,10 +431,10 @@ function OrderSection({
       }
       setSelectedOrders([]);
       setCombinedTotal(0);
+      setIsCombinedPaymentModalOpen(false);
     }
   };
 
-  // Define groupedOrders
   const groupedOrders = orders.reduce((acc, order) => {
     const tableNumber = order.tableNumber;
     if (!acc[tableNumber]) {
@@ -475,33 +476,37 @@ function OrderSection({
                     isSelected={selectedOrders.includes(order.id)}
                   />
                 ))}
-
               </div>
             </div>
           ))}
         </div>
       )}
-      <div>
-{selectedOrders.length > 0 && (
-  <div className="bg-white shadow-md rounded-lg p-4">
-    <h3 className="text-lg font-semibold">Gabungan Pesanan</h3>
-    <p className="text-gray-700 mt-2">
-      Total: <span className="font-semibold">Rp {combinedTotal.toLocaleString()}</span>
-    </p>
-    <CombinedPaymentForm
-      onConfirmPayment={handleCombinedPayment}
-      onCancel={() => {
-        setSelectedOrders([]);
-        setCombinedTotal(0);
-      }}
-    />
-  </div>
-)}
-</div>
+
+      {selectedOrders.length > 0 && (
+        <div className="mt-4">
+          <button
+            onClick={() => setIsCombinedPaymentModalOpen(true)}
+            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition flex items-center justify-center"
+          >
+            💰 Gabungkan Pesanan
+          </button>
+        </div>
+      )}
+
+      {isCombinedPaymentModalOpen && (
+        <CombinedPaymentForm
+        total={combinedTotal}
+          onConfirmPayment={handleCombinedPayment}
+          onCancel={() => {
+            setSelectedOrders([]);
+            setCombinedTotal(0);
+            setIsCombinedPaymentModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
-
 
 function OrderItemComponent({
   order,
@@ -609,51 +614,8 @@ function OrderItemComponent({
     </div>
   );
 }
-function CombinedPaymentForm({
-  onConfirmPayment,
-  onCancel,
-}: {
-  onConfirmPayment: (paymentMethod: string, paymentId?: string) => void;
-  onCancel: () => void;
-}) {
-  const [paymentMethod, setPaymentMethod] = useState<string>("tunai");
-  const [paymentId, setPaymentId] = useState<string>("");
 
-  return (
-    <div className="mt-4 space-y-2">
-      <select
-        value={paymentMethod}
-        onChange={(e) => setPaymentMethod(e.target.value)}
-        className="w-full p-2 border border-gray-300 rounded-md"
-      >
-        <option value="tunai">Tunai</option>
-        <option value="kartu">Kartu Kredit/Debit</option>
-        <option value="e-wallet">E-Wallet</option>
-      </select>
-      {paymentMethod !== "tunai" && (
-        <input
-          type="text"
-          placeholder="Masukkan ID Pembayaran"
-          value={paymentId}
-          onChange={(e) => setPaymentId(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-md"
-        />
-      )}
-      <button
-        onClick={() => onConfirmPayment(paymentMethod, paymentId)}
-        className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
-      >
-        💰 Konfirmasi Pembayaran Gabungan
-      </button>
-      <button
-        onClick={onCancel}
-        className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
-      >
-        ❌ Batalkan Gabungan
-      </button>
-    </div>
-  );
-}
+
 function StatusBadge({ status }: { status: string }) {
   let color = "bg-[#979797]";
   if (status === "pending") color = "bg-[#FF8A00]";
