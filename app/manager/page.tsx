@@ -42,7 +42,7 @@ export default function Stats() {
       <Sidebar onToggle={setSidebarOpen} isOpen={sidebarOpen} /> {/* Teruskan state ke Sidebar */}
 
       {/* Konten utama yang otomatis menyesuaikan */}
-      <div className={`flex-1 p-6 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
+      <div className={`flex-1 p-6 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"} overflow-y-auto`}>
         <h1 className="text-4xl font-bold text-[#212121] mb-6">Dashboard Manager</h1>
 
         {/* Statistik Cards */}
