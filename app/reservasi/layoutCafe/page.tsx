@@ -72,7 +72,7 @@ const Booking1 = () => {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
-
+  
   useEffect(() => {
     const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
     if (savedMarkedTables) {

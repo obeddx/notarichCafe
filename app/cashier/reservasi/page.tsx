@@ -78,8 +78,7 @@ const ReservasiSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  
-
+  // Fungsi fetch data reservasi (dengan pengurutan berdasarkan tanggal terdekat)
   const fetchReservasis = async () => {
     setLoading(true);
     try {
@@ -88,7 +87,7 @@ const ReservasiSidebar = () => {
         throw new Error("Gagal mengambil data");
       }
       const data: Reservasi[] = await res.json();
-      // Urutkan berdasarkan tanggal reservasi (dari yang paling dekat dengan hari ini)
+      // Urutkan data berdasarkan tanggal reservasi (dari yang paling dekat ke yang paling jauh)
       const sortedData = data.sort(
         (a, b) => new Date(a.tanggalReservasi).getTime() - new Date(b.tanggalReservasi).getTime()
       );
@@ -100,14 +99,13 @@ const ReservasiSidebar = () => {
       setLoading(false);
     }
   };
-  
 
-  // Panggil fetchReservasis saat komponen dimount dan setiap 10 detik untuk update otomatis
+  // Update data secara otomatis (polling setiap 10 detik)
   useEffect(() => {
     fetchReservasis();
     const intervalId = setInterval(() => {
       fetchReservasis();
-    }, 10000); // polling setiap 10 detik
+    }, 10000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -137,9 +135,7 @@ const ReservasiSidebar = () => {
     setEditForm((prev) => ({
       ...prev,
       [name]:
-        name === "jumlahTamu" ||
-        name === "durasiJam" ||
-        name === "durasiMenit"
+        name === "jumlahTamu" || name === "durasiJam" || name === "durasiMenit"
           ? Number(value)
           : value,
     }));
@@ -168,7 +164,7 @@ const ReservasiSidebar = () => {
     setEditingReservationId(null);
   };
 
-  // Validasi: waktu tidak boleh di masa lalu dan harus antara 10:00 - 22:00
+  // Validasi waktu: tidak boleh di masa lalu dan harus antara 10:00 - 22:00
   const isValidReservationTime = (dateString: string) => {
     const now = new Date();
     const selected = new Date(dateString);
@@ -178,7 +174,6 @@ const ReservasiSidebar = () => {
   };
 
   const handleSaveEdit = async (id: number) => {
-    // Pengecekan bentrok reservasi (abaikan reservasi yang sedang diedit sendiri)
     const inputDateTime = editForm.tanggalReservasi; // format "YYYY-MM-DDTHH:mm"
     const conflict = reservasis.find((r) => {
       if (r.id === id) return false;
@@ -192,7 +187,6 @@ const ReservasiSidebar = () => {
       return;
     }
 
-    // Validasi waktu
     if (!isValidReservationTime(editForm.tanggalReservasi)) {
       toast.error("Pastikan tanggal & waktu tidak di masa lalu dan jam antara 10:00 - 22:00");
       return;
@@ -252,7 +246,6 @@ const ReservasiSidebar = () => {
   };
 
   const handleSaveAdd = async () => {
-    // Cek bentrok reservasi
     const inputDateTime = addForm.tanggalReservasi; // format "YYYY-MM-DDTHH:mm"
     const conflict = reservasis.find((r) => {
       const rDateTime = moment
@@ -265,13 +258,11 @@ const ReservasiSidebar = () => {
       return;
     }
 
-    // Validasi waktu
     if (!isValidReservationTime(addForm.tanggalReservasi)) {
       toast.error("Pastikan tanggal & waktu tidak di masa lalu dan jam antara 10:00 - 22:00");
       return;
     }
 
-    // Generate kode booking secara otomatis
     const now = new Date(addForm.tanggalReservasi);
     const day = String(now.getDate()).padStart(2, "0");
     const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -306,7 +297,6 @@ const ReservasiSidebar = () => {
       const added: Reservasi = await res.json();
       setReservasis((prev) => [...prev, added]);
       setIsAdding(false);
-      // Reset form tambah
       setAddForm({
         namaCustomer: "",
         nomorKontak: "",
@@ -335,7 +325,7 @@ const ReservasiSidebar = () => {
 
   return (
     <div className="relative">
-      {/* ToastContainer harus ada agar toast muncul */}
+      {/* Pastikan ToastContainer ada agar toast muncul */}
       <ToastContainer position="top-center" autoClose={3000} />
 
       {/* Sidebar */}
@@ -353,289 +343,293 @@ const ReservasiSidebar = () => {
           isSidebarOpen ? "ml-64" : "ml-20"
         }`}
       >
-        <h2 className="text-lg font-bold mb-4">Daftar Reservasi</h2>
-        {loading && <p>Loading...</p>}
-        {error && <p className="text-red-500">{error}</p>}
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr>
-              <th className="border px-2 py-1">Nama</th>
-              <th className="border px-2 py-1">Nomor Kontak</th>
-              <th className="border px-2 py-1">Tanggal</th>
-              <th className="border px-2 py-1">Meja</th>
-              <th className="border px-2 py-1">Jumlah Tamu</th>
-              <th className="border px-2 py-1">Durasi</th>
-              <th className="border px-2 py-1">Kode Booking</th>
-              <th className="border px-2 py-1">Status</th>
-              <th className="border px-2 py-1">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Baris untuk reservasi yang sedang diedit */}
-            {editingReservationId &&
-              reservasis
-                .filter((r) => r.id === editingReservationId)
-                .map((r) => (
-                  <tr key={r.id}>
-                    <td className="border px-2 py-1">
-                      <input
-                        type="text"
-                        name="namaCustomer"
-                        value={editForm.namaCustomer}
-                        onChange={handleEditChange}
-                        className="w-full border p-1"
-                      />
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">Daftar Reservasi</h2>
+        {/* Tampilkan status loading/error agar state loading & error dibaca */}
+        {loading && <p className="text-blue-600 mb-4">Loading...</p>}
+        {error && <p className="text-red-600 mb-4">{error}</p>}
+
+        {/* Container tabel dengan desain card */}
+        <div className="overflow-x-auto shadow-md rounded-lg bg-white">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+              <tr>
+                <th className="px-4 py-2 text-left text-sm font-medium">Nama</th>
+                <th className="px-4 py-2 text-left text-sm font-medium">Nomor Kontak</th>
+                <th className="px-4 py-2 text-left text-sm font-medium">Tanggal</th>
+                <th className="px-4 py-2 text-left text-sm font-medium">Meja</th>
+                <th className="px-4 py-2 text-left text-sm font-medium">Jumlah Tamu</th>
+                <th className="px-4 py-2 text-left text-sm font-medium">Durasi</th>
+                <th className="px-4 py-2 text-left text-sm font-medium">Kode Booking</th>
+                <th className="px-4 py-2 text-left text-sm font-medium">Status</th>
+                <th className="px-4 py-2 text-center text-sm font-medium">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {/* Baris untuk reservasi yang sedang diedit */}
+              {editingReservationId &&
+                reservasis
+                  .filter((r) => r.id === editingReservationId)
+                  .map((r) => (
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          name="namaCustomer"
+                          value={editForm.namaCustomer}
+                          onChange={handleEditChange}
+                          className="w-full border p-1 rounded"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          name="nomorKontak"
+                          value={editForm.nomorKontak}
+                          onChange={handleEditChange}
+                          className="w-full border p-1 rounded"
+                          min="1"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="datetime-local"
+                          name="tanggalReservasi"
+                          value={editForm.tanggalReservasi}
+                          onChange={handleEditChange}
+                          className="w-full border p-1 rounded"
+                          min={getMinDateTime()}
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          name="nomorMeja"
+                          value={editForm.nomorMeja}
+                          onChange={handleEditChange}
+                          className="w-full border p-1 rounded"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number"
+                          name="jumlahTamu"
+                          value={editForm.jumlahTamu}
+                          onChange={handleEditChange}
+                          className="w-full border p-1 rounded"
+                          min="1"
+                        />
+                      </td>
+                      <td className="px-4 py-2 flex gap-1">
+                        <select
+                          name="durasiJam"
+                          value={editForm.durasiJam}
+                          onChange={handleEditChange}
+                          className="border p-1 rounded"
+                        >
+                          {[1, 2].map((h) => (
+                            <option key={h} value={h}>
+                              {h} Jam
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          name="durasiMenit"
+                          value={editForm.durasiMenit}
+                          onChange={handleEditChange}
+                          className="border p-1 rounded"
+                          disabled={editForm.durasiJam === 2}
+                        >
+                          {editForm.durasiJam === 1
+                            ? [0, 10, 20, 30, 40, 50].map((m) => (
+                                <option key={m} value={m}>
+                                  {m} Menit
+                                </option>
+                              ))
+                            : [0].map((m) => (
+                                <option key={m} value={m}>
+                                  {m} Menit
+                                </option>
+                              ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">{r.kodeBooking}</td>
+                      <td className="px-4 py-2">
+                        <select
+                          name="status"
+                          value={editForm.status}
+                          onChange={handleEditChange}
+                          className="border p-1 rounded"
+                        >
+                          {statusOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-2 flex gap-1 justify-center">
+                        <button
+                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-all"
+                          onClick={() => handleSaveEdit(r.id)}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-all"
+                          onClick={cancelEditing}
+                        >
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              {/* Baris untuk reservasi yang tidak sedang diedit */}
+              {reservasis.map((r) =>
+                r.id !== editingReservationId ? (
+                  <tr key={r.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2">{r.namaCustomer}</td>
+                    <td className="px-4 py-2">{r.nomorKontak}</td>
+                    <td className="px-4 py-2">
+                      {moment
+                        .tz(r.tanggalReservasi, "Asia/Jakarta")
+                        .format("DD/MM/YYYY HH:mm")}
                     </td>
-                    <td className="border px-2 py-1">
-                      <input
-                        type="text"
-                        name="nomorKontak"
-                        value={editForm.nomorKontak}
-                        onChange={handleEditChange}
-                        className="w-full border p-1"
-                      />
+                    <td className="px-4 py-2">{r.nomorMeja}</td>
+                    <td className="px-4 py-2">{r.jumlahTamu}</td>
+                    <td className="px-4 py-2">
+                      {Math.floor(r.durasiPemesanan / 60)} Jam {r.durasiPemesanan % 60} Menit
                     </td>
-                    <td className="border px-2 py-1">
-                      <input
-                        type="datetime-local"
-                        name="tanggalReservasi"
-                        value={editForm.tanggalReservasi}
-                        onChange={handleEditChange}
-                        className="w-full border p-1"
-                        min={getMinDateTime()}
-                      />
-                    </td>
-                    <td className="border px-2 py-1">
-                      <input
-                        type="text"
-                        name="nomorMeja"
-                        value={editForm.nomorMeja}
-                        onChange={handleEditChange}
-                        className="w-full border p-1"
-                      />
-                    </td>
-                    <td className="border px-2 py-1">
-                      <input
-                        type="string"
-                        name="jumlahTamu"
-                        value={editForm.jumlahTamu}
-                        onChange={handleEditChange}
-                        className="w-full border p-1"
-                        min="1"
-                      />
-                    </td>
-                    <td className="border px-2 py-1 flex gap-1">
-                      <select
-                        name="durasiJam"
-                        value={editForm.durasiJam}
-                        onChange={handleEditChange}
-                        className="border p-1"
-                      >
-                        {[1, 2].map((h) => (
-                          <option key={h} value={h}>
-                            {h} Jam
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        name="durasiMenit"
-                        value={editForm.durasiMenit}
-                        onChange={handleEditChange}
-                        className="border p-1"
-                        disabled={editForm.durasiJam === 2}
-                      >
-                        {editForm.durasiJam === 1
-                          ? [0, 10, 20, 30, 40, 50].map((m) => (
-                              <option key={m} value={m}>
-                                {m} Menit
-                              </option>
-                            ))
-                          : [0].map((m) => (
-                              <option key={m} value={m}>
-                                {m} Menit
-                              </option>
-                            ))}
-                      </select>
-                    </td>
-                    <td className="border px-2 py-1">{r.kodeBooking}</td>
-                    <td className="border px-2 py-1">
-                      <select
-                        name="status"
-                        value={editForm.status}
-                        onChange={handleEditChange}
-                        className="border p-1"
-                      >
-                        {statusOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="border px-2 py-1 flex gap-1">
+                    <td className="px-4 py-2">{r.kodeBooking}</td>
+                    <td className="px-4 py-2">{r.status}</td>
+                    <td className="px-4 py-2 flex gap-2 justify-center">
                       <button
-                        className="bg-green-500 text-white px-2 py-1 rounded"
-                        onClick={() => handleSaveEdit(r.id)}
+                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-all"
+                        onClick={() => startEditing(r)}
                       >
-                        Save
+                        Edit
                       </button>
                       <button
-                        className="bg-gray-500 text-white px-2 py-1 rounded"
-                        onClick={cancelEditing}
+                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-all"
+                        onClick={() => handleDelete(r.id)}
                       >
-                        Cancel
+                        Hapus
                       </button>
                     </td>
                   </tr>
-                ))}
-
-            {/* Baris untuk reservasi yang tidak sedang diedit */}
-            {reservasis.map((r) =>
-              r.id !== editingReservationId ? (
-                <tr key={r.id}>
-                  <td className="border px-2 py-1">{r.namaCustomer}</td>
-                  <td className="border px-2 py-1">{r.nomorKontak}</td>
-                  <td className="border px-2 py-1">
-                    {moment
-                      .tz(r.tanggalReservasi, "Asia/Jakarta")
-                      .format("DD/MM/YYYY HH:mm")}
+                ) : null
+              )}
+              {/* Baris untuk form tambah reservasi */}
+              {isAdding && (
+                <tr className="bg-green-50">
+                  <td className="px-4 py-2">
+                    <input
+                      type="text"
+                      name="namaCustomer"
+                      value={addForm.namaCustomer}
+                      onChange={handleAddChange}
+                      className="w-full border p-1 rounded"
+                      placeholder="Nama Customer"
+                    />
                   </td>
-                  <td className="border px-2 py-1">{r.nomorMeja}</td>
-                  <td className="border px-2 py-1">{r.jumlahTamu}</td>
-                  <td className="border px-2 py-1">
-                    {Math.floor(r.durasiPemesanan / 60)} Jam {r.durasiPemesanan % 60} Menit
+                  <td className="px-4 py-2">
+                    <input
+                      type="text"
+                      name="nomorKontak"
+                      value={addForm.nomorKontak}
+                      onChange={handleAddChange}
+                      className="w-full border p-1 rounded"
+                      placeholder="Nomor Kontak"
+                    />
                   </td>
-                  <td className="border px-2 py-1">{r.kodeBooking}</td>
-                  <td className="border px-2 py-1">{r.status}</td>
-                  <td className="border px-2 py-1 flex gap-2">
-                    <button
-                      className="bg-blue-500 text-white px-2 py-1 rounded"
-                      onClick={() => startEditing(r)}
+                  <td className="px-4 py-2">
+                    <input
+                      type="datetime-local"
+                      name="tanggalReservasi"
+                      value={addForm.tanggalReservasi}
+                      onChange={handleAddChange}
+                      className="w-full border p-1 rounded"
+                      min={getMinDateTime()}
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input
+                      type="text"
+                      name="nomorMeja"
+                      value={addForm.nomorMeja}
+                      onChange={handleAddChange}
+                      className="w-full border p-1 rounded"
+                      placeholder="Nomor Meja"
+                    />
+                  </td>
+                  <td className="px-4 py-2">
+                    <input
+                      type="number"
+                      name="jumlahTamu"
+                      value={addForm.jumlahTamu}
+                      onChange={handleAddChange}
+                      className="w-full border p-1 rounded"
+                      placeholder="Jumlah Tamu"
+                      min="1"
+                    />
+                  </td>
+                  <td className="px-4 py-2 flex gap-1">
+                    <select
+                      name="durasiJam"
+                      value={addForm.durasiJam}
+                      onChange={handleAddChange}
+                      className="border p-1 rounded"
                     >
-                      Edit
+                      {[1, 2].map((h) => (
+                        <option key={h} value={h}>
+                          {h} Jam
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      name="durasiMenit"
+                      value={addForm.durasiMenit}
+                      onChange={handleAddChange}
+                      className="border p-1 rounded"
+                      disabled={addForm.durasiJam === 2}
+                    >
+                      {addForm.durasiJam === 1
+                        ? [0, 10, 20, 30, 40, 50].map((m) => (
+                            <option key={m} value={m}>
+                              {m} Menit
+                            </option>
+                          ))
+                        : [0].map((m) => (
+                            <option key={m} value={m}>
+                              {m} Menit
+                            </option>
+                          ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-2">Auto-generated</td>
+                  <td className="px-4 py-2">BOOKED</td>
+                  <td className="px-4 py-2 flex gap-1 justify-center">
+                    <button
+                      className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-all"
+                      onClick={handleSaveAdd}
+                    >
+                      Save
                     </button>
                     <button
-                      className="bg-red-500 text-white px-2 py-1 rounded"
-                      onClick={() => handleDelete(r.id)}
+                      className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-all"
+                      onClick={cancelAdding}
                     >
-                      Hapus
+                      Cancel
                     </button>
                   </td>
                 </tr>
-              ) : null
-            )}
-
-            {/* Baris untuk form tambah reservasi */}
-            {isAdding && (
-              <tr className="bg-green-50">
-                <td className="border px-2 py-1">
-                  <input
-                    type="text"
-                    name="namaCustomer"
-                    value={addForm.namaCustomer}
-                    onChange={handleAddChange}
-                    className="w-full border p-1"
-                    placeholder="Nama Customer"
-                  />
-                </td>
-                <td className="border px-2 py-1">
-                  <input
-                    type="text"
-                    name="nomorKontak"
-                    value={addForm.nomorKontak}
-                    onChange={handleAddChange}
-                    className="w-full border p-1"
-                    placeholder="Nomor Kontak"
-                  />
-                </td>
-                <td className="border px-2 py-1">
-                  <input
-                    type="datetime-local"
-                    name="tanggalReservasi"
-                    value={addForm.tanggalReservasi}
-                    onChange={handleAddChange}
-                    className="w-full border p-1"
-                    min={getMinDateTime()}
-                  />
-                </td>
-                <td className="border px-2 py-1">
-                  <input
-                    type="text"
-                    name="nomorMeja"
-                    value={addForm.nomorMeja}
-                    onChange={handleAddChange}
-                    className="w-full border p-1"
-                    placeholder="Nomor Meja"
-                  />
-                </td>
-                <td className="border px-2 py-1">
-                  <input
-                    type="string"
-                    name="jumlahTamu"
-                    value={addForm.jumlahTamu}
-                    onChange={handleAddChange}
-                    className="w-full border p-1"
-                    placeholder="Jumlah Tamu"
-                    min="1"
-                  />
-                </td>
-                <td className="border px-2 py-1 flex gap-1">
-                  <select
-                    name="durasiJam"
-                    value={addForm.durasiJam}
-                    onChange={handleAddChange}
-                    className="border p-1"
-                  >
-                    {[1, 2].map((h) => (
-                      <option key={h} value={h}>
-                        {h} Jam
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    name="durasiMenit"
-                    value={addForm.durasiMenit}
-                    onChange={handleAddChange}
-                    className="border p-1"
-                    disabled={addForm.durasiJam === 2}
-                  >
-                    {addForm.durasiJam === 1
-                      ? [0, 10, 20, 30, 40, 50].map((m) => (
-                          <option key={m} value={m}>
-                            {m} Menit
-                          </option>
-                        ))
-                      : [0].map((m) => (
-                          <option key={m} value={m}>
-                            {m} Menit
-                          </option>
-                        ))}
-                  </select>
-                </td>
-                <td className="border px-2 py-1">Auto-generated</td>
-                <td className="border px-2 py-1">BOOKED</td>
-                <td className="border px-2 py-1 flex gap-1">
-                  <button
-                    className="bg-green-500 text-white px-2 py-1 rounded"
-                    onClick={handleSaveAdd}
-                  >
-                    Save
-                  </button>
-                  <button
-                    className="bg-gray-500 text-white px-2 py-1 rounded"
-                    onClick={cancelAdding}
-                  >
-                    Cancel
-                  </button>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {!isAdding && (
           <button
-            className="mt-4 bg-green-500 text-white px-4 py-2 rounded"
+            className="mt-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-md hover:bg-green-600 transition-all"
             onClick={() => setIsAdding(true)}
           >
             Tambah Reservasi
