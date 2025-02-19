@@ -56,7 +56,7 @@ export default function KasirPage() {
   const { notifications, setNotifications } = useNotifications();
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
+
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -84,10 +84,10 @@ export default function KasirPage() {
       try {
         const response = await fetch("/api/orders");
         if (!response.ok) return;
-  
+
         const data = await response.json();
         const newOrders = data.orders;
-  
+
         // Bandingkan panjang array orders dengan newOrders
         if (orders.length !== newOrders.length) {
           fetchOrders(); // Jika ada perubahan, panggil fetchOrders
@@ -104,10 +104,10 @@ export default function KasirPage() {
         console.error("Error checking for new orders:", error);
       }
     };
-  
+
     // Set interval untuk memeriksa pesanan baru setiap 5 detik
     const interval = setInterval(checkForNewOrders, 1000);
-  
+
     // Bersihkan interval saat komponen di-unmount
     return () => clearInterval(interval);
   }, [orders]); // Jalankan efek ini setiap kali `orders` berubah
@@ -132,7 +132,7 @@ export default function KasirPage() {
           status: "Sedang Diproses",
         }),
       });
-  
+
       if (res.ok) {
         const updatedOrder = await res.json();
         // Hapus socket.emit dan langsung panggil fetchOrders untuk update data
@@ -180,7 +180,7 @@ export default function KasirPage() {
     setLoading(true);
     setError(null);
     try {
-      
+
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "DELETE",
       });
@@ -191,8 +191,8 @@ export default function KasirPage() {
       } else {
         throw new Error("Gagal membatalkan pesanan");
       }
-    } 
-    
+    }
+
     catch (error) {
       console.error("Error:", error);
       setError("Gagal membatalkan pesanan. Silakan coba lagi.");
@@ -270,6 +270,21 @@ export default function KasirPage() {
     }
     setModalOpen(false);
   };
+
+
+  // Di dalam komponen KasirPage (sebelum return)
+<style jsx global>{`
+  /* Hilangkan panah di input number */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+`}</style>
 
   return (
     <div className="flex min-h-screen bg-gradient-to-b from-[#FFFAF0] to-[#FFE4C4]">
@@ -452,14 +467,14 @@ function OrderSection({
   const handleCombinedPayment = async (paymentMethod: string, paymentId?: string) => {
     // Dapatkan data pesanan yang dipilih
     const selectedOrdersData = orders.filter((order) => selectedOrders.includes(Number(order.id)));
-    
+
     // Lakukan konfirmasi pembayaran untuk setiap pesanan (update status di backend)
     if (confirmPayment) {
       for (const order of selectedOrdersData) {
         await confirmPayment(Number(order.id), paymentMethod, paymentId);
       }
     }
-    
+
     // Buat objek order gabungan
     const combinedOrder: Order = {
       id: selectedOrdersData.map((o) => o.id).join("-"),
@@ -471,10 +486,10 @@ function OrderSection({
       createdAt: new Date().toISOString(),
       status: "Sedang Diproses",
     };
-    
+
     // Cetak struk gabungan
     generateCombinedPDF(combinedOrder);
-    
+
     // Reset pilihan dan tutup modal
     setSelectedOrders([]);
     setCombinedTotal(0);
@@ -501,7 +516,7 @@ function OrderSection({
             <div key={tableNumber} className="bg-white shadow-md rounded-lg p-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Meja {tableNumber}</h3>
-                
+
                 {/* Tampilkan tombol reset HANYA di section pesanan selesai */}
                 {resetTable && title === "✅ Pesanan Selesai" && (
                   <button
@@ -573,22 +588,26 @@ function OrderItemComponent({
 }) {
   const [paymentMethod, setPaymentMethod] = useState<string>("tunai");
   const [paymentId, setPaymentId] = useState<string>("");
-  const [cashGiven, setCashGiven] = useState<number>(0);
+  const [cashGiven, setCashGiven] = useState<string>("");
   const [change, setChange] = useState<number>(0);
   const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   // Fungsi untuk menghitung kembalian
-  const calculateChange = (given: number) => {
+  const calculateChange = (given: string) => {
     const total = order.total;
-    const changeAmount = given - total;
+    const givenNumber = parseFloat(given) || 0; // Handle empty string
+    const changeAmount = givenNumber - total;
     setChange(changeAmount >= 0 ? changeAmount : 0);
   };
 
   // Handler untuk perubahan input uang yang diberikan
   const handleCashGivenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    setCashGiven(value);
-    calculateChange(value);
+    const value = e.target.value;
+    // Validasi input hanya angka dan titik desimal
+    if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+      setCashGiven(value);
+      calculateChange(value);
+    }
   };
 
   return (
@@ -642,11 +661,13 @@ function OrderItemComponent({
           {paymentMethod === "tunai" && (
             <>
               <input
-                type="number"
-                placeholder="Uang yang diberikan"
+                type="text" // Diubah ke type text
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="Masukkan jumlah pembayaran"
                 value={cashGiven}
                 onChange={handleCashGivenChange}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               {change > 0 && (
                 <p className="text-green-600">
@@ -662,9 +683,12 @@ function OrderItemComponent({
           )}
           <button
             onClick={() => {
-              if (paymentMethod === "tunai" && cashGiven < order.total) {
-                toast.error("Uang yang diberikan kurang");
-                return;
+              if (paymentMethod === "tunai") {
+                const given = parseFloat(cashGiven) || 0;
+                if (given < order.total) {
+                  toast.error("Uang yang diberikan kurang");
+                  return;
+                }
               }
               confirmPayment(Number(order.id), paymentMethod, paymentId);
             }}
