@@ -18,7 +18,8 @@ export default function SalesTransactionChart() {
   const [salesData, setSalesData] = useState<
     { date: string; salesPerTransaction: number }[]
   >([]);
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  // Tambahkan "yearly" ke tipe period
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -56,7 +57,8 @@ export default function SalesTransactionChart() {
     fetchSalesData();
   }, [period, startDate, endDate]);
 
-  const formatDate = (dateString: string) => {
+  // Pastikan fungsi selalu mengembalikan string
+  const formatDate = (dateString: string): string => {
     if (period === "daily") {
       const date = new Date(dateString);
       return date.toLocaleDateString("id-ID", {
@@ -64,14 +66,17 @@ export default function SalesTransactionChart() {
         month: "short",
       });
     } else if (period === "weekly") {
-        const weekNumber = dateString.split("-W")[1];
-        return `Minggu ke-${weekNumber}`;
-    } else {
-      // monthly
+      const weekNumber = dateString.split("-W")[1];
+      return `Minggu ke-${weekNumber}`;
+    } else if (period === "monthly") {
       const [year, month] = dateString.split("-");
       const date = new Date(Number(year), Number(month) - 1);
       return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    } else if (period === "yearly") {
+      // Untuk periode tahunan, kita asumsikan dateString berupa "YYYY"
+      return dateString;
     }
+    return "";
   };
 
   // Handler untuk klik pada bar grafik
@@ -142,13 +147,14 @@ export default function SalesTransactionChart() {
             id="period"
             value={period}
             onChange={(e) =>
-              setPeriod(e.target.value as "daily" | "weekly" | "monthly")
+              setPeriod(e.target.value as "daily" | "weekly" | "monthly" | "yearly")
             }
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Harian</option>
             <option value="weekly">Mingguan</option>
             <option value="monthly">Bulanan</option>
+            <option value="yearly">Tahunan</option>
           </select>
         </div>
 

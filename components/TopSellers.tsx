@@ -1,7 +1,8 @@
+// File: components/TopSellers.tsx
 "use client";
+
 import { useEffect, useState } from "react";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { FaShoppingCart, FaMoneyBillWave, FaCrown } from "react-icons/fa";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -9,209 +10,167 @@ import * as XLSX from "xlsx";
 const COLORS = ["#FF8A00", "#975F2C", "#8A4210", "#92700C", "#212121"];
 
 export default function TopSellers() {
+  // Data top seller
   const [topSellers, setTopSellers] = useState<{ menuName: string; totalSold: number }[]>([]);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
+  const [date, setDate] = useState("");
 
   useEffect(() => {
     async function fetchTopSellers() {
       try {
         let url = `/api/topSellers?period=${period}`;
-        if (startDate && endDate) {
-          url += `&start=${startDate}&end=${endDate}`;
+        if (date) {
+          // Gunakan tanggal tunggal sebagai filter
+          url += `&date=${date}`;
         }
         const res = await fetch(url);
         const data = await res.json();
         setTopSellers(data.topSellers);
-        setTotalOrders(data.totalOrders);
-        setTotalRevenue(data.totalRevenue);
       } catch (error) {
         console.error("Error fetching top sellers:", error);
       }
     }
-
     fetchTopSellers();
-  }, [period, startDate, endDate]);
+  }, [period, date]);
 
-  // Fungsi untuk ekspor ke PDF
+  // Fungsi ekspor ke PDF
   const exportToPDF = () => {
     const doc = new jsPDF();
     const title = "Laporan Top Sellers";
     const headers = [["Menu", "Total Terjual"]];
+    const tableData = topSellers.map((item) => [item.menuName, item.totalSold]);
 
-    // Format data untuk tabel PDF
-    const data = topSellers.map((item) => [item.menuName, item.totalSold]);
-
-    // Tambahkan ringkasan data
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    doc.setFontSize(12);
-    doc.text(`Total Pesanan: ${totalOrders}`, 14, 32);
-    doc.text(`Total Pendapatan: Rp ${totalRevenue.toLocaleString()}`, 14, 42);
-    doc.text(`Menu Terlaris: ${topSellers[0]?.menuName || "-"} (${topSellers[0]?.totalSold || 0} terjual)`, 14, 52);
-
-    // Tambahkan tabel
+    doc.setFontSize(16);
+    doc.text(title, 14, 20);
+    doc.setFontSize(10);
+    if (topSellers.length > 0) {
+      doc.text(
+        `Menu Terlaris: ${topSellers[0].menuName} (${topSellers[0].totalSold} terjual)`,
+        14,
+        28
+      );
+    }
     (doc as any).autoTable({
       head: headers,
-      body: data,
-      startY: 60,
+      body: tableData,
+      startY: 34,
       theme: "striped",
-      styles: { fontSize: 12, cellPadding: 3 },
+      styles: { fontSize: 10, cellPadding: 2 },
       headStyles: { fillColor: "#FF8A00" },
     });
-
-    // Simpan file
     doc.save("laporan_top_sellers.pdf");
   };
 
-  // Fungsi untuk ekspor ke Excel
+  // Fungsi ekspor ke Excel
   const exportToExcel = () => {
-    // Format data untuk Excel
-    const data = topSellers.map((item) => ({
+    const dataForExcel = topSellers.map((item) => ({
       Menu: item.menuName,
       "Total Terjual": item.totalSold,
     }));
-
-    // Tambahkan ringkasan data
     const summary = [
-      { Menu: "Total Pesanan", "Total Terjual": totalOrders },
-      { Menu: "Total Pendapatan", "Total Terjual": `Rp ${totalRevenue.toLocaleString()}` },
-      { Menu: "Menu Terlaris", "Total Terjual": `${topSellers[0]?.menuName || "-"} (${topSellers[0]?.totalSold || 0} terjual)` },
+      {
+        Menu: "Menu Terlaris",
+        "Total Terjual": `${topSellers[0]?.menuName || "-"} (${topSellers[0]?.totalSold || 0} terjual)`,
+      },
     ];
-
-    // Gabungkan data dan ringkasan
-    const finalData = [...data, ...summary];
-
-    // Buat worksheet dan workbook
+    const finalData = [...dataForExcel, ...summary];
     const worksheet = XLSX.utils.json_to_sheet(finalData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Top Sellers");
-
-    // Simpan file
     XLSX.writeFile(workbook, "laporan_top_sellers.xlsx");
   };
 
   return (
-    <div className="mt-8 p-6 bg-[#F8F8F8] rounded-lg shadow-lg min-h-[400px] w-full">
-      <h2 className="text-2xl font-bold text-[#8A4210] mb-6">📊 Top Seller</h2>
+    <div className="p-3 bg-gray-50 rounded-lg shadow min-h-[350px] w-full">
+      <h2 className="text-xl font-semibold text-[#8A4210] mb-3">📊 Produk Terlaris</h2>
 
       {/* Dropdown Pilihan Periode */}
-      <div className="mb-6">
-        <label htmlFor="period" className="text-[#212121] font-medium mr-2">Pilih Periode:</label>
+      <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2">
+        <label htmlFor="period" className="text-sm text-gray-700 font-medium">Periode:</label>
         <select
           id="period"
           value={period}
-          onChange={(e) => setPeriod(e.target.value as "daily" | "weekly" | "monthly")}
-          className="p-2 bg-[#FCFFFC] text-[#212121] border border-[#8A4210] rounded-md cursor-pointer hover:bg-[#FF8A00] hover:text-white transition-all"
+          onChange={(e) =>
+            setPeriod(e.target.value as "daily" | "weekly" | "monthly" | "yearly")
+          }
+          className="p-1 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8A00]"
         >
           <option value="daily">Harian</option>
           <option value="weekly">Mingguan</option>
           <option value="monthly">Bulanan</option>
+          <option value="yearly">Tahunan</option>
         </select>
       </div>
 
       {/* Input Tanggal */}
-      <div className="mb-6 flex gap-4">
-        <div className="flex gap-2 items-center">
-          <label className="text-[#212121] font-medium">Dari:</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
-          />
-        </div>
-        <div className="flex gap-2 items-center">
-          <label className="text-[#212121] font-medium">Sampai:</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
-          />
-        </div>
+      <div className="mb-3 flex items-center gap-2">
+        <label className="text-sm text-gray-700 font-medium">Tanggal:</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="p-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8A00]"
+        />
       </div>
 
       {/* Tombol Ekspor */}
-      <div className="flex gap-4 mb-6">
+      <div className="mb-3 flex gap-2">
         <button
           onClick={exportToPDF}
-          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#FF6F00] transition-all"
+          className="px-3 py-1 bg-[#FF8A00] text-white text-sm rounded hover:bg-[#FF6F00] transition-all"
         >
-          Ekspor ke PDF
+          Ekspor PDF
         </button>
         <button
           onClick={exportToExcel}
-          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#45a049] transition-all"
+          className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-all"
         >
-          Ekspor ke Excel
+          Ekspor Excel
         </button>
       </div>
 
-      {/* Ringkasan Data */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {/* Total Pesanan */}
-        <div className="bg-[#FF8A00] text-[#F8F8F8] p-5 rounded-xl shadow-md flex items-center">
-          <FaShoppingCart className="text-3xl mr-4" />
-          <div>
-            <h3 className="text-lg font-semibold">Total Pesanan</h3>
-            <p className="text-2xl font-bold">{totalOrders}</p>
-          </div>
+      {/* Layout: Daftar Menu Terlaris dan Pie Chart */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Daftar Menu Terlaris */}
+        <div className="overflow-x-auto">
+          <ul className="space-y-2">
+            {topSellers.map((item, index) => (
+              <li key={index} className="flex items-center gap-2 text-sm">
+                <div
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                ></div>
+                <span className="font-medium flex-1 whitespace-normal">
+                  {index === 0 && <span className="text-[#FF8A00]">Terlaris: </span>}
+                  {item.menuName} - {item.totalSold} terjual
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-
-        {/* Total Pendapatan */}
-        <div className="bg-[#8A4210] text-[#F8F8F8] p-5 rounded-xl shadow-md flex items-center">
-          <FaMoneyBillWave className="text-3xl mr-4" />
-          <div>
-            <h3 className="text-lg font-semibold">Total Pendapatan</h3>
-            <p className="text-2xl font-bold">Rp {totalRevenue.toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* Menu Terlaris */}
-        {topSellers.length > 0 && (
-          <div className="bg-[#92700C] text-[#F8F8F8] p-5 rounded-xl shadow-md flex items-center min-h-[100px] w-full">
-            <FaCrown className="text-3xl mr-4" />
-            <div className="w-full">
-              <h3 className="text-lg font-semibold">Menu Terlaris</h3>
-              <p 
-                className="text-xl font-bold whitespace-normal break-words w-full px-2" 
-                title={topSellers[0].menuName} // Tooltip saat hover
+        {/* Pie Chart */}
+        <div className="h-48">
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie
+                data={topSellers}
+                dataKey="totalSold"
+                nameKey="menuName"
+                cx="50%"
+                cy="50%"
+                outerRadius={60}
+                fill="#8884d8"
+                labelLine={false}
+                label={false}
               >
-                {topSellers[0].menuName}
-              </p>
-              <p className="text-sm">{topSellers[0].totalSold} terjual</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Grafik Pie Chart */}
-      <div className="w-full h-[400px]">
-        <ResponsiveContainer>
-          <PieChart>
-            <Pie
-              data={topSellers}
-              cx="50%"
-              cy="55%" // Digeser sedikit ke bawah
-              labelLine={true} // Pastikan garis label tetap terlihat
-              outerRadius={130} // Dikecilkan sedikit untuk memberi ruang
-              fill="#8884d8"
-              dataKey="totalSold"
-              nameKey="menuName"
-              label={({ name, percent }) => `${name} (${(percent * 100).toFixed(2)}%)`}
-            >
-              {topSellers.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
+                {topSellers.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );

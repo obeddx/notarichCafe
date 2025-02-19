@@ -3,57 +3,62 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// Fungsi untuk mengonversi ISO week (misal "2023-W12") ke tanggal awal minggu (Senin)
+// Fungsi untuk mengonversi ISO week (misalnya "2023-W12") ke tanggal awal minggu (Senin)
 function getStartOfISOWeek(isoWeek: string): Date {
-    const [yearStr, weekStr] = isoWeek.split("-W");
-    const year = Number(yearStr);
-    const week = Number(weekStr);
-    // Mulai dari 1 Januari tahun tersebut
-    const simple = new Date(year, 0, 1 + (week - 1) * 7);
-    const dow = simple.getDay(); // 0 (Minggu) sampai 6 (Sabtu)
-    const ISOweekStart = new Date(simple);
-    // Sesuaikan agar mendapatkan hari Senin
-    if (dow === 0) {
-        ISOweekStart.setDate(simple.getDate() + 1);
-    } else {
-        ISOweekStart.setDate(simple.getDate() - dow + 1);
-    }
-    return ISOweekStart;
+  const [yearStr, weekStr] = isoWeek.split("-W");
+  const year = Number(yearStr);
+  const week = Number(weekStr);
+  // Mulai dari 1 Januari tahun tersebut
+  const simple = new Date(year, 0, 1 + (week - 1) * 7);
+  const dow = simple.getDay();
+  const ISOweekStart = new Date(simple);
+  // Sesuaikan agar mendapatkan hari Senin
+  if (dow === 0) {
+    ISOweekStart.setDate(simple.getDate() + 1);
+  } else {
+    ISOweekStart.setDate(simple.getDate() - dow + 1);
+  }
+  return ISOweekStart;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    if (req.method === "GET") {
-        const { date, period } = req.query;
-        if (!date) {
-            return res.status(400).json({ error: "Date is required" });
-        }
+  if (req.method === "GET") {
+    const { date, period } = req.query;
+    if (!date) {
+      return res.status(400).json({ error: "Date is required" });
+    }
 
-        let startDate: Date;
-        let endDate: Date;
+    let startDate: Date;
+    let endDate: Date;
 
-        if (period === "daily") {
-            startDate = new Date(date as string);
-            endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 1);
-        } else if (period === "weekly") {
-            // Format date misalnya "2023-W12"
-            startDate = getStartOfISOWeek(date as string);
-            endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 7);
-        } else if (period === "monthly") {
-            // Asumsikan format date: "YYYY-MM"
-            const [year, month] = (date as string).split("-");
-            startDate = new Date(Number(year), Number(month) - 1, 1);
-            endDate = new Date(Number(year), Number(month), 1);
-        } else {
-            startDate = new Date(date as string);
-            endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 1);
-        }
+    if (period === "daily") {
+      startDate = new Date(date as string);
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 1);
+    } else if (period === "weekly") {
+      // Format misalnya "2023-W12"
+      startDate = getStartOfISOWeek(date as string);
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+    } else if (period === "monthly") {
+      // Asumsikan format date: "YYYY-MM"
+      const [year, month] = (date as string).split("-");
+      startDate = new Date(Number(year), Number(month) - 1, 1);
+      endDate = new Date(Number(year), Number(month), 1);
+    } else if (period === "yearly") {
+      // Untuk periode tahunan, anggap date berupa "YYYY"
+      const year = Number(date as string);
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year + 1, 0, 1);
+    } else {
+      startDate = new Date(date as string);
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 1);
+    }
 
-        try {
-            // Gunakan half-open interval: >= startDate dan < endDate
-            const summaryRaw: any[] = await prisma.$queryRaw`
+    try {
+      // Gunakan half-open interval: >= startDate dan < endDate
+      const summaryRaw: any[] = await prisma.$queryRaw`
         SELECT 
           SUM(co.total) as netSales,
           SUM(m.hargaBakul * ci.quantity) as totalHPP
@@ -63,18 +68,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         WHERE co.createdAt >= ${startDate} AND co.createdAt < ${endDate}
       `;
 
-            const summary = summaryRaw && summaryRaw.length > 0
-                ? {
-                    netSales: Number(summaryRaw[0].netSales) || 0,
-                    totalHPP: Number(summaryRaw[0].totalHPP) || 0,
-                    grossMargin:
-                        Number(summaryRaw[0].netSales) > 0
-                            ? ((Number(summaryRaw[0].netSales) - Number(summaryRaw[0].totalHPP)) / Number(summaryRaw[0].netSales)) * 100
-                            : 0,
-                }
-                : { netSales: 0, totalHPP: 0, grossMargin: 0 };
+      const summary = summaryRaw && summaryRaw.length > 0
+        ? {
+            netSales: Number(summaryRaw[0].netSales) || 0,
+            totalHPP: Number(summaryRaw[0].totalHPP) || 0,
+            grossMargin:
+              Number(summaryRaw[0].netSales) > 0
+                ? ((Number(summaryRaw[0].netSales) - Number(summaryRaw[0].totalHPP)) /
+                    Number(summaryRaw[0].netSales)) *
+                  100
+                : 0,
+          }
+        : { netSales: 0, totalHPP: 0, grossMargin: 0 };
 
-            const details: any[] = await prisma.$queryRaw`
+      const details: any[] = await prisma.$queryRaw`
         SELECT 
           m.name as menuName,
           m.price as sellingPrice,
@@ -88,14 +95,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         GROUP BY m.id
       `;
 
-            return res.status(200).json({
-                summary,
-                details,
-            });
-        } catch (error) {
-            console.error("Error fetching gross margin detail:", error);
-            return res.status(500).json({ error: "Internal server error" });
-        }
+      return res.status(200).json({
+        summary,
+        details,
+      });
+    } catch (error) {
+      console.error("Error fetching gross margin detail:", error);
+      return res.status(500).json({ error: "Internal server error" });
     }
-    return res.status(405).json({ error: "Method not allowed" });
+  }
+  return res.status(405).json({ error: "Method not allowed" });
 }

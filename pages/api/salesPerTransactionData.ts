@@ -70,6 +70,23 @@ export default async function handler(
           salesPerTransaction:
             Number(item.netSales) / Number(item.transactionCount),
         }));
+      } else if (period === "yearly") {
+        const rawData: any[] = await prisma.$queryRaw`
+          SELECT 
+            YEAR(createdAt) as year,
+            COUNT(*) as transactionCount,
+            SUM(total) as netSales
+          FROM CompletedOrder
+          WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
+            AND (${endDate} IS NULL OR createdAt <= ${endDate})
+          GROUP BY YEAR(createdAt)
+          ORDER BY YEAR(createdAt) ASC
+        `;
+        salesData = rawData.map((item) => ({
+          date: `${item.year}`,
+          salesPerTransaction:
+            Number(item.netSales) / Number(item.transactionCount),
+        }));
       } else {
         return res.status(400).json({ error: "Invalid period" });
       }

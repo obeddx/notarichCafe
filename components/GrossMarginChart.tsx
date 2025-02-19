@@ -15,10 +15,11 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 export default function GrossMarginChart() {
+  // Tambahkan "yearly" ke tipe period
   const [grossMarginData, setGrossMarginData] = useState<
     { date: string; grossMargin: number }[]
   >([]);
-  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -47,16 +48,21 @@ export default function GrossMarginChart() {
     fetchGrossMarginData();
   }, [period, startDate, endDate]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  // Format tanggal sesuai periode
+  const formatDate = (dateString: string): string => {
     if (period === "daily") {
+      const date = new Date(dateString);
       return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
     } else if (period === "weekly") {
       const weekNumber = dateString.split("-W")[1];
       return `Minggu ke-${weekNumber}`;
-    } else {
+    } else if (period === "monthly") {
+      const date = new Date(dateString);
       return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+    } else if (period === "yearly") {
+      return dateString;
     }
+    return ""; // Default return jika kondisi tidak terpenuhi
   };
 
   // Handler untuk klik pada bar guna memunculkan detail
@@ -125,13 +131,14 @@ export default function GrossMarginChart() {
             id="period"
             value={period}
             onChange={(e) =>
-              setPeriod(e.target.value as "daily" | "weekly" | "monthly")
+              setPeriod(e.target.value as "daily" | "weekly" | "monthly" | "yearly")
             }
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Harian</option>
             <option value="weekly">Mingguan</option>
             <option value="monthly">Bulanan</option>
+            <option value="yearly">Tahunan</option>
           </select>
         </div>
 

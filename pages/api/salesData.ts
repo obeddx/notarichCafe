@@ -1,3 +1,4 @@
+// File: pages/api/salesData.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
@@ -8,9 +9,8 @@ type SalesData = { date: string; total: number };
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     const { period, start, end } = req.query;
-
     try {
-      let salesData: SalesData[] = []; // Tipe data untuk response
+      let salesData: SalesData[] = [];
       let startDate = start ? new Date(start as string) : null;
       let endDate = end ? new Date(end as string) : null;
 
@@ -53,16 +53,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           date: `${item.year}-${String(item.month).padStart(2, "0")}`,
           total: Number(item.total),
         }));
+      } else if (period === "yearly") {
+        const rawData: any[] = await prisma.$queryRaw`
+          SELECT YEAR(createdAt) as year, SUM(total) as total
+          FROM CompletedOrder
+          WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
+            AND (${endDate} IS NULL OR createdAt <= ${endDate})
+          GROUP BY YEAR(createdAt)
+          ORDER BY YEAR(createdAt) ASC
+        `;
+        salesData = rawData.map((item) => ({
+          date: `${item.year}`,
+          total: Number(item.total),
+        }));
       } else {
         return res.status(400).json({ error: "Invalid period" });
       }
-
       return res.status(200).json(salesData);
     } catch (error) {
       console.error("Error fetching sales data:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
   }
-
   return res.status(405).json({ error: "Method not allowed" });
 }

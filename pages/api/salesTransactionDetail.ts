@@ -41,14 +41,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const [year, month] = (date as string).split("-");
       startDate = new Date(Number(year), Number(month) - 1, 1);
       endDate = new Date(Number(year), Number(month), 1);
+    } else if (period === "yearly") {
+      const year = Number(date as string);
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year + 1, 0, 1);
     } else {
+      // Default (daily)
       startDate = new Date(date as string);
       endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     }
 
     try {
-      // Dapatkan semua order dalam rentang waktu tersebut dengan half-open interval
+      // Dapatkan semua order dalam rentang waktu dengan half-open interval
       const orders = await prisma.completedOrder.findMany({
         where: {
           createdAt: {
