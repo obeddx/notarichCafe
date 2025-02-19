@@ -50,6 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       startDate = new Date(year, 0, 1);
       endDate = new Date(year + 1, 0, 1);
     } else {
+      // fallback daily
       startDate = new Date(date as string);
       endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
@@ -70,26 +71,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       : { totalSales: 0, totalOrders: 0 };
 
-    // Ambil detail setiap order
-    const ordersRaw = await prisma.completedOrder.findMany({
+    // Eager loading dengan select agar hanya field yang diperlukan diambil
+    const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
           gte: startDate,
           lt: endDate,
         },
       },
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
+        total: true,
         orderItems: {
-          include: {
-            menu: true,
+          select: {
+            quantity: true,
+            menu: {
+              select: {
+                name: true,
+                price: true,
+                hargaBakul: true,
+              },
+            },
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
-    const orders = ordersRaw.map((o) => ({
+
+    // Format orders sesuai kebutuhan tampilan
+    const formattedOrders = orders.map((o) => ({
       orderId: o.id,
       createdAt: o.createdAt,
       total: o.total,
@@ -97,11 +108,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         menuName: oi.menu.name,
         quantity: oi.quantity,
         price: oi.menu.price,
+        hpp: oi.menu.hargaBakul,
+        totalSales: oi.menu.price * oi.quantity,
       })),
     }));
+
     return res.status(200).json({
       summary,
-      orders,
+      orders: formattedOrders,
     });
   } catch (error) {
     console.error("Error fetching sales detail:", error);

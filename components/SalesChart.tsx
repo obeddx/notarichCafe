@@ -42,12 +42,10 @@ export default function SalesChart() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Hitung total pendapatan dari salesData
   const totalRevenue = Array.isArray(salesData)
     ? salesData.reduce((sum, item) => sum + item.total, 0)
     : 0;
 
-  // State untuk detail penjualan
   const [selectedDetail, setSelectedDetail] = useState<{
     date: string;
     summary: SalesDetailSummary;
@@ -64,9 +62,7 @@ export default function SalesChart() {
         }
         const res = await fetch(url);
         const data = await res.json();
-        // Pastikan data yang diterima adalah array
-        const fetchedData = Array.isArray(data) ? data : [];
-        setSalesData(fetchedData);
+        setSalesData(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching sales data:", error);
       }
@@ -74,13 +70,11 @@ export default function SalesChart() {
     fetchSalesData();
   }, [period, startDate, endDate]);
 
-  // Fungsi untuk memformat tanggal sesuai periode
   const formatDate = (dateString: string) => {
     if (period === "daily") {
       const date = new Date(dateString);
       return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
     } else if (period === "weekly") {
-      // Contoh: "2023-W12"
       const weekNumber = dateString.split("-W")[1];
       return `Minggu ke-${weekNumber}`;
     } else if (period === "monthly") {
@@ -93,14 +87,11 @@ export default function SalesChart() {
     return dateString;
   };
 
-  // Handler klik bar chart untuk mengambil detail penjualan
   const handleBarClick = async (data: any) => {
     const clickedDate = data.date;
     setLoadingDetail(true);
     try {
-      const res = await fetch(
-        `/api/salesDetail?date=${clickedDate}&period=${period}`
-      );
+      const res = await fetch(`/api/salesDetail?date=${clickedDate}&period=${period}`);
       const detailData = await res.json();
       setSelectedDetail({
         date: clickedDate,
@@ -114,7 +105,6 @@ export default function SalesChart() {
     }
   };
 
-  // Ekspor ke PDF
   const exportToPDF = () => {
     const doc = new jsPDF();
     const title = "Laporan Penjualan";
@@ -137,7 +127,6 @@ export default function SalesChart() {
     doc.save("laporan_penjualan.pdf");
   };
 
-  // Ekspor ke Excel
   const exportToExcel = () => {
     const dataForExcel = salesData.map((item) => ({
       Tanggal: formatDate(item.date),
@@ -157,7 +146,6 @@ export default function SalesChart() {
     <div className="mt-8 p-6 bg-[#FCFFFC] shadow-lg rounded-xl">
       <h2 className="text-2xl font-bold mb-4 text-[#212121]">Grafik Penjualan</h2>
 
-      {/* Dropdown dan Input Tanggal */}
       <div className="mb-6 flex flex-wrap gap-4">
         <div>
           <label htmlFor="period" className="mr-2 text-[#212121] font-medium">
@@ -199,7 +187,6 @@ export default function SalesChart() {
         </div>
       </div>
 
-      {/* Tombol Ekspor */}
       <div className="flex gap-4 mb-6">
         <button
           onClick={exportToPDF}
@@ -215,7 +202,6 @@ export default function SalesChart() {
         </button>
       </div>
 
-      {/* Total Pendapatan */}
       <div className="mb-6">
         <p className="text-lg font-semibold text-[#212121]">
           Total Pendapatan:{" "}
@@ -223,7 +209,6 @@ export default function SalesChart() {
         </p>
       </div>
 
-      {/* Chart */}
       <ResponsiveContainer width="100%" height={400}>
         <BarChart data={salesData} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
           <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
@@ -248,11 +233,10 @@ export default function SalesChart() {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Modal Detail Penjualan */}
       {selectedDetail && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg w-2/3 max-h-screen overflow-auto">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold">
                 Detail Penjualan Tanggal: {formatDate(selectedDetail.date)}
               </h2>
@@ -267,7 +251,6 @@ export default function SalesChart() {
               <p>Loading...</p>
             ) : (
               <>
-                {/* Ringkasan Penjualan */}
                 <div className="mb-4 p-4 bg-gray-100 rounded">
                   <p>
                     <strong>Total Sales:</strong> Rp{" "}
@@ -278,9 +261,8 @@ export default function SalesChart() {
                     {selectedDetail.summary.totalOrders || 0}
                   </p>
                 </div>
-                {/* Detail Order */}
                 <h3 className="text-lg font-semibold mb-2">Detail Order</h3>
-                {selectedDetail.orders.length > 0 ? (
+                {selectedDetail.orders?.length > 0 ? (
                   <table className="w-full text-left">
                     <thead>
                       <tr>
@@ -313,7 +295,7 @@ export default function SalesChart() {
                     </tbody>
                   </table>
                 ) : (
-                  <p>Tidak ada data order.</p>
+                  <p>Tidak ada detail order untuk tanggal ini.</p>
                 )}
               </>
             )}
