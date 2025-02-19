@@ -51,6 +51,7 @@ const SidebarCashier: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         <SidebarItem href="/cashier/kasir" label="Cashier" isOpen={isOpen} />
         <SidebarItem href="/cashier/layoutCafe" label="Layout Cafe" isOpen={isOpen} border />
         <SidebarItem href="/cashier/history" label="Riwayat" isOpen={isOpen} border />
+        <SidebarItem href="/cashier/reservasi" label="reservasi" isOpen={isOpen} border />
       </ul>
     </div>
   );

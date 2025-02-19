@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-// Tambahkan fungsi ini di dalam komponen ReservationForm
+// Fungsi untuk mendapatkan kapasitas meja tetap sama
 const getCapacityForTable = (meja: string) => {
   const mejaNumber = parseInt(meja, 10);
   if (isNaN(mejaNumber)) return { min: 0, max: 0 };
@@ -45,13 +45,6 @@ const getCapacityForTable = (meja: string) => {
   return { min: 0, max: 0 };
 };
 
-
-const addHours = (date: string, hours: number) => {
-  const newDate = new Date(date);
-  newDate.setHours(newDate.getHours() + hours);
-  return newDate.toISOString();
-};
-
 const ReservationForm = () => {
   // Baca query parameter
   const searchParams = useSearchParams();
@@ -73,9 +66,8 @@ const ReservationForm = () => {
     }
   }, [selectedMeja]);
 
-  // const [kodeBooking, setKodeBooking] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // State untuk menyimpan data reservasi yang sudah dibuat
+  // State untuk menyimpan data reservasi yang sudah dibuat (untuk menampilkan detail)
   const [reservationData, setReservationData] = useState<null | {
     namaCustomer: string;
     nomorKontak: string;
@@ -120,6 +112,7 @@ const ReservationForm = () => {
     return time >= 10 && time < 22;
   };
 
+  // Fungsi untuk mengubah nilai form
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -141,6 +134,26 @@ const ReservationForm = () => {
 
       return updatedForm;
     });
+  };
+
+  // Fungsi untuk memeriksa apakah sudah ada reservasi dengan nomor meja dan waktu yang sama
+  const checkConflict = async () => {
+    try {
+      const res = await fetch("/api/reservasi");
+      if (!res.ok) {
+        throw new Error("Gagal mengambil data reservasi");
+      }
+      const reservations: any[] = await res.json();
+      // Format waktu input dari form ke "YYYY-MM-DDTHH:mm"
+      const inputFormatted = moment(form.selectedDateTime).format("YYYY-MM-DDTHH:mm");
+      return reservations.some((r) => {
+        const rDateTime = moment.tz(r.tanggalReservasi, "Asia/Jakarta").format("YYYY-MM-DDTHH:mm");
+        return r.nomorMeja === form.meja && rDateTime === inputFormatted;
+      });
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
   };
 
   const captureAndDownloadReservationDetails = (kodeBooking: string) => {
@@ -180,6 +193,14 @@ const ReservationForm = () => {
       return;
     }
 
+    // Cek apakah ada reservasi dengan nomor meja dan waktu yang sama
+    const conflict = await checkConflict();
+    if (conflict) {
+      toast.error("Meja sudah direservasi");
+      setIsSubmitting(false);
+      return;
+    }
+
     const totalDurasi = Number(form.durasiJam) * 60 + Number(form.durasiMenit);
 
     const day = String(selectedTime.getDate()).padStart(2, "0");
@@ -191,12 +212,8 @@ const ReservationForm = () => {
       .substring(2, 7)
       .toUpperCase()}`;
 
-    // setKodeBooking(newKodeBooking);
-
-    const adjustedDateTime = addHours(form.selectedDateTime, 7);
-    const formattedDateTime = moment(adjustedDateTime)
-      .tz("Asia/Jakarta")
-      .format();
+    // Konversi nilai dari form menjadi ISO string (waktu input dianggap waktu lokal)
+    const formattedDateTime = new Date(form.selectedDateTime).toISOString();
 
     const requestData = {
       namaCustomer: form.namaCustomer,
@@ -378,54 +395,35 @@ const ReservationForm = () => {
             </div>
 
             {/* Form Jumlah Tamu */}
-            {/* <div className="relative">
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-600">
                 Jumlah Tamu
               </label>
               <div className="relative">
                 <FaUsers className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="number"
+                <select
                   name="jumlahTamu"
                   value={form.jumlahTamu}
                   onChange={handleChange}
                   className="border border-gray-300 p-2 pl-10 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                   required
-                  placeholder="Jumlah tamu"
-                  min="1"
-                />
+                  disabled={!form.meja}
+                >
+                  <option value="">Pilih Jumlah Tamu</option>
+                  {form.meja &&
+                    (() => {
+                      const { min, max } = getCapacityForTable(form.meja);
+                      return Array.from({ length: max - min + 1 }, (_, i) => min + i).map(
+                        (num) => (
+                          <option key={num} value={num}>
+                            {num} Orang
+                          </option>
+                        )
+                      );
+                    })()}
+                </select>
               </div>
-            </div> */}
-
-          {/* Modifikasi bagian JSX untuk input jumlah tamu */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-600">
-              Jumlah Tamu
-            </label>
-            <div className="relative">
-              <FaUsers className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <select
-                name="jumlahTamu"
-                value={form.jumlahTamu}
-                onChange={handleChange}
-                className="border border-gray-300 p-2 pl-10 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                required
-                disabled={!form.meja}
-              >
-                <option value="">Pilih Jumlah Tamu</option>
-                {form.meja && (() => {
-                  const { min, max } = getCapacityForTable(form.meja);
-                  return Array.from({ length: max - min + 1 }, (_, i) => min + i).map(
-                    (num) => (
-                      <option key={num} value={num}>
-                        {num} Orang
-                      </option>
-                    )
-                  );
-                })()}
-              </select>
             </div>
-          </div>
 
             {/* Form Durasi Pemesanan */}
             <div className="relative">
@@ -492,49 +490,47 @@ const ReservationForm = () => {
       {/* Jika reservationData ada, tampilkan detail reservasi beserta tombol "Tutup" */}
       {reservationData && (
         <div
-        id="reservationDetails"
-        className="mt-6 p-4 border rounded-lg bg-white shadow-2xl w-full sm:w-96 mx-auto transform transition-all hover:scale-105"
-        style={{
-          width: "384px", // Sama dengan sm:w-96 (96 * 4 = 384px)
-          minHeight: "500px", // Tinggi minimum
-        }}
-      >
+          id="reservationDetails"
+          className="mt-6 p-4 border rounded-lg bg-white w-full sm:w-96 mx-auto transform transition-all hover:scale-105"
+          style={{
+            width: "384px", // Sama dengan sm:w-96 (96 * 4 = 384px)
+            minHeight: "500px", // Tinggi minimum
+          }}
+        >
           <img
-          src="/logo-notarich-transparent.png"
-          alt="Logo NotarichCafe"
-          className="mx-auto"
-          style={{ width: "100%", height: "auto" }}
-        />
+            src="/logo-notarich-transparent.png"
+            alt="Logo NotarichCafe"
+            className="mx-auto"
+            style={{ width: "100%", height: "auto" }}
+          />
 
           <h3 className="text-lg font-bold text-gray-800 text-center mb-4">
             Detail Reservasi
           </h3>
           <div>
-          <p>
-            <strong>Nama :</strong> {reservationData.namaCustomer}
-          </p>
-          <p>
-            <strong>Tanggal & Waktu :</strong>{" "}
-            {reservationData.selectedDateTime
-              ? formatTanggalForKode(reservationData.selectedDateTime)
-              : "-"}
-          </p>
-          <p>
-            <strong>Jumlah Tamu :</strong> {reservationData.jumlahTamu}
-          </p>
-          <p>
-            <strong>Meja :</strong> {reservationData.meja || "1A"}
-          </p>
-          <p>
-            <strong>Durasi :</strong> {reservationData.durasiJam} Jam {reservationData.durasiMenit} Menit
-          </p>
-          <p>
-            <strong>Kode Booking :</strong>{" "}
-            {formatKodeBooking(reservationData.kodeBooking)}
-          </p>
-
+            <p>
+              <strong>Nama :</strong> {reservationData.namaCustomer}
+            </p>
+            <p>
+              <strong>Tanggal & Waktu :</strong>{" "}
+              {reservationData.selectedDateTime
+                ? formatTanggalForKode(reservationData.selectedDateTime)
+                : "-"}
+            </p>
+            <p>
+              <strong>Jumlah Tamu :</strong> {reservationData.jumlahTamu}
+            </p>
+            <p>
+              <strong>Meja :</strong> {reservationData.meja || "1A"}
+            </p>
+            <p>
+              <strong>Durasi :</strong> {reservationData.durasiJam} Jam {reservationData.durasiMenit} Menit
+            </p>
+            <p>
+              <strong>Kode Booking :</strong>{" "}
+              {formatKodeBooking(reservationData.kodeBooking)}
+            </p>
           </div>
-          
 
           {/* Tombol Tutup */}
           <button
