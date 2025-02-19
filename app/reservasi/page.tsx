@@ -48,7 +48,7 @@ const getCapacityForTable = (meja: string) => {
 const ReservationForm = () => {
   // Baca query parameter
   const searchParams = useSearchParams();
-  const selectedMeja = searchParams.get("meja");
+  const selectedMeja = searchParams?.get("meja") || "";
 
   const [form, setForm] = useState({
     namaCustomer: "",
@@ -136,6 +136,11 @@ const ReservationForm = () => {
     });
   };
 
+  interface ReservationResponse {
+    tanggalReservasi: string;
+    nomorMeja: string;
+    // tambahkan properti lain jika diperlukan
+  }
   // Fungsi untuk memeriksa apakah sudah ada reservasi dengan nomor meja dan waktu yang sama
   const checkConflict = async () => {
     try {
@@ -143,7 +148,7 @@ const ReservationForm = () => {
       if (!res.ok) {
         throw new Error("Gagal mengambil data reservasi");
       }
-      const reservations: any[] = await res.json();
+      const reservations: ReservationResponse[] = await res.json();
       // Format waktu input dari form ke "YYYY-MM-DDTHH:mm"
       const inputFormatted = moment(form.selectedDateTime).format("YYYY-MM-DDTHH:mm");
       return reservations.some((r) => {
@@ -156,7 +161,12 @@ const ReservationForm = () => {
     }
   };
 
-  const captureAndDownloadReservationDetails = (kodeBooking: string) => {
+
+
+  const captureAndDownloadReservationDetails = (
+    kodeBooking: string,
+    namaCustomer: string
+  ) => {
     const element = document.getElementById("reservationDetails");
     if (!element) {
       console.error("Elemen detail reservasi tidak ditemukan!");
@@ -170,11 +180,22 @@ const ReservationForm = () => {
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.href = dataUrl;
-      link.download = `Reservasi_${form.namaCustomer || "Tanpa_Nama"}_${kodeBooking}.png`;
+      // Menggunakan namaCustomer yang diterima sebagai parameter
+      link.download = `Reservasi_${namaCustomer || "Tanpa_Nama"}_${kodeBooking}.png`;
       link.click();
     });
   };
-
+  
+  // Panggil html2canvas ketika reservationData sudah tersedia
+  useEffect(() => {
+    if (reservationData) {
+      captureAndDownloadReservationDetails(
+        reservationData.kodeBooking,
+        reservationData.namaCustomer
+      );
+    }
+  }, [reservationData]);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -271,12 +292,6 @@ const ReservationForm = () => {
     }
   };
 
-  // Panggil html2canvas ketika reservationData sudah tersedia
-  useEffect(() => {
-    if (reservationData) {
-      captureAndDownloadReservationDetails(reservationData.kodeBooking);
-    }
-  }, [reservationData]);
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-purple-50 to-blue-50 flex flex-col items-center justify-center p-4 pt-7">
