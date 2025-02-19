@@ -28,19 +28,27 @@ type Ingredient = {
   unitPriceQuantity?: number; // Mengambil nilai unitPrice dari prices[0].unitPrice (dikonversi ke number)
 };
 
+// Tipe extended untuk menyimpan nilai originalStockIn dan originalWasted
+type SelectedIngredient = Ingredient & { 
+  originalStockIn: number;
+  originalWasted: number;
+};
+
 export default function IngredientsTable() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
-  const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+  const [selectedIngredient, setSelectedIngredient] = useState<SelectedIngredient | null>(null);
+  // State untuk menyimpan input tambahan stockIn dan wasted
+  const [additionalStock, setAdditionalStock] = useState<string>("");
+  const [additionalWasted, setAdditionalWasted] = useState<string>("");
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredIngredient, setFilteredIngredient] = useState<Ingredient[]>([]);
 
   const router = useRouter();
   
-
   // Fungsi untuk mengambil data ingredients dari API
   const fetchIngredients = async () => {
     try {
@@ -94,7 +102,12 @@ export default function IngredientsTable() {
         // Inisialisasi field price dan unitPriceQuantity dari prices (elemen pertama)
         price: ing.prices[0]?.price ?? 0,
         unitPriceQuantity: ing.prices[0]?.unitPrice ? parseFloat(ing.prices[0].unitPrice) : 0,
+        originalStockIn: ing.stockIn, // Simpan nilai stockIn awal
+        originalWasted: ing.wasted,   // Simpan nilai wasted awal
       });
+      // Reset nilai input tambahan
+      setAdditionalStock("");
+      setAdditionalWasted("");
     }
   };
 
@@ -309,21 +322,32 @@ export default function IngredientsTable() {
                   className="w-full p-2 border border-gray-300 rounded bg-gray-100"
                 />
               </div>
+              {/* Field untuk input tambahan stockIn */}
               <div className="mb-4">
-                <label className="block font-medium mb-1">Stock In:</label>
+                <label className="block font-medium mb-1">
+                  Stock In (Tambahan):
+                </label>
                 <input
                   type="number"
-                  value={isNaN(selectedIngredient.stockIn) ? "" : selectedIngredient.stockIn}
-                  onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      stockIn: parseFloat(e.target.value),
-                    })
-                  }
+                  value={additionalStock}
+                  onChange={(e) => {
+                    const inputVal = e.target.value;
+                    setAdditionalStock(inputVal);
+                    if (selectedIngredient) {
+                      setSelectedIngredient({
+                        ...selectedIngredient,
+                        stockIn:
+                          selectedIngredient.originalStockIn +
+                          (parseFloat(inputVal) || 0),
+                      });
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded"
                   required
                   step="any"
+                  placeholder="Masukkan tambahan stock"
                 />
+                <p>Masukkan angka 0 jika tidak ingin stock in</p>
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Used:</label>
@@ -335,21 +359,32 @@ export default function IngredientsTable() {
                   step="any"
                 />
               </div>
+              {/* Field untuk input tambahan wasted */}
               <div className="mb-4">
-                <label className="block font-medium mb-1">Wasted:</label>
+                <label className="block font-medium mb-1">
+                  Wasted (Tambahan):
+                </label>
                 <input
                   type="number"
-                  value={selectedIngredient.wasted}
+                  value={additionalWasted}
                   onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    setSelectedIngredient((prev) =>
-                      prev ? { ...prev, wasted: isNaN(value) ? 0 : value } : prev
-                    );
+                    const inputVal = e.target.value;
+                    setAdditionalWasted(inputVal);
+                    if (selectedIngredient) {
+                      setSelectedIngredient({
+                        ...selectedIngredient,
+                        wasted:
+                          selectedIngredient.originalWasted +
+                          (parseFloat(inputVal) || 0),
+                      });
+                    }
                   }}
                   className="w-full p-2 border border-gray-300 rounded"
                   required
                   step="any"
+                  placeholder="Masukkan tambahan wasted"
                 />
+                <p>Masukkan angka 0 jika tidak ingin wasted</p>
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Stock Min:</label>
@@ -366,6 +401,7 @@ export default function IngredientsTable() {
                   required
                   step="any"
                 />
+                
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Unit:</label>

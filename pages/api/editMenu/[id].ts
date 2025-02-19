@@ -16,10 +16,10 @@ if (!fs.existsSync(uploadDir)) {
 
 // Konfigurasi multer untuk penyimpanan file
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     cb(null, "./public/uploads");
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const ext = file.originalname.split(".").pop();
     const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
     cb(null, filename);

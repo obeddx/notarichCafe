@@ -113,9 +113,9 @@ export default async function handler(
       // Variabel untuk menyimpan pesan notifikasi
       let notificationMessage = "";
 
-      // Cek kondisi:
+      // Cek kondisi stok untuk menentukan notifikasi dan update status menu
       if (newIngredientStock <= updatedIngredient.stockMin && newIngredientStock !== 0) {
-        notificationMessage = `manager harus melakukan stock in, stock ${ingredient.name} di cafe sudah mencapai batas minimal`;
+        notificationMessage = `Manager harus melakukan stock in, stock ${ingredient.name} di cafe sudah mencapai batas minimal`;
       } else if (newIngredientStock === 0) {
         // Cari dan update menu yang terkait menjadi "Habis"
         const menusToUpdate = await prisma.menu.findMany({
@@ -132,7 +132,27 @@ export default async function handler(
             data: { Status: "Habis" },
           });
         }
-        notificationMessage = `stock ${ingredient.name} di cafe sudah habis`;
+        
+        // Tambahkan logika untuk update bundle: cari semua bundle yang terkait dengan menu-menu tersebut
+        const menuIds = menusToUpdate.map(menu => menu.id);
+        const bundlesToUpdate = await prisma.bundle.findMany({
+          where: {
+            bundleMenus: {
+              some: {
+                menuId: { in: menuIds },
+              },
+            },
+          },
+        });
+
+        for (const bundle of bundlesToUpdate) {
+          await prisma.bundle.update({
+            where: { id: bundle.id },
+            data: { isActive: false },
+          });
+        }
+        
+        notificationMessage = `Stock ${ingredient.name} di cafe sudah habis`;
       } else if (newIngredientStock > updatedIngredient.stockMin) {
         // Update menu yang statusnya "Habis" menjadi "Tersedia"
         const menusToUpdate = await prisma.menu.findMany({
@@ -151,6 +171,44 @@ export default async function handler(
           });
         }
       }
+
+      // --- Logika perhitungan maxBeli ---
+      // Cari seluruh menu yang menggunakan ingredient ini, beserta data relasi ingredients dan data ingredient-nya
+      const menusUsingIngredient = await prisma.menu.findMany({
+        where: {
+          ingredients: {
+            some: { ingredientId: ingredientId },
+          },
+        },
+        include: {
+          ingredients: {
+            include: { ingredient: true },
+          },
+        },
+      });
+
+      // Untuk setiap menu, hitung maxBeli dengan rumus:
+      // maxBeli = min( floor( ingredient.stock / menuIngredient.amount ) )
+      for (const menu of menusUsingIngredient) {
+        let newMaxBeli = Infinity;
+        for (const menuIngredient of menu.ingredients) {
+          // Pastikan jumlah bahan yang diperlukan valid
+          if (menuIngredient.amount > 0) {
+            const ingredientStock = menuIngredient.ingredient.stock;
+            const possible = Math.floor(ingredientStock / menuIngredient.amount);
+            newMaxBeli = Math.min(newMaxBeli, possible);
+          }
+        }
+        if (newMaxBeli === Infinity) {
+          newMaxBeli = 0;
+        }
+        // Update field maxBeli pada tabel menu
+        await prisma.menu.update({
+          where: { id: menu.id },
+          data: { maxBeli: newMaxBeli },
+        });
+      }
+      // --- End logika maxBeli ---
 
       return res.status(200).json({
         message: "Ingredient berhasil diupdate",
