@@ -16,6 +16,8 @@ model Menu {
   hargaBakul   Float           @default(0.0) // Tambahkan nilai default
   category     String
   Status       String
+  maxBeli      Int @default(100)
+  isActive Boolean @default(true)
   orderItems   OrderItem[] 
   ingredients  MenuIngredient[]
   bundleMenus BundleMenu[]

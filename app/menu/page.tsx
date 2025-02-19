@@ -34,6 +34,7 @@ interface Menu {
   category: string;
   rating: number;
   stock: boolean;
+  maxBeli: number;
 }
 
 interface MenuB {
@@ -174,6 +175,7 @@ export default function MenuPage() {
           category: item.category ?? "Uncategorized",
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
+          maxBeli: item.maxBeli !== undefined ? item.maxBeli : 100,
         }));
 
         setMenus(transformedMenu);
@@ -220,24 +222,42 @@ export default function MenuPage() {
   // Fungsi untuk menambahkan menu ke cart
   const addToCart = (menu: Menu) => {
     setCart((prevCart) => {
+      // Cari apakah menu sudah ada di keranjang
       const existingItemIndex = prevCart.findIndex(
         (item) => item.type === "menu" && item.item.id === menu.id
       );
-
+  
       let updatedCart: CartItem[];
+  
       if (existingItemIndex !== -1) {
+        const currentItem = prevCart[existingItemIndex];
+  
+        // Jika jumlah sudah mencapai maxBeli, tunda pemanggilan toast.error
+        if (currentItem.quantity >= menu.maxBeli) {
+          setTimeout(() => {
+            toast.error("Jumlah maksimum pembelian untuk menu ini sudah tercapai!");
+          }, 0);
+          return prevCart;
+        }
+  
         updatedCart = prevCart.map((item, index) =>
           index === existingItemIndex
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       } else {
+        if (menu.maxBeli < 1) {
+          setTimeout(() => {
+            toast.error("Menu ini tidak tersedia untuk pembelian.");
+          }, 0);
+          return prevCart;
+        }
         updatedCart = [
           ...prevCart,
           { type: "menu", item: menu, quantity: 1, note: "" },
         ];
       }
-
+  
       sessionStorage.setItem(
         `cart_table_${tableNumber}`,
         JSON.stringify(updatedCart)
@@ -245,6 +265,8 @@ export default function MenuPage() {
       return updatedCart;
     });
   };
+  
+  
 
   // Fungsi untuk menambahkan bundle ke cart
   const addToCartBundle = (bundle: Bundle) => {
@@ -581,6 +603,9 @@ export default function MenuPage() {
                     </p>
                     <p className="text-lg font-semibold text-orange-600 mt-2 text-left">
                       Rp{item.price.toLocaleString()}
+                    </p>
+                    <p className="text-lg font-semibold text-orange-600 mt-2 text-left">
+                      Max Beli : {item.maxBeli.toLocaleString()}
                     </p>
                     <button
                       onClick={() => addToCart(item)}
