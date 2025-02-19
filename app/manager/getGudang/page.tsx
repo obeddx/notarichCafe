@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, FormEvent, useRef } from "react";
 import Sidebar from "@/components/sidebar";
-import Link from "next/link";
+// import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -163,11 +163,11 @@ export default function GudangTable() {
       <h1 className="text-2xl font-bold mb-4">Daftar Gudang</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       {/* Ganti link jika Anda punya halaman khusus untuk tambah data gudang */}
-      <Link href="/manager/addGudang">
+      {/* <Link href="/manager/addGudang">
         <p className="text-blue-500 hover:underline pb-4">
           + Tambah Data Gudang
         </p>
-      </Link>
+      </Link> */}
 
       <div className="p-4">
         {lowStockItems.length > 0 ? (
