@@ -46,20 +46,29 @@ const Bookinge = () => {
   const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk mengontrol sidebar
 
+  const fetchMeja = async () => {
+    try {
+      const response = await fetch('/api/nomeja');
+      if (!response.ok) throw new Error("Gagal mengambil data meja");
+      const data = await response.json();
+      const mejaNumbers = data.map((item: { nomorMeja: number }) => item.nomorMeja.toString());
+      setManuallyMarkedTables(mejaNumbers);
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Gagal memuat data meja");
+    }
+  };
+  
   const markTableAsOccupied = async (tableNumber: string) => {
     try {
       const response = await fetch('/api/nomeja', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tableNumber }),
       });
-  
+
       if (response.ok) {
-        const updated = [...manuallyMarkedTables, tableNumber];
-        setManuallyMarkedTables(updated);
-        localStorage.setItem("manuallyMarkedTables", JSON.stringify(updated));
+        await fetchMeja(); // Update status meja setelah berhasil
         toast.success("Meja berhasil ditandai sebagai terisi!");
       } else {
         throw new Error("Gagal menyimpan data meja");
@@ -69,22 +78,18 @@ const Bookinge = () => {
       toast.error("Gagal menyimpan data meja");
     }
   };
-  
+
   const resetTable = async (tableNumber: string) => {
     try {
       const response = await fetch('/api/nomeja', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nomorMeja: tableNumber }),
       });
-  
+
       if (response.ok) {
-        const updated = manuallyMarkedTables.filter(t => t !== tableNumber);
-        setManuallyMarkedTables(updated);
-        localStorage.setItem("manuallyMarkedTables", JSON.stringify(updated));
-        fetchData();
+        await fetchMeja(); // Update status meja setelah berhasil
+        await fetchData();
         toast.success("Meja berhasil direset!");
       } else {
         throw new Error("Gagal menghapus data meja");
@@ -94,7 +99,6 @@ const Bookinge = () => {
       toast.error("Gagal menghapus data meja");
     }
   };
-  
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -110,6 +114,7 @@ const Bookinge = () => {
 
   useEffect(() => {
     fetchData();
+    fetchMeja(); // Panggil saat komponen dimuat
   }, []);
   
 // Save to localStorage whenever manuallyMarkedTables changes
