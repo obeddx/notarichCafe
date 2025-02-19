@@ -180,12 +180,32 @@ export default function KasirPage() {
     setLoading(true);
     setError(null);
     try {
+      // Ambil data pesanan untuk mendapatkan nomor meja
+      const orderToCancel = orders.find((order) => order.id === orderId);
+      if (!orderToCancel) {
+        throw new Error("Pesanan tidak ditemukan");
+      }
+  
+      // Hapus pesanan dari database
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "DELETE",
       });
-
+  
       if (res.ok) {
-        toast.success("✅ Pesanan berhasil dibatalkan!");
+        // Hapus nomor meja dari database
+        const deleteTableRes = await fetch(`/api/dataMeja`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ nomorMeja: orderToCancel.tableNumber }),
+        });
+  
+        if (!deleteTableRes.ok) {
+          throw new Error("Gagal menghapus nomor meja");
+        }
+  
+        toast.success("✅ Pesanan berhasil dibatalkan dan meja direset!");
         setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
       } else {
         throw new Error("Gagal membatalkan pesanan");
@@ -198,7 +218,6 @@ export default function KasirPage() {
       setLoading(false);
     }
   };
-
   const resetTable = async (tableNumber: string) => {
     setLoading(true);
     setError(null);

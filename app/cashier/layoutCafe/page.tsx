@@ -94,6 +94,7 @@ const Bookinge = () => {
       toast.error("Gagal menghapus data meja");
     }
   };
+  
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -120,16 +121,16 @@ useEffect(() => {
     const fetchData = async () => {
       try {
         const [mejaRes, ordersRes] = await Promise.all([fetch("/api/nomeja"), fetch("/api/orders")]);
-
+    
         if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
         if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
-
-        setAllOrders((await ordersRes.json()).orders);
+    
+        const ordersData = await ordersRes.json();
+        setAllOrders(ordersData.orders);
       } catch (error) {
         console.error("Terjadi kesalahan:", error);
       }
     };
-
     // Panggil fetchData setiap kali komponen dimuat atau ada perubahan
     fetchData();
   }, []); // Hapus dependency array jika perlu pembaruan real-time
@@ -137,39 +138,38 @@ useEffect(() => {
   // Di dalam komponen Bookinge
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-    
+  
     // Prioritaskan tabel yang ditandai manual
     if (manuallyMarkedTables.includes(tableNumberStr)) {
       return "bg-[#D02323]"; // Warna merah untuk meja terisi
     }
-    
+  
     const tableOrders = allOrders.filter(order =>
       order.tableNumber === tableNumberStr
     );
-    
+  
     const hasActiveOrders = tableOrders.some(order =>
       order.status !== "Selesai"
     );
-    
+  
     const isTableReset = tableOrders.length === 0;
-    
+  
     return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800"; // Warna hijau untuk meja tersedia
   };
-  
   // Tambahkan fungsi fetchData yang bisa diakses global
   const fetchData = async () => {
     try {
       const [mejaRes, ordersRes] = await Promise.all([fetch("/api/nomeja"), fetch("/api/orders")]);
-
+  
       if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
       if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
-
-      setAllOrders((await ordersRes.json()).orders);
+  
+      const ordersData = await ordersRes.json();
+      setAllOrders(ordersData.orders);
     } catch (error) {
       console.error("Terjadi kesalahan:", error);
     }
   };
-
   const fetchTableOrders = async (tableNumber: string) => {
     try {
       setSelectedTableNumber(tableNumber);
