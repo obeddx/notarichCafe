@@ -74,6 +74,12 @@ const ReservasiSidebar = () => {
     status: "BOOKED",
   });
 
+  // State untuk delete confirmation modal
+  const [deleteModal, setDeleteModal] = useState<{
+    visible: boolean;
+    reservationId: number | null;
+  }>({ visible: false, reservationId: null });
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -89,7 +95,9 @@ const ReservasiSidebar = () => {
       const data: Reservasi[] = await res.json();
       // Urutkan data berdasarkan tanggal reservasi (dari yang paling dekat ke yang paling jauh)
       const sortedData = data.sort(
-        (a, b) => new Date(a.tanggalReservasi).getTime() - new Date(b.tanggalReservasi).getTime()
+        (a, b) =>
+          new Date(a.tanggalReservasi).getTime() -
+          new Date(b.tanggalReservasi).getTime()
       );
       setReservasis(sortedData);
     } catch (err) {
@@ -109,8 +117,15 @@ const ReservasiSidebar = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Apakah Anda yakin menghapus reservasi ini?")) return;
+  // Fungsi untuk menampilkan modal delete
+  const showDeleteModal = (id: number) => {
+    setDeleteModal({ visible: true, reservationId: id });
+  };
+
+  // Fungsi untuk melakukan penghapusan setelah konfirmasi
+  const confirmDelete = async () => {
+    if (deleteModal.reservationId === null) return;
+    const id = deleteModal.reservationId;
     try {
       const res = await fetch(`/api/reservasi/${id}`, {
         method: "DELETE",
@@ -125,6 +140,12 @@ const ReservasiSidebar = () => {
       console.error(error);
       toast.error("Terjadi kesalahan saat menghapus reservasi");
     }
+    setDeleteModal({ visible: false, reservationId: null });
+  };
+
+  // Fungsi untuk membatalkan delete (tutup modal)
+  const cancelDelete = () => {
+    setDeleteModal({ visible: false, reservationId: null });
   };
 
   // Fungsi untuk mengubah nilai editForm
@@ -188,7 +209,9 @@ const ReservasiSidebar = () => {
     }
 
     if (!isValidReservationTime(editForm.tanggalReservasi)) {
-      toast.error("Pastikan tanggal & waktu tidak di masa lalu dan jam antara 10:00 - 22:00");
+      toast.error(
+        "Pastikan tanggal & waktu tidak di masa lalu dan jam antara 10:00 - 22:00"
+      );
       return;
     }
 
@@ -259,7 +282,9 @@ const ReservasiSidebar = () => {
     }
 
     if (!isValidReservationTime(addForm.tanggalReservasi)) {
-      toast.error("Pastikan tanggal & waktu tidak di masa lalu dan jam antara 10:00 - 22:00");
+      toast.error(
+        "Pastikan tanggal & waktu tidak di masa lalu dan jam antara 10:00 - 22:00"
+      );
       return;
     }
 
@@ -329,12 +354,20 @@ const ReservasiSidebar = () => {
       <ToastContainer position="top-center" autoClose={3000} />
 
       {/* Sidebar */}
-      <div className={`h-full fixed transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
+      <div
+        className={`h-full fixed transition-all duration-300 ${
+          isSidebarOpen ? "w-64" : "w-20"
+        }`}
+      >
         <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
 
       {/* Konten Utama */}
-      <div className={`flex-1 p-6 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"}`}>
+      <div
+        className={`flex-1 p-6 transition-all duration-300 ${
+          isSidebarOpen ? "ml-64" : "ml-20"
+        }`}
+      >
         <h1 className="text-3xl font-bold text-center mb-6 text-[#0E0E0E]">
           📅 Manajemen Reservasi
         </h1>
@@ -347,63 +380,99 @@ const ReservasiSidebar = () => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[#979797]">Nama Customer</label>
+                <label className="block text-sm font-medium text-[#979797]">
+                  Nama Customer
+                </label>
                 <input
                   type="text"
                   name="namaCustomer"
-                  value={editingReservationId ? editForm.namaCustomer : addForm.namaCustomer}
+                  value={
+                    editingReservationId
+                      ? editForm.namaCustomer
+                      : addForm.namaCustomer
+                  }
                   onChange={editingReservationId ? handleEditChange : handleAddChange}
                   className="w-full p-2 border border-[#92700C] rounded-md"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#979797]">Nomor Kontak</label>
+                <label className="block text-sm font-medium text-[#979797]">
+                  Nomor Kontak
+                </label>
                 <input
                   type="text"
                   name="nomorKontak"
-                  value={editingReservationId ? editForm.nomorKontak : addForm.nomorKontak}
+                  value={
+                    editingReservationId
+                      ? editForm.nomorKontak
+                      : addForm.nomorKontak
+                  }
                   onChange={editingReservationId ? handleEditChange : handleAddChange}
                   className="w-full p-2 border border-[#92700C] rounded-md"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#979797]">Tanggal Reservasi</label>
+                <label className="block text-sm font-medium text-[#979797]">
+                  Tanggal Reservasi
+                </label>
                 <input
                   type="datetime-local"
                   name="tanggalReservasi"
-                  value={editingReservationId ? editForm.tanggalReservasi : addForm.tanggalReservasi}
+                  value={
+                    editingReservationId
+                      ? editForm.tanggalReservasi
+                      : addForm.tanggalReservasi
+                  }
                   onChange={editingReservationId ? handleEditChange : handleAddChange}
                   className="w-full p-2 border border-[#92700C] rounded-md"
                   min={getMinDateTime()}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#979797]">Nomor Meja</label>
+                <label className="block text-sm font-medium text-[#979797]">
+                  Nomor Meja
+                </label>
                 <input
                   type="text"
                   name="nomorMeja"
-                  value={editingReservationId ? editForm.nomorMeja : addForm.nomorMeja}
+                  value={
+                    editingReservationId
+                      ? editForm.nomorMeja
+                      : addForm.nomorMeja
+                  }
                   onChange={editingReservationId ? handleEditChange : handleAddChange}
                   className="w-full p-2 border border-[#92700C] rounded-md"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#979797]">Jumlah Tamu</label>
+                <label className="block text-sm font-medium text-[#979797]">
+                  Jumlah Tamu
+                </label>
                 <input
                   type="number"
                   name="jumlahTamu"
-                  value={editingReservationId ? editForm.jumlahTamu : addForm.jumlahTamu}
+                  value={
+                    editingReservationId
+                      ? editForm.jumlahTamu
+                      : addForm.jumlahTamu
+                  }
                   onChange={editingReservationId ? handleEditChange : handleAddChange}
                   className="w-full p-2 border border-[#92700C] rounded-md"
                   min="1"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#979797]">Durasi</label>
+                <label className="block text-sm font-medium text-[#979797]">
+                  Durasi
+                </label>
                 <div className="flex gap-2">
                   <select
                     name="durasiJam"
-                    value={editingReservationId ? editForm.durasiJam : addForm.durasiJam}
+                    value={
+                      editingReservationId
+                        ? editForm.durasiJam
+                        : addForm.durasiJam
+                    }
                     onChange={editingReservationId ? handleEditChange : handleAddChange}
                     className="w-full p-2 border border-[#92700C] rounded-md"
                   >
@@ -415,12 +484,22 @@ const ReservasiSidebar = () => {
                   </select>
                   <select
                     name="durasiMenit"
-                    value={editingReservationId ? editForm.durasiMenit : addForm.durasiMenit}
+                    value={
+                      editingReservationId
+                        ? editForm.durasiMenit
+                        : addForm.durasiMenit
+                    }
                     onChange={editingReservationId ? handleEditChange : handleAddChange}
                     className="w-full p-2 border border-[#92700C] rounded-md"
-                    disabled={editingReservationId ? editForm.durasiJam === 2 : addForm.durasiJam === 2}
+                    disabled={
+                      editingReservationId
+                        ? editForm.durasiJam === 2
+                        : addForm.durasiJam === 2
+                    }
                   >
-                    {(editingReservationId ? editForm.durasiJam === 1 : addForm.durasiJam === 1)
+                    {(editingReservationId
+                      ? editForm.durasiJam === 1
+                      : addForm.durasiJam === 1)
                       ? [0, 10, 20, 30, 40, 50].map((m) => (
                           <option key={m} value={m}>
                             {m} Menit
@@ -436,7 +515,9 @@ const ReservasiSidebar = () => {
               </div>
               {editingReservationId && (
                 <div>
-                  <label className="block text-sm font-medium text-[#979797]">Status</label>
+                  <label className="block text-sm font-medium text-[#979797]">
+                    Status
+                  </label>
                   <select
                     name="status"
                     value={editForm.status}
@@ -455,7 +536,11 @@ const ReservasiSidebar = () => {
             <div className="mt-4 flex gap-2 justify-end">
               <button
                 className="px-4 py-2 bg-[#FF8A00] hover:bg-[#92700C] text-white rounded-md"
-                onClick={editingReservationId ? () => handleSaveEdit(editingReservationId) : handleSaveAdd}
+                onClick={
+                  editingReservationId
+                    ? () => handleSaveEdit(editingReservationId)
+                    : handleSaveAdd
+                }
               >
                 Simpan
               </button>
@@ -476,44 +561,52 @@ const ReservasiSidebar = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-[#979797]">Nama Customer</p>
-                  <p className="font-semibold text-[#0E0E0E]">{reservasi.namaCustomer}</p>
+                  <p className="font-semibold text-[#0E0E0E]">
+                    {reservasi.namaCustomer}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-[#979797]">Tanggal Reservasi</p>
                   <p className="font-semibold text-[#0E0E0E]">
-                    {moment.tz(reservasi.tanggalReservasi, "Asia/Jakarta").format("DD/MM/YYYY HH:mm")}
+                    {moment
+                      .tz(reservasi.tanggalReservasi, "Asia/Jakarta")
+                      .format("DD/MM/YYYY HH:mm")}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-[#979797]">Status</p>
-                  <span className={`px-2 py-1 rounded-full text-sm ${
-                    reservasi.status === 'BOOKED' ? 'bg-blue-100 text-blue-800' :
-                    reservasi.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-sm ${
+                      reservasi.status === "BOOKED"
+                        ? "bg-blue-100 text-blue-800"
+                        : reservasi.status === "COMPLETED"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                     {reservasi.status}
                   </span>
                 </div>
                 <div>
                   <p className="text-sm text-[#979797]">Aksi</p>
                   <div className="flex gap-2">
-  <button
-    className="bg-orange-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-orange-600 hover:scale-105 transition-all"
-    onClick={() => startEditing(reservasi)}
-  >
-    Edit
-  </button>
-  <button
-    className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-red-600 hover:scale-105 transition-all"
-    onClick={() => handleDelete(reservasi.id)}
-  >
-    Hapus
-  </button>
-</div>
-
+                    <button
+                      className="bg-orange-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-orange-600 hover:scale-105 transition-all"
+                      onClick={() => startEditing(reservasi)}
+                    >
+                      Edit
+                    </button>
+                    {/* Tombol hapus yang menampilkan modal konfirmasi */}
+                    <button
+                      className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-red-600 hover:scale-105 transition-all"
+                      onClick={() => showDeleteModal(reservasi.id)}
+                    >
+                      Hapus
+                    </button>
+                  </div>
                 </div>
               </div>
-              
+
               {/* Detail Tambahan */}
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -527,7 +620,8 @@ const ReservasiSidebar = () => {
                 <div>
                   <p className="text-sm text-[#979797]">Durasi</p>
                   <p className="font-semibold">
-                    {Math.floor(reservasi.durasiPemesanan / 60)} Jam {reservasi.durasiPemesanan % 60} Menit
+                    {Math.floor(reservasi.durasiPemesanan / 60)} Jam{" "}
+                    {reservasi.durasiPemesanan % 60} Menit
                   </p>
                 </div>
                 <div>
@@ -548,6 +642,31 @@ const ReservasiSidebar = () => {
             >
               + Tambah Reservasi Baru
             </button>
+          </div>
+        )}
+
+        {/* Modal Konfirmasi Hapus */}
+        {deleteModal.visible && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded shadow-md">
+              <p className="mb-4">
+                Apakah anda yakin untuk menghapus data ini?
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                  onClick={confirmDelete}
+                >
+                  Yes
+                </button>
+                <button
+                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                  onClick={cancelDelete}
+                >
+                  No
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
