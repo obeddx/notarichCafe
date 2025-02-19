@@ -15,17 +15,17 @@ export default function HowToReserve() {
           },
           {
             image: "/pesen.png",
-            title: "Step 2: Lihat Menu",
-            description: "Silahkan pilih menu yang Anda inginkan dari daftar menu",
+            title: "Step 2: Isi Datadiri",
+            description: "Silahkan isi data diri yang dibutuhkan",
           },
           {
             image: "/payonline.png",
-            title: "Step 3: Pilih Metode Pembayaran",
+            title: "Step 3: Pilih tanggal dan waktu reservasi",
             description: "Bayar dengan dompet digital kesayangan Anda",
           },
           {
             image: "/servis.png",
-            title: "Step 4: Konfirmasi Pesanan",
+            title: "Step 4: Buat Reservasi",
             description: "Nikmati Layanan Anda",
           },
         ].map((step, index) => (
