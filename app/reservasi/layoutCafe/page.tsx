@@ -46,7 +46,24 @@ const Booking1 = () => {
   const router = useRouter(); // Tambahkan ini
   const [, setManuallyMarkedTables] = useState<string[]>([]);
   const [backendMarkedTables, setBackendMarkedTables] = useState<string[]>([]);
+  const [reservations, setReservations] = useState([]);
 
+  useEffect(() => {
+    const fetchReservations = async () => {
+      try {
+        const response = await fetch("/api/reservasi");
+        if (!response.ok) throw new Error("Gagal mengambil data reservasi");
+        const reservations = await response.json();
+        
+        // Simpan data reservasi ke state
+        setReservations(reservations);
+      } catch (error) {
+        console.error("Error fetching reservations:", error);
+      }
+    };
+  
+    fetchReservations();
+  }, []);
  
   const getCapacityMessage = (tableNumber: string) => {
     const num = parseInt(tableNumber, 10);
@@ -69,7 +86,7 @@ const Booking1 = () => {
     fetchData();
     
     // Optional: Refresh data setiap 30 detik
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 1000);
     return () => clearInterval(interval);
   }, []);
   
@@ -94,24 +111,23 @@ const Booking1 = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [mejaRes, ordersRes] = await Promise.all([
+        const [mejaRes, ordersRes, reservasiRes] = await Promise.all([
           fetch("/api/nomeja"),
-          fetch("/api/orders")
+          fetch("/api/orders"),
+          fetch("/api/reservasi"),
         ]);
-    
+  
         if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
         if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
-    
+        if (!reservasiRes.ok) throw new Error("Gagal mengambil data reservasi");
+  
         const mejaData = await mejaRes.json();
         const ordersData = await ordersRes.json();
-    
-        // Ekstrak nomor meja dari response API
-        const markedTables = mejaData.map((meja: { nomorMeja: number }) => 
-          meja.nomorMeja.toString()
-        );
-        
-        setBackendMarkedTables(markedTables);
+        const reservasiData = await reservasiRes.json();
+  
+        setBackendMarkedTables(mejaData.map((meja: { nomorMeja: number }) => meja.nomorMeja.toString()));
         setAllOrders(ordersData.orders);
+        setReservations(reservasiData);
       } catch (error) {
         console.error("Terjadi kesalahan:", error);
       }
@@ -124,13 +140,24 @@ const Booking1 = () => {
     fetchData(); // Initial fetch
     
     const interval = setInterval(fetchData, 5000); // Refresh setiap 5 detik
-    return () => clearInterval(interval);
+  return () => clearInterval(interval);
   }, []);
 
+  
   // Di dalam komponen Bookinge
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
     
+    // Cek apakah ada reservasi dengan status BOOKED untuk meja ini
+    const isBooked = reservations.some(
+      (reservasi) => reservasi.nomorMeja === tableNumberStr && reservasi.status === "BOOKED"
+    );
+  
+    // Jika ada reservasi dengan status BOOKED, kembalikan warna merah
+    if (isBooked) {
+      return "bg-[#D02323]";
+    }
+  
     // Prioritas 1: Data dari backend
     if (backendMarkedTables.includes(tableNumberStr)) {
       return "bg-[#D02323]";
@@ -150,17 +177,27 @@ const Booking1 = () => {
   // Tambahkan fungsi fetchData yang bisa diakses global
   const fetchData = async () => {
     try {
-      const [mejaRes, ordersRes] = await Promise.all([fetch("/api/nomeja"), fetch("/api/orders")]);
+      const [mejaRes, ordersRes, reservasiRes] = await Promise.all([
+        fetch("/api/nomeja"),
+        fetch("/api/orders"),
+        fetch("/api/reservasi"),
+      ]);
 
       if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
       if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
+      if (!reservasiRes.ok) throw new Error("Gagal mengambil data reservasi");
 
-      setAllOrders((await ordersRes.json()).orders);
+      const mejaData = await mejaRes.json();
+      const ordersData = await ordersRes.json();
+      const reservasiData = await reservasiRes.json();
+
+      setBackendMarkedTables(mejaData.map((meja: { nomorMeja: number }) => meja.nomorMeja.toString()));
+      setAllOrders(ordersData.orders);
+      setReservations(reservasiData);
     } catch (error) {
       console.error("Terjadi kesalahan:", error);
     }
   };
-
   const fetchTableOrders = async (tableNumber: string) => {
     try {
       setSelectedTableNumber(tableNumber);
