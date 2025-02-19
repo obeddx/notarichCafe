@@ -32,6 +32,10 @@ model Bundle {
 
   // Relasi ke tabel pivot
   bundleMenus BundleMenu[]
+  
+  // Relasi terbalik (opsional) jika Anda ingin mengakses order item yang berasal dari bundle ini
+  orderItems  OrderItem[]
+  completedOrderItems CompletedOrderItem[]
 }
 
 model BundleMenu {
@@ -165,15 +169,17 @@ model Order {
 }
 
 
-model OrderItem {
+model OrderItem { 
   id        Int    @id @default(autoincrement())
   orderId   Int
   menuId    Int
+  bundleId  Int?   // Field tambahan untuk menyimpan ID bundle (jika ada)
   quantity  Int
   note      String?
   
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menu      Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  bundle    Bundle? @relation(fields: [bundleId], references: [id])
 }
 
 model CompletedOrder {
@@ -196,17 +202,19 @@ model CompletedOrderItem {
   id        Int    @id @default(autoincrement())
   orderId   Int
   menuId    Int
+  bundleId  Int?   // Field tambahan untuk menyimpan ID bundle (jika ada)
   quantity  Int
   note      String?
 
   order     CompletedOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menu      Menu           @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  bundle    Bundle?        @relation(fields: [bundleId], references: [id])
 }
 
 
 model DataMeja {
   id         Int  @id @default(autoincrement()) @map("id")
-  nomorMeja  Int  @unique @map("nomor_meja")
+  nomorMeja  Int  @map("nomor_meja")
 }
 
 model Reservasi {

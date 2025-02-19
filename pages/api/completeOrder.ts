@@ -29,10 +29,12 @@ export default async function handler(
                 },
               },
             },
+            bundle: true, // Tambahkan include bundle disini
           },
         },
       },
     });
+    
 
     if (!order) {
       return res.status(404).json({ message: "Order tidak ditemukan" });
@@ -70,6 +72,7 @@ export default async function handler(
             menuId: item.menuId,
             quantity: item.quantity,
             note: item.note,
+            bundleId: item.bundleId,
           })),
         },
       },
