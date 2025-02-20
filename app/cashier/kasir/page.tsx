@@ -9,6 +9,25 @@ import { useNotifications, MyNotification } from "../../contexts/NotificationCon
 import CombinedPaymentForm from "@/components/combinedPaymentForm";
 import { jsPDF } from "jspdf";
 
+interface AggregatedOrderItem {
+  type: "menu" | "bundle";
+  // Untuk item bundle:
+  bundleId?: number;
+  bundleName?: string;
+  bundlePrice?: number;
+  menus?: string[];
+  // Untuk item menu biasa:
+  menuId?: number;
+  // Properti umum:
+  quantity: number;
+  image: string;
+  // Sediakan properti menu agar tetap bisa mengakses image dan name
+  menu: {
+    image: string;
+    name: string;
+  };
+  note?: string;
+}
 interface Menu {
   id: number;
   name: string;
@@ -273,7 +292,7 @@ export default function KasirPage() {
 
 
   // Di dalam komponen KasirPage (sebelum return)
-<style jsx global>{`
+  <style jsx global>{`
   /* Hilangkan panah di input number */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
@@ -625,13 +644,26 @@ function OrderItemComponent({
         Total: <span className="font-semibold">Rp {order.total.toLocaleString()}</span>
       </p>
       <ul className="mt-3 space-y-1">
-        {order.orderItems.map((item) => (
-          <li key={item.id} className="flex items-center space-x-2">
-            <img src={item.menu.image} alt={item.menu.name} className="w-8 h-8 object-cover rounded" />
+        {(order.orderItems as unknown as AggregatedOrderItem[]).map((item, index) => (
+          <li
+            key={
+              item.type === "bundle"
+                ? `bundle-${item.bundleId}`
+                : `menu-${item.menuId}`
+            }
+            className="flex items-center space-x-2"
+          >
+            <img
+              src={item.image}
+              alt={item.menu.name}
+              className="w-8 h-8 object-cover rounded"
+            />
             <span>
-              {item.menu.name} - {item.quantity} pcs
-              {item.note && ( // Tampilkan note jika ada
-                <span className="block text-sm text-gray-600">Catatan: {item.note}</span>
+              {item.type === "bundle" ? item.bundleName : item.menu.name} - {item.quantity} pcs
+              {item.note && (
+                <span className="block text-sm text-gray-600">
+                  Catatan: {item.note}
+                </span>
               )}
             </span>
           </li>
