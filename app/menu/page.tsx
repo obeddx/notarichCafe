@@ -393,24 +393,30 @@ export default function MenuPage() {
         },
         body: JSON.stringify(orderDetails),
       });
-
+    
       if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        // Coba parse response error jika tersedia
+        const errorData = await response.json().catch(() => ({}));
+        // Lempar error dengan pesan yang Anda inginkan, tanpa menampilkan status code
+        throw new Error(
+          errorData.message1 || "Failed to place order. Please try again later."
+        );
       }
-
+    
       toast.success("Order placed successfully!");
       setShowOrderSummary(true); // Tampilkan ringkasan pesanan
       setIsCartOpen(false);
-    } catch (err) {
+    }  catch (err) {
       if (err instanceof Error) {
-        setError(`Failed to load menu data: ${err.message}`);
+        // Menampilkan pesan error yang dikembalikan dari API (misalnya, "Silahkan kurangi jumlah menu ...")
+        toast.error(err.message);
+        setOrderError(err.message);
       } else {
-        setError("Failed to load menu data.");
+        // toast.error("Failed to place order. Please try again later.");
+        // setOrderError("Failed to place order. Please try again later.");
       }
-      setOrderError("Failed to place order. Please try again later.");
-      toast.error("Failed to place order. Please try again later.");
     }
-  };
+  }    
 
   const handleCloseOrderSummary = () => {
     setShowOrderSummary(false);

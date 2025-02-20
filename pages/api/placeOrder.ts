@@ -33,9 +33,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Mapping data cart ke OrderItem
     // Jika terdapat properti menuId maka dianggap item menu,
     // sedangkan jika terdapat bundleId maka dianggap item bundle.
-    // Perhatian: pastikan untuk item bundle, data juga menyertakan array bundleMenus
+    // Untuk item bundle, pastikan data juga menyertakan array bundleMenus.
     const orderItemsData = orderDetails.items.flatMap((cartItem: any) => {
-      // Jika item adalah menu biasa
       if (cartItem.menuId) {
         return [
           {
@@ -44,12 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             note: cartItem.note || "",
           },
         ];
-      }
-      // Jika item adalah bundle
-      else if (cartItem.bundleId) {
+      } else if (cartItem.bundleId) {
         if (cartItem.bundleMenus && Array.isArray(cartItem.bundleMenus)) {
-          // Setiap menu di dalam bundle dikalikan dengan kuantitas bundle,
-          // dan sertakan juga bundleId
           return cartItem.bundleMenus.map((bm: any) => ({
             menuId: bm.menuId,
             quantity: bm.quantity * cartItem.quantity,
@@ -68,12 +63,76 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return [];
     });
     
-
     console.log("orderItemsData:", orderItemsData);
 
     if (orderItemsData.length === 0) {
       return res.status(400).json({ message: "No valid order items found" });
     }
+
+    // --- VALIDASI GLOBAL STOK BAHAN ---
+    // 1. Hitung total quantity untuk tiap menuId yang dipesan
+    const orderQuantities: { [menuId: number]: number } = {};
+    for (const item of orderItemsData) {
+      orderQuantities[item.menuId] = (orderQuantities[item.menuId] || 0) + item.quantity;
+    }
+
+    // 2. Ambil seluruh data menuIngredient untuk menu-menu yang dipesan
+    const menuIds = Object.keys(orderQuantities).map(Number);
+    const menuIngredients = await prisma.menuIngredient.findMany({
+      where: { menuId: { in: menuIds } },
+    });
+
+    // 3. Akumulasi total kebutuhan tiap ingredient
+    const orderRequirements: { [ingredientId: number]: number } = {};
+    for (const mi of menuIngredients) {
+      const quantityOrdered = orderQuantities[mi.menuId] || 0;
+      const required = mi.amount * quantityOrdered;
+      orderRequirements[mi.ingredientId] = (orderRequirements[mi.ingredientId] || 0) + required;
+    }
+
+   // 4. Cek stok setiap ingredient
+// 4. Cek stok setiap ingredient
+for (const ingredientIdStr in orderRequirements) {
+  const ingredientId = Number(ingredientIdStr);
+  const requiredQty = orderRequirements[ingredientId];
+
+  const ingredient = await prisma.ingredient.findUnique({ where: { id: ingredientId } });
+  if (!ingredient) {
+    return res.status(400).json({
+      message: `Bahan dengan id ${ingredientId} tidak ditemukan.`
+    });
+  }
+  
+  if (ingredient.stock < requiredQty) {
+    // Cari semua record menuIngredient yang menggunakan bahan ini
+    const affectedMenuIngredients = menuIngredients.filter(mi => mi.ingredientId === ingredientId);
+    // Dapatkan daftar unik menuId yang menggunakan bahan ini
+    const affectedMenuIds = Array.from(new Set(affectedMenuIngredients.map(mi => mi.menuId)));
+
+    const affectedMenuOptions: string[] = [];
+    // Untuk setiap menu, hitung berapa banyak porsi menu yang dapat dibuat dengan stok yang tersisa
+    for (const menuId of affectedMenuIds) {
+      // Ambil salah satu record menuIngredient untuk menu tersebut
+      const miForMenu = affectedMenuIngredients.find(mi => mi.menuId === menuId);
+      if (miForMenu && miForMenu.amount > 0) {
+        const possible = Math.floor(ingredient.stock / miForMenu.amount);
+        const menuRecord = await prisma.menu.findUnique({ where: { id: menuId } });
+        const menuName = menuRecord?.name || `Menu ${menuId}`;
+        affectedMenuOptions.push(`${menuName} sebanyak ${possible}`);
+      }
+    }
+    
+    // Buat pesan error dengan menyertakan semua opsi yang ditemukan
+    const optionsMessage = affectedMenuOptions.join(" atau ");
+    return res.status(400).json({
+      message1: `Silahkan kurangi jumlah menu. Pilih salah satu: ${optionsMessage}.`
+    });
+  }
+}
+
+
+
+    // --- AKHIR VALIDASI GLOBAL STOK BAHAN ---
 
     // Simpan order ke database
     const newOrder = await prisma.order.create({

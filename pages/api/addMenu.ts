@@ -92,7 +92,7 @@ export default async function handler(
       },
     });
 
-    // Jika ada data ingredients, simpan relasi dan hitung maxBeli
+    // Jika ada data ingredients, simpan relasi dan hitung maxBeli untuk menu baru
     if (parsedIngredients.length > 0) {
       const menuIngredientsData = parsedIngredients.map((ing: any) => ({
         menuId: newMenu.id,
@@ -118,7 +118,7 @@ export default async function handler(
       if (maxBeli === Infinity) {
         maxBeli = 0;
       }
-      // Update field maxBeli pada menu
+      // Update field maxBeli pada menu baru
       await prisma.menu.update({
         where: { id: newMenu.id },
         data: { maxBeli },
@@ -129,6 +129,46 @@ export default async function handler(
         where: { id: newMenu.id },
         data: { maxBeli: 0 },
       });
+    }
+
+    // --- Recalculate maxBeli untuk semua menu yang menggunakan bahan yang sama ---
+    // Ambil semua ingredientId yang terdapat pada parsedIngredients
+    const affectedIngredientIds = parsedIngredients.map((ing: any) => ing.ingredientId);
+    if (affectedIngredientIds.length > 0) {
+      // Cari semua menu yang menggunakan salah satu ingredient tersebut
+      const menusToRecalculate = await prisma.menu.findMany({
+        where: {
+          ingredients: {
+            some: { ingredientId: { in: affectedIngredientIds } },
+          },
+        },
+        include: {
+          ingredients: {
+            include: { ingredient: true },
+          },
+        },
+      });
+
+      for (const menu of menusToRecalculate) {
+        let newMaxBeli = Infinity;
+        for (const mi of menu.ingredients) {
+          if (mi.amount > 0) {
+            // Gunakan stok dari data ingredient yang sudah ada di relasi
+            const possible = Math.floor(mi.ingredient.stock / mi.amount);
+            newMaxBeli = Math.min(newMaxBeli, possible);
+          } else {
+            newMaxBeli = 0;
+            break;
+          }
+        }
+        if (newMaxBeli === Infinity) {
+          newMaxBeli = 0;
+        }
+        await prisma.menu.update({
+          where: { id: menu.id },
+          data: { maxBeli: newMaxBeli },
+        });
+      }
     }
 
     return res

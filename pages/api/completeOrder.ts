@@ -58,7 +58,7 @@ export default async function handler(
           },
         });
 
-        // Simpan stok terbaru di map
+        // Simpan stok terbaru di map (jika ingredient yang sama digunakan di menu lain, nilainya akan ter-update)
         updatedIngredientStocks.set(ingredient.id, updatedIngredient.stock);
 
         // Jika stok mencapai 0, nonaktifkan menu dengan mengubah status menjadi "habis"
@@ -71,30 +71,37 @@ export default async function handler(
       }
     }
 
-    // --- 2. Hitung max beli untuk setiap menu ---
-    // Rumus: max beli = Math.floor( ingredient.stock / menuIngredient.amount )
-    // untuk masing-masing ingredient di menu, ambil nilai minimum dari semua perhitungan tersebut.
+    // --- 2. Hitung max beli untuk setiap menu yang terpengaruh ---
+    // Ambil semua ingredient id yang diupdate
+    const updatedIngredientIds = Array.from(updatedIngredientStocks.keys());
+
+    // Cari seluruh menu yang menggunakan setidaknya salah satu ingredient yang diupdate
+    const menusToRecalculate = await prisma.menu.findMany({
+      where: {
+        ingredients: {
+          some: {
+            ingredientId: { in: updatedIngredientIds },
+          },
+        },
+      },
+      include: {
+        ingredients: {
+          include: { ingredient: true },
+        },
+      },
+    });
+
     const menuMaxBeli = new Map<number, number>();
-    const processedMenus = new Set<number>();
 
-    for (const orderItem of order.orderItems) {
-      const menu = orderItem.menu;
-      // Pastikan setiap menu hanya dihitung satu kali
-      if (processedMenus.has(menu.id)) continue;
-      processedMenus.add(menu.id);
-
+    for (const menu of menusToRecalculate) {
       let maxPurchase = Infinity;
       for (const menuIngredient of menu.ingredients) {
-        // Ambil stok terbaru dari map; jika tidak ada, ambil dari database
+        // Gunakan stok terbaru jika ingredient termasuk dalam yang diupdate, jika tidak gunakan stok yang sudah ada
         let currentStock = updatedIngredientStocks.get(menuIngredient.ingredient.id);
         if (currentStock === undefined) {
-          const ingredientRecord = await prisma.ingredient.findUnique({
-            where: { id: menuIngredient.ingredient.id },
-          });
-          currentStock = ingredientRecord ? ingredientRecord.stock : 0;
+          currentStock = menuIngredient.ingredient.stock;
         }
 
-        // Jika amount tidak valid, set maxPurchase ke 0
         if (menuIngredient.amount <= 0) {
           maxPurchase = 0;
           break;
@@ -103,24 +110,35 @@ export default async function handler(
         const possible = Math.floor(currentStock / menuIngredient.amount);
         maxPurchase = Math.min(maxPurchase, possible);
       }
+      // Jika tidak ada bahan atau perhitungannya tidak valid, set maxPurchase ke 0
+      if (maxPurchase === Infinity) {
+        maxPurchase = 0;
+      }
       menuMaxBeli.set(menu.id, maxPurchase);
     }
 
     // --- 3. Update field maxBeli pada tabel menu ---
-    for (const [menuId, maxBeli] of menuMaxBeli.entries()) {
-      await prisma.menu.update({
-        where: { id: menuId },
-        data: { maxBeli: maxBeli },
-      });
-    }
+for (const [menuId, maxBeli] of menuMaxBeli.entries()) {
+  const updateData: { maxBeli: number; Status?: string } = { maxBeli };
 
-    console.log(
-      "Max beli per menu:",
-      Array.from(menuMaxBeli.entries()).map(([menuId, maxBeli]) => ({
-        menuId,
-        maxBeli,
-      }))
-    );
+  // Jika maxBeli == 0, update status menu menjadi "Habis"
+  if (maxBeli === 0) {
+    updateData.Status = "Habis";
+  }
+
+  await prisma.menu.update({
+    where: { id: menuId },
+    data: updateData,
+  });
+}
+
+console.log(
+  "Max beli per menu:",
+  Array.from(menuMaxBeli.entries()).map(([menuId, maxBeli]) => ({
+    menuId,
+    maxBeli,
+  }))
+);
 
     // --- 4. Pindahkan data order ke CompletedOrder tanpa menghapus order asli ---
     await prisma.completedOrder.create({
