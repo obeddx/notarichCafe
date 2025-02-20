@@ -3,6 +3,7 @@ import { useState, useEffect, FormEvent } from "react";
 interface IngredientOption {
   id: number;
   name: string;
+  unit?: string;
 }
 
 interface IngredientRow {
@@ -157,36 +158,66 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
             <div>
               <label className="block font-semibold mb-2">Category:</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1">
-                <option value="makanan">Coffee</option>
-                <option value="minuman">Tea</option>
-                <option value="dessert">Frappe</option>
-                <option value="dessert">Juice</option>
-                <option value="dessert">Milk Base</option>
-                <option value="dessert">Refresher</option>
-                <option value="dessert">Cocorich</option>
-                <option value="dessert">Mocktail</option>
-                <option value="dessert">Sncak</option>
-                <option value="dessert">Main Course</option>
+              <option value="Coffee">Coffee</option>
+                  <option value="Tea">Tea</option>
+                  <option value="Frappe">Frappe</option>
+                  <option value="Juice">Juice</option>
+                  <option value="Milk Base">Milk Base</option>
+                  <option value="Refresher">Refresher</option>
+                  <option value="Cocorich">Cocorich</option>
+                  <option value="Mocktail">Mocktail</option>
+                  <option value="Snack">Snack</option>
+                  <option value="Main Course">Main Course</option>
               </select>
             </div>
             <div>
               <h2 className="text-xl font-semibold mb-2">Ingredients</h2>
-              {ingredientRows.map((row, index) => (
-                <div key={index} className="flex gap-2 items-center mb-2">
-                  <select value={row.ingredientId} onChange={(e) => updateIngredientRow(index, "ingredientId", parseInt(e.target.value))} required className="flex-1 p-2 border border-gray-300 rounded">
-                    <option value={0}>Pilih Ingredient</option>
-                    {availableIngredients.map((ing) => (
-                      <option key={ing.id} value={ing.id}>
-                        {ing.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input type="number" placeholder="Amount" value={row.amount} onChange={(e) => updateIngredientRow(index, "amount", parseFloat(e.target.value))} required className="flex-1 p-2 border border-gray-300 rounded" />
-                  <button type="button" onClick={() => removeIngredientRow(index)} className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded">
-                    Remove
-                  </button>
-                </div>
-              ))}
+              {ingredientRows.map((row, index) => {
+  const selectedIngredient = availableIngredients.find(ing => ing.id === row.ingredientId);
+  return (
+    <div key={index} className="flex gap-2 items-center mb-2">
+      <select
+        value={row.ingredientId}
+        onChange={(e) =>
+          updateIngredientRow(index, "ingredientId", parseInt(e.target.value))
+        }
+        required
+        className="flex-1 p-2 border border-gray-300 rounded"
+      >
+        <option value={0}>Pilih Ingredient</option>
+        {availableIngredients.map((ing) => (
+          <option key={ing.id} value={ing.id}>
+            {ing.name}
+          </option>
+        ))}
+      </select>
+      <div className="flex items-center">
+        <input
+          type="number"
+          placeholder="Amount"
+          value={row.amount}
+          onChange={(e) =>
+            updateIngredientRow(index, "amount", parseFloat(e.target.value))
+          }
+          required
+          className="p-2 border border-gray-300 rounded"
+        />
+        {/* Tampilkan satuan jika tersedia */}
+        {selectedIngredient?.unit && (
+          <span className="ml-2">{selectedIngredient.unit}</span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => removeIngredientRow(index)}
+        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+      >
+        Remove
+      </button>
+    </div>
+  );
+})}
+
               <button type="button" onClick={addIngredientRow} className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
                 Add Ingredient
               </button>

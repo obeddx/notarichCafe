@@ -26,6 +26,7 @@ interface Menu {
   Status: string;
   price: number;
   hargaBakul: number;
+  maxBeli: number;
   category: string;
   ingredients: MenuIngredient[];
 }
@@ -124,6 +125,8 @@ export default function ManagerMenusPage() {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar Menu</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Menu</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi Menu</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Menu</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Jual</th>
@@ -138,12 +141,14 @@ export default function ManagerMenusPage() {
               <td className="px-6 py-4 whitespace-nowrap">{menu.id}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.image ? <img src={menu.image} alt={menu.name} className="w-16 h-16 object-cover rounded" /> : "No Image"}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.name}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{menu.description}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{menu.maxBeli}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.Status}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.category}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.price}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.hargaBakul}</td>
               
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-6 py-4">
                 {menu.ingredients.map((item, index) => (
                   <span key={item.id}>
                     {item.ingredient.name} ({item.amount} {item.ingredient.unit}){index < menu.ingredients.length - 1 && ", "}

@@ -15,10 +15,10 @@ if (!fs.existsSync(uploadDir)) {
 
 // Konfigurasi multer untuk penyimpanan file
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     cb(null, "./public/uploads");
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const ext = file.originalname.split(".").pop();
     const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
     cb(null, filename);
@@ -33,7 +33,11 @@ interface NextApiRequestWithFile extends NextApiRequest {
 }
 
 // Middleware multer sebagai fungsi Promise
-const runMiddleware = (req: IncomingMessage, res: ServerResponse, fn: Function) => {
+const runMiddleware = (
+  req: IncomingMessage,
+  res: ServerResponse,
+  fn: Function
+) => {
   return new Promise((resolve, reject) => {
     fn(req, res, (result: any) => {
       if (result instanceof Error) {
@@ -44,8 +48,10 @@ const runMiddleware = (req: IncomingMessage, res: ServerResponse, fn: Function) 
   });
 };
 
-// Handler API manual tanpa next-connect
-export default async function handler(req: NextApiRequestWithFile, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequestWithFile,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -62,7 +68,7 @@ export default async function handler(req: NextApiRequestWithFile, res: NextApiR
     }
 
     const menuPrice = parseFloat(price);
-    let parsedIngredients = [];
+    let parsedIngredients: any[] = [];
 
     if (ingredients) {
       try {
@@ -73,7 +79,7 @@ export default async function handler(req: NextApiRequestWithFile, res: NextApiR
       }
     }
 
-    // Simpan ke database menggunakan Prisma
+    // Simpan menu baru ke database
     const newMenu = await prisma.menu.create({
       data: {
         name,
@@ -81,11 +87,12 @@ export default async function handler(req: NextApiRequestWithFile, res: NextApiR
         price: menuPrice,
         image: imagePath,
         hargaBakul: 2000,
-        category,  
-        Status, 
+        category,
+        Status,
       },
     });
 
+    // Jika ada data ingredients, simpan relasi dan hitung maxBeli
     if (parsedIngredients.length > 0) {
       const menuIngredientsData = parsedIngredients.map((ing: any) => ({
         menuId: newMenu.id,
@@ -96,9 +103,37 @@ export default async function handler(req: NextApiRequestWithFile, res: NextApiR
       await prisma.menuIngredient.createMany({
         data: menuIngredientsData,
       });
+
+      // Hitung maxBeli untuk menu baru
+      let maxBeli = Infinity;
+      for (const ingData of parsedIngredients) {
+        const ingRecord = await prisma.ingredient.findUnique({
+          where: { id: ingData.ingredientId },
+        });
+        if (ingRecord) {
+          const possible = Math.floor(ingRecord.stock / ingData.amount);
+          maxBeli = Math.min(maxBeli, possible);
+        }
+      }
+      if (maxBeli === Infinity) {
+        maxBeli = 0;
+      }
+      // Update field maxBeli pada menu
+      await prisma.menu.update({
+        where: { id: newMenu.id },
+        data: { maxBeli },
+      });
+    } else {
+      // Jika tidak ada ingredients, set maxBeli ke 0
+      await prisma.menu.update({
+        where: { id: newMenu.id },
+        data: { maxBeli: 0 },
+      });
     }
 
-    return res.status(200).json({ message: "Menu berhasil dibuat", menu: newMenu });
+    return res
+      .status(200)
+      .json({ message: "Menu berhasil dibuat", menu: newMenu });
   } catch (error: any) {
     console.error("Error creating menu:", error);
     return res.status(500).json({ message: "Gagal membuat menu" });

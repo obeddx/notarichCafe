@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
+import { useRouter } from "next/navigation";
 
 interface IngredientOption {
   id: number;
   name: string;
+  unit: string; // tambahkan properti unit
 }
 
 interface IngredientRow {
@@ -23,6 +25,8 @@ export default function AddMenu() {
   const [availableIngredients, setAvailableIngredients] = useState<IngredientOption[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
+
+  const router = useRouter();
 
   // Ambil daftar ingredient yang tersedia dari API
   useEffect(() => {
@@ -103,6 +107,7 @@ export default function AddMenu() {
         setIngredientRows([]);
         // Tampilkan pop up sukses
         setShowSuccessPopup(true);
+        router.push("/manager/getMenu");
       } else {
         alert("Gagal menambahkan menu: " + (data.message || "Unknown error"));
       }
@@ -226,42 +231,54 @@ export default function AddMenu() {
           {/* Ingredients Section */}
           <div className="mt-6">
             <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
-            {ingredientRows.map((row, index) => (
-              <div key={index} className="flex gap-4 items-center mb-4">
-                <select
-                  value={row.ingredientId}
-                  onChange={(e) =>
-                    updateIngredientRow(index, "ingredientId", parseInt(e.target.value))
-                  }
-                  required
-                  className="flex-1 p-2 border border-gray-300 rounded"
-                >
-                  <option value={0}>Pilih Ingredient</option>
-                  {availableIngredients.map((ing) => (
-                    <option key={ing.id} value={ing.id}>
-                      {ing.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  placeholder="Amount"
-                  value={row.amount}
-                  onChange={(e) =>
-                    updateIngredientRow(index, "amount", parseFloat(e.target.value))
-                  }
-                  required
-                  className="flex-1 p-2 border border-gray-300 rounded"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeIngredientRow(index)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+            {ingredientRows.map((row, index) => {
+              // Cari ingredient yang dipilih untuk mendapatkan satuannya
+              const selectedIngredient = availableIngredients.find(
+                (ing) => ing.id === row.ingredientId
+              );
+              return (
+                <div key={index} className="flex gap-4 items-center mb-4">
+                  <select
+                    value={row.ingredientId}
+                    onChange={(e) =>
+                      updateIngredientRow(index, "ingredientId", parseInt(e.target.value))
+                    }
+                    required
+                    className="flex-1 p-2 border border-gray-300 rounded"
+                  >
+                    <option value={0}>Pilih Ingredient</option>
+                    {availableIngredients.map((ing) => (
+                      <option key={ing.id} value={ing.id}>
+                        {ing.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="number"
+                      placeholder="Amount"
+                      value={row.amount}
+                      onChange={(e) =>
+                        updateIngredientRow(index, "amount", parseFloat(e.target.value))
+                      }
+                      required
+                      className="p-2 border border-gray-300 rounded"
+                    />
+                    {/* Tampilkan satuan ingredient sebagai informasi saja */}
+                    {selectedIngredient?.unit && (
+                      <span>{selectedIngredient.unit}</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeIngredientRow(index)}
+                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                  >
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
             <button
               type="button"
               onClick={addIngredientRow}
