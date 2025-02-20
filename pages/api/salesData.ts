@@ -1,4 +1,3 @@
-// File: pages/api/salesData.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 

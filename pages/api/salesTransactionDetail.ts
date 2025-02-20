@@ -19,11 +19,61 @@ function getStartOfISOWeek(isoWeek: string): Date {
   return ISOweekStart;
 }
 
+/**
+ * Fungsi helper untuk mengagregasi orderItems per order.
+ * - Jika item memiliki bundle (non-null), maka gunakan key "bundle_{bundle.id}" dan
+ *   ambil quantity dari baris pertama per order (untuk bundle tersebut).
+ * - Jika item biasa, jumlahkan quantity secara normal.
+ */
+function aggregateOrderItemsForOrder(orderItems: any[]): {
+  key: string;
+  menuName: string;
+  sellingPrice: number;
+  quantity: number;
+  totalSales: number;
+}[] {
+  const map = new Map<string, any>();
+  for (const item of orderItems) {
+    if (item.bundle) {
+      // Gunakan key berdasarkan bundle id
+      const key = `bundle_${item.bundle.id}`;
+      // Pastikan dalam satu order, jika sudah ada, jangan menambahkan quantity lagi
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          menuName: item.bundle.name,
+          sellingPrice: item.bundle.bundlePrice,
+          quantity: item.quantity, // ambil quantity dari baris pertama (diasumsikan sama)
+          totalSales: item.bundle.bundlePrice * item.quantity,
+          isBundle: true,
+        });
+      }
+    } else {
+      const key = `menu_${item.menu.id}`;
+      if (map.has(key)) {
+        const agg = map.get(key);
+        agg.quantity += item.quantity;
+        agg.totalSales += item.menu.price * item.quantity;
+      } else {
+        map.set(key, {
+          key,
+          menuName: item.menu.name,
+          sellingPrice: item.menu.price,
+          quantity: item.quantity,
+          totalSales: item.menu.price * item.quantity,
+          isBundle: false,
+        });
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     const { date, period } = req.query;
-    if (!date) {
-      return res.status(400).json({ error: "Date is required" });
+    if (!date || !period) {
+      return res.status(400).json({ error: "Date and period are required" });
     }
 
     let startDate: Date;
@@ -53,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      // Dapatkan semua order dalam rentang waktu dengan half-open interval
+      // Dapatkan semua order dalam rentang waktu
       const orders = await prisma.completedOrder.findMany({
         where: {
           createdAt: {
@@ -65,9 +115,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           orderItems: {
             include: {
               menu: true,
+              bundle: true,
             },
           },
         },
+        orderBy: { createdAt: "desc" },
       });
 
       const transactionCount = orders.length;
@@ -78,30 +130,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const salesPerTransaction =
         transactionCount > 0 ? netSales / transactionCount : 0;
 
-      // Kelompokkan detail per menu
-      const detailsMap = new Map<
-        number,
-        { menuName: string; sellingPrice: number; quantity: number; totalSales: number }
-      >();
-
+      // Untuk setiap order, agregasikan orderItems menggunakan helper
+      const globalMap = new Map<string, any>();
       orders.forEach((order) => {
-        order.orderItems.forEach((item) => {
-          const key = item.menu.id;
-          if (detailsMap.has(key)) {
-            const existing = detailsMap.get(key)!;
-            existing.quantity += item.quantity;
-            existing.totalSales += item.menu.price * item.quantity;
+        const aggregatedItems = aggregateOrderItemsForOrder(order.orderItems);
+        aggregatedItems.forEach((agg) => {
+          const key = agg.key; // key sudah mencakup tipe (bundle/menu) dan id
+          if (globalMap.has(key)) {
+            const existing = globalMap.get(key);
+            existing.quantity += agg.quantity;
+            existing.totalSales += agg.totalSales;
           } else {
-            detailsMap.set(key, {
-              menuName: item.menu.name,
-              sellingPrice: item.menu.price,
-              quantity: item.quantity,
-              totalSales: item.menu.price * item.quantity,
-            });
+            globalMap.set(key, { ...agg });
           }
         });
       });
-      const details = Array.from(detailsMap.values());
+      const details = Array.from(globalMap.values());
 
       return res.status(200).json({
         summary: { netSales, transactionCount, salesPerTransaction },

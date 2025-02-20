@@ -1,4 +1,3 @@
-// File: components/SalesChart.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {

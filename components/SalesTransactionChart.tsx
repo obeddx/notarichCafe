@@ -18,7 +18,6 @@ export default function SalesTransactionChart() {
   const [salesData, setSalesData] = useState<
     { date: string; salesPerTransaction: number }[]
   >([]);
-  // Tambahkan "yearly" ke tipe period
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -230,7 +229,6 @@ export default function SalesTransactionChart() {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Modal Detail */}
       {selectedDetail && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg w-2/3 max-h-screen overflow-auto">
@@ -252,7 +250,6 @@ export default function SalesTransactionChart() {
               <p>Loading...</p>
             ) : (
               <div className="mt-4">
-                {/* Ringkasan Summary */}
                 <div className="mb-4 p-4 bg-gray-100 rounded">
                   <p>
                     <strong>Net Sales:</strong> Rp{" "}
@@ -267,7 +264,6 @@ export default function SalesTransactionChart() {
                     {selectedDetail.summary.salesPerTransaction.toFixed(2)}
                   </p>
                 </div>
-                {/* Tabel Detail Menu */}
                 <h3 className="text-lg font-semibold mb-2">Detail Menu</h3>
                 {selectedDetail.details.length > 0 ? (
                   <table className="w-full text-left">

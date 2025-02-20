@@ -1,9 +1,15 @@
-// File: components/StatsCards.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 
 // ======= TIPE DATA =======
+interface SalesOrder {
+  id: number;
+  createdAt: string;
+  total: number;
+  items: string[];
+}
+
 interface Metrics {
   totalSales: number;
   transactions: number;
@@ -21,25 +27,6 @@ interface StatCardProps {
   onClick?: () => void;
 }
 
-interface OrderItem {
-  id: number;
-  quantity: number;
-  menu: {
-    id: number;
-    name: string;
-    price: number;
-    hargaBakul: number;
-  };
-}
-
-interface Order {
-  id: number;
-  createdAt: string;
-  total: number;
-  orderItems: OrderItem[];
-}
-
-// Untuk modal, tambahkan properti metric agar modal tahu cara merender data
 interface ModalData {
   title: string;
   metric: "sales" | "transactions" | "gross" | "net";
@@ -91,7 +78,7 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
   data,
   onClose,
 }) => {
-  // Fungsi untuk merender header tabel sesuai metric
+  // Render header tabel sesuai metric
   const renderTableHeader = () => {
     if (metric === "sales") {
       return (
@@ -115,42 +102,48 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
         <tr>
           <th className="border p-2">Order ID</th>
           <th className="border p-2">Tanggal</th>
-          <th className="border p-2">Menu</th>
+          <th className="border p-2">Menu / Bundle</th>
           <th className="border p-2">Harga Jual</th>
           <th className="border p-2">Jumlah</th>
           <th className="border p-2">Total Sales</th>
           <th className="border p-2">HPP</th>
-          <th className="border p-2">Total HPP</th>
+          <th className="border p-2">Laba Kotor</th>
         </tr>
       );
     }
   };
 
-  // Fungsi untuk merender baris tabel sesuai metric
+  // Render baris tabel sesuai metric
   const renderTableRows = () => {
     if (metric === "sales") {
-      // Data bertipe Order[]
-      return data.map((order: Order) => (
+      // Data sudah diagregasi, misal: { id, createdAt, total, items: string[] }
+      return data.map((order: SalesOrder) => (
         <tr key={order.id}>
           <td className="border p-2">
             {new Date(order.createdAt).toLocaleDateString()}
           </td>
           <td className="border p-2">Rp {Number(order.total).toLocaleString()}</td>
           <td className="border p-2">
-            {order.orderItems.map((item: OrderItem) => (
-              <div key={item.id}>
-                {item.menu.name} x{item.quantity}
-              </div>
+            {order.items.map((item: string, index: number) => (
+              <div key={index}>{item}</div>
             ))}
           </td>
         </tr>
       ));
     } else if (metric === "transactions") {
-      // Data berisi ringkasan transaksi: { id, createdAt, total, itemCount, menus }
+      // Data: { id, createdAt, total, itemCount, menus }
       return data.map(
-        (tx: { id: number; createdAt: string; total: number; itemCount: number; menus: string[] }) => (
+        (tx: {
+          id: number;
+          createdAt: string;
+          total: number;
+          itemCount: number;
+          menus: string[];
+        }) => (
           <tr key={tx.id}>
-            <td className="border p-2">{new Date(tx.createdAt).toLocaleDateString()}</td>
+            <td className="border p-2">
+              {new Date(tx.createdAt).toLocaleDateString()}
+            </td>
             <td className="border p-2">Rp {Number(tx.total).toLocaleString()}</td>
             <td className="border p-2">{tx.itemCount}</td>
             <td className="border p-2">{tx.menus.join(", ")}</td>
@@ -158,7 +151,7 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
         )
       );
     } else if (metric === "gross" || metric === "net") {
-      // Data berisi detail tiap item: { orderId, orderDate, menuName, sellingPrice, quantity, itemTotalSelling, hpp, itemTotalHPP }
+      // Data: detail per item (atau bundle) yang sudah diagregasi
       return data.map((item: any, index: number) => (
         <tr key={index}>
           <td className="border p-2">{item.orderId}</td>
@@ -173,9 +166,11 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
           <td className="border p-2">
             Rp {Number(item.itemTotalSelling).toLocaleString()}
           </td>
-          <td className="border p-2">Rp {Number(item.hpp).toLocaleString()}</td>
           <td className="border p-2">
-            Rp {Number(item.itemTotalHPP).toLocaleString()}
+            Rp {Number(item.hpp).toLocaleString()}
+          </td>
+          <td className="border p-2">
+            Rp {Number(item.itemTotalSelling - item.hpp).toLocaleString()}
           </td>
         </tr>
       ));
@@ -217,31 +212,6 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
     </div>
   );
 };
-
-// ======= HELPER: HITUNG TANGGAL SEBELUMNYA =======
-function getPreviousDate(
-  dateString: string,
-  period: "daily" | "weekly" | "monthly" | "yearly"
-): string {
-  const date = new Date(dateString);
-  switch (period) {
-    case "daily":
-      date.setDate(date.getDate() - 1);
-      break;
-    case "weekly":
-      date.setDate(date.getDate() - 7);
-      break;
-    case "monthly":
-      date.setMonth(date.getMonth() - 1);
-      break;
-    case "yearly":
-      date.setFullYear(date.getFullYear() - 1);
-      break;
-    default:
-      break;
-  }
-  return date.toISOString();
-}
 
 // ======= COMPONENT UTAMA: STATS CARDS =======
 export default function StatsCards() {
@@ -440,4 +410,28 @@ export default function StatsCards() {
       )}
     </div>
   );
+}
+
+function getPreviousDate(
+  dateString: string,
+  period: "daily" | "weekly" | "monthly" | "yearly"
+): string {
+  const date = new Date(dateString);
+  switch (period) {
+    case "daily":
+      date.setDate(date.getDate() - 1);
+      break;
+    case "weekly":
+      date.setDate(date.getDate() - 7);
+      break;
+    case "monthly":
+      date.setMonth(date.getMonth() - 1);
+      break;
+    case "yearly":
+      date.setFullYear(date.getFullYear() - 1);
+      break;
+    default:
+      break;
+  }
+  return date.toISOString();
 }

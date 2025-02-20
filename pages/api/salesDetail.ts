@@ -1,9 +1,9 @@
-// File: pages/api/salesDetail.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Helper: untuk mendapatkan awal minggu ISO (Senin) dari format "YYYY-Wxx"
 function getStartOfISOWeek(isoWeek: string): Date {
   const [yearStr, weekStr] = isoWeek.split("-W");
   const year = Number(yearStr);
@@ -17,6 +17,50 @@ function getStartOfISOWeek(isoWeek: string): Date {
     ISOweekStart.setDate(simple.getDate() - dow + 1);
   }
   return ISOweekStart;
+}
+
+/**
+ * Fungsi helper untuk mengagregasi orderItems.
+ * - Jika item memiliki data bundle (bukan null), maka:
+ *    • Quantity diambil dari baris pertama per bundle (untuk satu order).
+ *    • HPP dijumlahkan dari tiap baris komponen bundle.
+ * - Jika item biasa, jumlahkan quantity dan HPP secara normal.
+ */
+function aggregateOrderItems(orderItems: any[]) {
+  const aggregated = new Map<string, any>();
+  for (const item of orderItems) {
+    if (item.bundle) {
+      // gunakan key berdasarkan nama bundle (bisa juga bundleId)
+      const key = `bundle_${item.bundle.name}`;
+      if (aggregated.has(key)) {
+        const agg = aggregated.get(key);
+        // Jangan menambahkan quantity lagi, hanya tambahkan HPP
+        agg.hpp += item.menu.hargaBakul * item.quantity;
+      } else {
+        aggregated.set(key, {
+          menuName: item.bundle.name,
+          quantity: item.quantity, // ambil quantity dari baris pertama
+          price: item.bundle.bundlePrice, // gunakan harga bundle
+          hpp: item.menu.hargaBakul * item.quantity,
+        });
+      }
+    } else {
+      const key = `menu_${item.menu.name}`;
+      if (aggregated.has(key)) {
+        const agg = aggregated.get(key);
+        agg.quantity += item.quantity;
+        agg.hpp += item.menu.hargaBakul * item.quantity;
+      } else {
+        aggregated.set(key, {
+          menuName: item.menu.name,
+          quantity: item.quantity,
+          price: item.menu.price,
+          hpp: item.menu.hargaBakul * item.quantity,
+        });
+      }
+    }
+  }
+  return Array.from(aggregated.values());
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -56,11 +100,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       endDate.setDate(endDate.getDate() + 1);
     }
 
-    // Summary: total penjualan dan jumlah order
+    // Summary: total orders dan total sales dari CompletedOrder
     const summaryRaw: any[] = await prisma.$queryRaw`
-      SELECT 
-        COUNT(*) as totalOrders,
-        SUM(total) as totalSales
+      SELECT COUNT(*) as totalOrders, SUM(total) as totalSales
       FROM CompletedOrder
       WHERE createdAt >= ${startDate} AND createdAt < ${endDate}
     `;
@@ -71,7 +113,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       : { totalSales: 0, totalOrders: 0 };
 
-    // Eager loading dengan select agar hanya field yang diperlukan diambil
+    // Ambil orders beserta orderItems dengan include data menu dan bundle
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
@@ -93,25 +135,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 hargaBakul: true,
               },
             },
+            bundle: {
+              select: {
+                name: true,
+                bundlePrice: true,
+              },
+            },
           },
         },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    // Format orders sesuai kebutuhan tampilan
-    const formattedOrders = orders.map((o) => ({
-      orderId: o.id,
-      createdAt: o.createdAt,
-      total: o.total,
-      items: o.orderItems.map((oi) => ({
-        menuName: oi.menu.name,
-        quantity: oi.quantity,
-        price: oi.menu.price,
-        hpp: oi.menu.hargaBakul,
-        totalSales: oi.menu.price * oi.quantity,
-      })),
-    }));
+    // Untuk setiap order, agregasikan orderItems dengan logika bundle
+    const formattedOrders = orders.map((o) => {
+      const aggregatedItems = aggregateOrderItems(o.orderItems);
+      return {
+        orderId: o.id,
+        createdAt: o.createdAt,
+        total: o.total,
+        items: aggregatedItems,
+      };
+    });
 
     return res.status(200).json({
       summary,
