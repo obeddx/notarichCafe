@@ -1,3 +1,4 @@
+// File: pages/api/topSellers.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { subDays, startOfWeek, startOfMonth } from "date-fns";
@@ -9,88 +10,17 @@ function getStartOfISOWeek(isoWeek: string): Date {
   const [yearStr, weekStr] = isoWeek.split("-W");
   const year = Number(yearStr);
   const week = Number(weekStr);
+  // Mulai dari 1 Januari tahun tersebut
   const simple = new Date(year, 0, 1 + (week - 1) * 7);
   const dow = simple.getDay(); // 0 (Minggu) sampai 6 (Sabtu)
   const ISOweekStart = new Date(simple);
+  // Sesuaikan agar mendapatkan hari Senin
   if (dow === 0) {
     ISOweekStart.setDate(simple.getDate() + 1);
   } else {
     ISOweekStart.setDate(simple.getDate() - dow + 1);
   }
   return ISOweekStart;
-}
-
-/**
- * Fungsi helper untuk mengagregasi penjualan dari CompletedOrderItem.
- * Untuk item bundle, hindari double count (misalnya, jika satu order memuat 2 baris untuk 1 bundle, 
- * quantity hanya diambil sekali per order). Untuk menu biasa, jumlahkan quantity secara normal.
- */
-function aggregateTopSellers(orderItems: any[]) {
-  // Pertama, kelompokkan item bundle berdasarkan order sehingga setiap order hanya dihitung sekali.
-  const bundleSalesMap = new Map<string, number>(); // key: `${orderId}-${bundleId}`, value: quantity (ambil dari baris pertama)
-  const menuSalesMap = new Map<string, number>(); // key: `${orderId}-${menuId}`, value: jumlah quantity
-
-  for (const item of orderItems) {
-    if (item.bundleId) {
-      const key = `${item.orderId}-${item.bundleId}`;
-      if (!bundleSalesMap.has(key)) {
-        bundleSalesMap.set(key, item.quantity);
-      }
-      // Jangan menjumlahkan quantity lagi untuk baris bundle di order yang sama
-    } else {
-      const key = `${item.orderId}-${item.menu.id}`;
-      menuSalesMap.set(key, (menuSalesMap.get(key) || 0) + item.quantity);
-    }
-  }
-
-  // Sekarang, aggregrasikan per jenis (bundle dan menu) secara global
-  const globalMap = new Map<string, { menuName: string; totalSold: number }>();
-
-  // Agregasi untuk bundle: kelompokkan berdasarkan bundleId
-  for (const [key, qty] of bundleSalesMap.entries()) {
-    const parts = key.split("-");
-    const bundleId = parts[1];
-    // Cari salah satu item yang sesuai untuk mendapatkan nama bundle
-    const item = orderItems.find(
-      (i) =>
-        i.orderId.toString() === parts[0] &&
-        i.bundleId &&
-        i.bundleId.toString() === bundleId
-    );
-    if (item) {
-      const globalKey = `bundle_${bundleId}`;
-      if (globalMap.has(globalKey)) {
-        globalMap.get(globalKey)!.totalSold += qty;
-      } else {
-        globalMap.set(globalKey, {
-          menuName: item.bundle ? item.bundle.name : `Bundle ${bundleId}`,
-          totalSold: qty,
-        });
-      }
-    }
-  }
-
-  // Agregasi untuk menu
-  for (const [key, qty] of menuSalesMap.entries()) {
-    const parts = key.split("-");
-    const menuId = parts[1];
-    const item = orderItems.find(
-      (i) => !i.bundleId && i.menu.id.toString() === menuId
-    );
-    if (item) {
-      const globalKey = `menu_${menuId}`;
-      if (globalMap.has(globalKey)) {
-        globalMap.get(globalKey)!.totalSold += qty;
-      } else {
-        globalMap.set(globalKey, {
-          menuName: item.menu.name,
-          totalSold: qty,
-        });
-      }
-    }
-  }
-
-  return Array.from(globalMap.values());
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -125,11 +55,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         startDate = new Date(Number(dateStr), 0, 1);
         endDate = new Date(Number(dateStr) + 1, 0, 1);
       } else {
+        // fallback
         startDate = new Date(dateStr);
         endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 1);
       }
     } else if (start && end) {
+      // Jika parameter 'date' tidak tersedia, gunakan 'start' dan 'end'
       startDate = new Date(start as string);
       endDate = new Date(end as string);
     } else {
@@ -155,8 +87,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Ambil semua CompletedOrderItem untuk periode tersebut, sertakan relasi menu, bundle, dan order (untuk orderId)
-    const orderItems = await prisma.completedOrderItem.findMany({
+    // Ambil data top seller berdasarkan jumlah terjual
+    const topSellers = await prisma.completedOrderItem.groupBy({
+      by: ["menuId"],
       where: {
         order: {
           createdAt: {
@@ -165,20 +98,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
         },
       },
-      include: {
-        menu: true,
-        bundle: true,
-        order: true,
+      _sum: {
+        quantity: true,
       },
+      orderBy: {
+        _sum: {
+          quantity: "desc",
+        },
+      },
+      take: 5,
     });
 
-    // Agregasikan penjualan menggunakan fungsi helper
-    const aggregated = aggregateTopSellers(orderItems);
-    // Urutkan berdasarkan totalSold menurun, ambil 5 teratas
-    aggregated.sort((a, b) => b.totalSold - a.totalSold);
-    const topSellers = aggregated.slice(0, 5);
+    // Ambil nama menu dari masing-masing item
+    const menuDetails = await Promise.all(
+      topSellers.map(async (item) => {
+        const menu = await prisma.menu.findUnique({
+          where: { id: item.menuId },
+        });
+        return {
+          menuName: menu?.name || "Unknown",
+          totalSold: item._sum.quantity || 0,
+        };
+      })
+    );
 
-    // Hitung total order dan total pendapatan (meski tidak digunakan di UI)
+    // Hitung total pesanan dan total pendapatan (meskipun tidak akan ditampilkan di UI baru)
     const totalOrders = await prisma.completedOrder.count({
       where: {
         createdAt: {
@@ -201,7 +145,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const totalRevenue = totalRevenueResult._sum.total || 0;
 
     res.status(200).json({
-      topSellers,
+      topSellers: menuDetails,
       totalOrders,
       totalRevenue,
     });

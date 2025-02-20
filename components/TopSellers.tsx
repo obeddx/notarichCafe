@@ -1,3 +1,4 @@
+// File: components/TopSellers.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -85,9 +86,7 @@ export default function TopSellers() {
 
       {/* Dropdown Pilihan Periode */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2">
-        <label htmlFor="period" className="text-sm text-gray-700 font-medium">
-          Periode:
-        </label>
+        <label htmlFor="period" className="text-sm text-gray-700 font-medium">Periode:</label>
         <select
           id="period"
           value={period}

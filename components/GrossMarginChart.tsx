@@ -15,6 +15,7 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 export default function GrossMarginChart() {
+  // Tambahkan "yearly" ke tipe period
   const [grossMarginData, setGrossMarginData] = useState<
     { date: string; grossMargin: number }[]
   >([]);
@@ -61,7 +62,7 @@ export default function GrossMarginChart() {
     } else if (period === "yearly") {
       return dateString;
     }
-    return "";
+    return ""; // Default return jika kondisi tidak terpenuhi
   };
 
   // Handler untuk klik pada bar guna memunculkan detail
