@@ -3,62 +3,52 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import argon2 from "argon2";
 import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
 
 const prisma = new PrismaClient();
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // Hanya method POST yang diizinkan
+// Tambahkan validasi untuk role menggunakan z.enum
+const registerSchema = z.object({
+  username: z.string().min(3).max(20),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(["kasir", "manager"]),
+});
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
-  // Ambil data dari body request
-  const { username, email, password } = req.body;
-
-  // Validasi field yang wajib diisi
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: "Missing required fields" });
-  }
-
-  // Validasi format email secara sederhana
-  const emailRegex = /\S+@\S+\.\S+/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ message: "Invalid email address" });
-  }
-
   try {
-    // Cek apakah user dengan email yang sama sudah ada di database
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-    if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "User with this email already exists" });
+    const parsedData = registerSchema.safeParse(req.body);
+    if (!parsedData.success) {
+      return res.status(400).json({ message: "Invalid input" });
     }
 
-    // Hash password menggunakan argon2
-    const hashedPassword = await argon2.hash(password);
+    const { username, email, password, role } = parsedData.data;
 
-    // Buat user baru di database
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { username }],
+      },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "Invalid registration details" });
+    }
+
+    const hashedPassword = await argon2.hash(password);
     const newUser = await prisma.user.create({
       data: {
         username,
         email,
         password: hashedPassword,
+        role, // Menyimpan role yang dipilih dari form
       },
     });
 
-    // Hilangkan field password dari response
-    const { password: _removed, ...userWithoutPassword } = newUser;
-
-    return res.status(201).json({
-      message: "User registered successfully",
-      user: userWithoutPassword,
-    });
+    return res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
     console.error("Error during registration:", error);
     return res.status(500).json({ message: "Internal server error" });

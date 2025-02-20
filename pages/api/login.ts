@@ -1,4 +1,4 @@
-// pages/api/login.ts (contoh tambahan)
+// pages/api/login.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
@@ -26,8 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Jika login berhasil, atur cookie "user"
-    // Contoh: simpan ID user dalam cookie (di aplikasi nyata, sebaiknya gunakan JWT atau token sesi)
+    // Set cookie (disarankan untuk menggunakan JWT atau mekanisme sesi lainnya di produksi)
     res.setHeader("Set-Cookie", `user=${user.id}; Path=/; HttpOnly; Secure; SameSite=Strict`);
 
     return res.status(200).json({
@@ -36,6 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: user.id,
         username: user.username,
         email: user.email,
+        role: user.role, // Sertakan role pada response
       },
     });
   } catch (error) {
