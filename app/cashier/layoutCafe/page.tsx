@@ -313,10 +313,13 @@ useEffect(() => {
                       </div>
                       <div className="flex flex-row mt-6">
                         <div className="flex flex-col items-center justify-center bg-white rounded-lg border-4 border-gray-300 px-20 py-4 shadow-lg transform transition duration-300 hover:scale-105">
-                          <span className="text-4xl">🚽</span>
                           <span className="mt-2 text-xl font-bold text-gray-700">Toilet</span>
                         </div>
+                        <h1 className="text-xl md:text-3xl font-extrabold text-black tracking-wide drop-shadow-lg hover:scale-105 transform transition duration-300 ml-24 mt-12">
+    Lantai 1
+  </h1>
                       </div>
+                      
                       <div className="flex flex-col">
                         <div className="flex flex-row mt-10">
                           <div className="flex flex-col justify-center items-center mx-4">
@@ -429,7 +432,7 @@ useEffect(() => {
                       </div>
 
                       {/* Section Bawah Kiri */}
-                      <div className="flex flex-row mt-10 space-y-2">
+                      <div className="flex flex-row mt-32 space-y-2">
                         <div className="flex flex-col gap-2 my-2">
                           <div className="grid grid-cols-6 gap-2 mb-2">
                             <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md" />
@@ -484,7 +487,6 @@ useEffect(() => {
                         <div className="flex flex-col items-end">
                           <div className="w-72 h-72 bg-gradient-to-b from-[#fff8f0] to-[#D9D9D9] border border-gray-300 rounded-xl shadow-2xl transform transition duration-300 hover:scale-105">
                             <div className="flex flex-col items-center justify-center h-full">
-                              <span className="text-7xl mb-4">🍳</span>
                               <h1 className="text-4xl font-bold text-gray-800 text-center">Kitchen</h1>
                             </div>
                           </div>
@@ -504,10 +506,18 @@ useEffect(() => {
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105"></div>
                               </div>
                             </div>
+                            
                             <div className="w-40 h-80 bg-gradient-to-b from-[#EDE3D7] to-[#D9D9D9] border border-gray-300 rounded-xl shadow-2xl transform transition duration-300 hover:scale-105">
                               <div className="flex flex-col items-center justify-center h-full">
-                                <span className="text-7xl mb-4">🍸</span>
                                 <h1 className="text-4xl font-bold text-gray-800 text-center">Bar</h1>
+                                <button
+                                onClick={() => fetchTableOrders("37")}
+                                className={`w-20 h-24 ${getTableColor(37)} rounded-lg transform transition-all 
+                                hover:scale-105 hover:shadow-lg relative group justify-center items-center`}
+                              >
+                                <p className="font-bold text-white justify-center items-centertext-center pt-2">cashier</p>
+                                <div className="absolute inset-0 border-2 border-white/30 rounded-lg" />
+                              </button>
                               </div>
                             </div>
                           </div>
@@ -515,9 +525,10 @@ useEffect(() => {
                       </div>
                     </div>
                   </div>
+                  
                   <div className="xs:w-[1300px] lg:w-full flex flex-row justify-between mt-12 px-40">
                     <div className="flex justify-center flex-grow">
-                      <div className="relative flex items-center justify-center bg-gradient-to-b from-[#DBAA61] to-[#A17C5B] text-white font-bold text-xl px-16 py-6 rounded-lg shadow-xl border-4 border-[#8B4513]">
+                      <div className="relative flex items-center justify-center bg-gradient-to-b from-[#DBAA61] to-[#A17C5B] text-white font-bold text-xl px-16 py-6 rounded-lg shadow-xl border-4 border-[#8B4513] ml-56">
                         Pintu Cafe
                         {/* Handle Pintu */}
                         <div className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-12 bg-[#8B4513] rounded-full"></div>
@@ -551,21 +562,39 @@ useEffect(() => {
                     <div className="flex">
                       <button
                         onClick={() => fetchTableOrders("18")}
-                        className={`w-1/3 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(18)}`}
+                        className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(18)}`}
                       >
                         <p className="font-bold text-white">18</p>
                       </button>
                       <button
                         onClick={() => fetchTableOrders("19")}
-                        className={`w-1/3 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(19)}`}
+                        className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(19)}`}
                       >
                         <p className="font-bold text-white">19</p>
                       </button>
                       <button
                         onClick={() => fetchTableOrders("20")}
-                        className={`w-1/3 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(20)}`}
+                        className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(20)}`}
                       >
                         <p className="font-bold text-white">20</p>
+                      </button>
+                      <button
+                        onClick={() => fetchTableOrders("21")}
+                        className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(21)}`}
+                      >
+                        <p className="font-bold text-white">21</p>
+                      </button>
+                      <button
+                        onClick={() => fetchTableOrders("22")}
+                        className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(22)}`}
+                      >
+                        <p className="font-bold text-white">22</p>
+                      </button>
+                      <button
+                        onClick={() => fetchTableOrders("23")}
+                        className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(23)}`}
+                      >
+                        <p className="font-bold text-white">23</p>
                       </button>
                     </div>
                     <div className="xs:w-[1500px] lg:w-full flex flex-row">
@@ -614,10 +643,10 @@ useEffect(() => {
                           {/* END LANTAI 2 SECTION 1 KANAN */}
                           <div className="flex flex-row">
                             <button
-                              onClick={() => fetchTableOrders("21")}
-                              className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(21)} ml-10`}
+                              onClick={() => fetchTableOrders("24")}
+                              className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(24)} ml-10`}
                             >
-                              <p className="font-bold text-white">21</p>
+                              <p className="font-bold text-white">24</p>
                             </button> </div>
                         </div>
                       </div>
@@ -631,7 +660,7 @@ useEffect(() => {
                           <div className="flex flex-row gap-8 justify-center items-center">
                             <div className="flex flex-col">
                               <div className="text-center">
-                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-12 ml-12" />
                               </div>
                               <div className="flex flex-row gap-2 my-2">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2"> </div>
@@ -647,7 +676,7 @@ useEffect(() => {
                             </div>
                             <div className="flex flex-col">
                               <div className="text-center">
-                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-12 ml-12" />
 
                               </div>
                               <div className="flex flex-row gap-2 my-2">
@@ -667,11 +696,12 @@ useEffect(() => {
                       {/* END SECTION 2 KIRI */}
 
                       {/* SECTION 2 TENGAH */}
-                      <div className="w-1/3 flex flex-col  items-center text-center">
-                      <div className="relative w-48 h-16  bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl border border-yellow-700 shadow-xl flex items-center justify-center transform transition duration-300 hover:scale-105 hover:rotate-2">
-  <p className="text-white font-extrabold text-2xl drop-shadow-lg">OUTDOOR</p>
-</div>
-                        <div className="relative w-40 h-12 mt-5 bg-yellow-600 rounded-lg border-4 border-yellow-700 shadow-lg flex items-center justify-center text-white font-bold text-xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
+                      <div className="w-1/3 flex flex-col items-center text-center">
+                      <div className="relative w-48 h-20  bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl border border-yellow-700 shadow-xl flex items-center justify-center transform transition duration-300 hover:scale-105 hover:rotate-2">
+  <p className="text-white font-extrabold text-2xl drop-shadow-lg">OUTDOOR (ROOFTOP)</p> 
+</div>  
+
+                        <div className="relative w-40 h-12 mt-3 bg-yellow-600 rounded-lg border-4 border-yellow-700 shadow-lg flex items-center justify-center text-white font-bold text-xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
                           <p className="absolute bottom-4 text-yellow-900 font-semibold">Pintu</p>
                         </div>
                       </div>
@@ -683,7 +713,7 @@ useEffect(() => {
                           <div className="flex flex-row gap-8 justify-center items-center">
                             <div className="flex flex-col">
                               <div className="text-center">
-                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-12 ml-12" />
                               </div>
                               <div className="flex flex-row gap-2 my-2">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
@@ -697,7 +727,7 @@ useEffect(() => {
                             </div>
                             <div className="flex flex-col">
                               <div className="text-center">
-                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-12 ml-12" />
                               </div>
                               <div className="flex flex-row gap-2 my-2">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
@@ -723,17 +753,16 @@ useEffect(() => {
                       <div className="w-1/3 flex flex-col ">
                         <div className="flex flex-row items-center justify-center my-8">
                           <div className="flex flex-row justify-center items-center">
-                            <div className="flex flex-col mr-96">
+                            <div className="flex flex-col mr-36">
                               <div className="text-center">
                                 <div className="w-60 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
                               </div>
-                              <div className="flex flex-row gap-2 my-2">
+                              <div className="flex flex-row gap-2 my-2 mr-16">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
-
                                 <button
-                                  onClick={() => fetchTableOrders("35")}
-                                  className={`w-60 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(35)}`}>
-                                  <p className="font-bold text-white">35</p>
+                                  onClick={() => fetchTableOrders("36")}
+                                  className={`w-60 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(36)}`}>
+                                  <p className="font-bold text-white">36</p>
                                 </button>
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2" />
 
@@ -742,21 +771,19 @@ useEffect(() => {
                                 <div className="w-60 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
                               </div>
                             </div>
+                           
                           </div>
                         </div>
                         <div className="flex flex-row items-center justify-center">
-                          <div className="flex flex-col gap-8 mt-8">
+                          <div className="flex flex-col gap-8 ">
                             <div className="flex flex-row justify-center items-center">
-
-
                             </div>
                             <div className="flex flex-row justify-center items-center">
-
-                              <div className="flex flex-col mx-20">
+                              <div className="flex flex-col mx-20 ">
                                 <div className="text-center">
-                                  <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12 mb-2" />
+                                  <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105  ml-12 mb-2" />
                                 </div>
-                                <div className="flex flex-row gap-2">
+                                <div className="flex flex-row gap-2 mr-24">
                                   <div className="flex flex-col items-center">
                                     <div className="w-10 h-32 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8"></div>
                                     <div className="w-10 h-32 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-16"></div>
@@ -785,85 +812,111 @@ useEffect(() => {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex flex-col space-y-8 mb-64">
-                                {/* Div pertama */}
-                                <div className="flex flex-col mx-20 mb-24">
-                                  <div className="text-center">
-                                    <div className="flex">
-                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-12" />
-                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-1" />
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-row gap-2">
-                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+                              <div className="flex flex-col space-y-8 mb-16">
+                              <div className="flex flex-col space-y-10">
+  {/* Div pertama */}
+  <div className="flex flex-col mx-20">
+    <div className="text-center">
+      <div className="flex">
+        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-12" />
+        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-1" />
+      </div>
+    </div>
+    <div className="flex flex-row gap-2">
+      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+      <div className="flex flex-col items-center">
+        <button
+          onClick={() => fetchTableOrders("34")}
+          className="flex items-center justify-center"
+        >
+          <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
+            <p className="font-bold text-white">3</p>
+          </div>
+          <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
+            <p className="font-bold text-white">5</p>
+          </div>
+        </button>
+        <div className="flex">
+          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2" />
+          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2 ml-1" />
+        </div>
+      </div>
+      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+    </div>
+  </div>
 
-                                    <div className="flex flex-col items-center">
-                                      <button
-                                        onClick={() => fetchTableOrders("34")}
-                                        className="flex items-center justify-center"
-                                      >
-                                        <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
-                                          <p className="font-bold text-white">3</p>
-                                        </div>
-                                        <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
-                                          <p className="font-bold text-white">4</p>
-                                        </div>
-                                      </button>
-                                      <div className="flex">
-                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2" />
-                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2 ml-1" />
-                                      </div>
-                                    </div>
+  {/* Div kedua */}
+  <div className="flex flex-col mx-20">
+    <div className="text-center">
+      <div className="flex">
+        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-12" />
+        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-1" />
+      </div>
+    </div>
+    <div className="flex flex-row gap-2">
+      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+      <div className="flex flex-col items-center">
+        <button
+          onClick={() => fetchTableOrders("34")}
+          className="flex items-center justify-center"
+        >
+          <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
+            <p className="font-bold text-white">3</p>
+          </div>
+          <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
+            <p className="font-bold text-white">4</p>
+          </div>
+        </button>
+        <div className="flex">
+          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2" />
+          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2 ml-1" />
+        </div>
+      </div>
+      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+    </div>
+  </div>
 
-                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
-                                  </div>
-                                </div>
-
-                                {/* Div kedua */}
-                                <div className="flex flex-col mx-20 mt-24">
-                                  <div className="text-center">
-                                    <div className="flex">
-                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-12" />
-                                      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-1" />
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-row gap-2">
-                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
-
-                                    <div className="flex flex-col items-center">
-
-                                      <button
-                                        onClick={() => fetchTableOrders("33")}
-                                        className="flex items-center justify-center"
-                                      >
-                                        <div className={`${getTableColor(33)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
-                                          <p className="font-bold text-white">3</p>
-                                        </div>
-                                        <div className={`${getTableColor(33)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
-                                          <p className="font-bold text-white">3</p>
-                                        </div>
-                                      </button>
-
-
-
-                                      <div className="flex">
-                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2" />
-                                        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2 ml-1" />
-                                      </div>
-                                    </div>
-                                    <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
-                                  </div>
-                                </div>
+  {/* Div ketiga */}
+  <div className="flex flex-col mx-20">
+    <div className="text-center">
+      <div className="flex">
+        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-12" />
+        <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-8 mb-2 ml-1" />
+      </div>
+    </div>
+    <div className="flex flex-row gap-2">
+      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+      <div className="flex flex-col items-center">
+        <button
+          onClick={() => fetchTableOrders("33")}
+          className="flex items-center justify-center"
+        >
+          <div className={`${getTableColor(33)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
+            <p className="font-bold text-white">3</p>
+          </div>
+          <div className={`${getTableColor(33)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
+            <p className="font-bold text-white">3</p>
+          </div>
+        </button>
+        <div className="flex">
+          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2" />
+          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-1 mb-2 ml-1" />
+        </div>
+      </div>
+      <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
+    </div>
+  </div>
+</div>
                               </div>
                             </div>
                             <div className="flex flex-row justify-center items-center ml-64">
                             </div>
                             <div className="flex flex-row justify-center items-center">
-                              <div className="flex flex-col mx-20 gap-2">
+                              <div className="flex flex-col mx-20 gap-2 mb-12">
                                 <div className="text-center">
-                                  <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-24" />
+                                  <div className="w-12 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-0 ml-24" />
                                 </div>
-                                <div className="flex flex-row gap-2">
+                                <div className="flex flex-row gap-2 mr-96">
                                   <div className="w-10 h-42 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 ml-12" />
                                   <button
                                     onClick={() => fetchTableOrders("30")}
@@ -874,6 +927,7 @@ useEffect(() => {
 
                                 </div>
                               </div>
+                              
                             </div>
                           </div>
                         </div>
@@ -881,7 +935,19 @@ useEffect(() => {
                       {/* END SECTION 3 KIRI */}
                       {/* SECTION 3 TENGAH */}
                       <div className="w-1/3 flex flex-col gap-y-20 items-end text-center">
-                        <div className="flex flex-col items-end">
+                      <h1 className="text-xl md:text-5xl font-extrabold text-black tracking-wide drop-shadow-lg hover:scale-105 transform transition duration-300 text-center mt-16 mr-80 text-center">
+  Lantai 2
+</h1>
+
+                        <div className="flex flex-col items-end">   
+                        <div className="flex items-center  w-full space-x-6 mr-36">
+  <div className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+     Smooking
+  </div>
+  <div className="px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+    NO AC
+  </div>
+</div>                     
                           <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-2 mb-2 mr-1 " />
                           <div className="flex flex-row">
                             <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3 mr-1 " />
@@ -940,7 +1006,9 @@ useEffect(() => {
                       {/* END SECTION 3 TENGAH */}
 
                       {/* SECTION 3 KANAN */}
-                      <div className="w-1/3 flex flex-col border-l-2 border-neutral-400">
+                      <div className="w-1/3 h-full flex flex-col border-l-2 border-neutral-400">
+                      
+
                         <div className="flex flex-row justify-center">
                           <div className="flex flex-col items-center">
                             {/* Layar TV */}
@@ -972,10 +1040,10 @@ useEffect(() => {
                               </div>
                               <div className="flex flex-row items-center">
                                 <button
-                                  onClick={() => fetchTableOrders("22")}
-                                  className={`w-28 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(22)}`}
+                                  onClick={() => fetchTableOrders("25")}
+                                  className={`w-28 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
                                 >
-                                  <p className="font-bold text-white">22</p>
+                                  <p className="font-bold text-white">25</p>
                                 </button>
                               </div>
                               <div className="flex flex-col gap-2 my-1">
@@ -998,63 +1066,74 @@ useEffect(() => {
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
-                              <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md  transform transition-all hover:scale-105 mt-3  mr-1 " />
 
                             </div>
                             <div className="flex flex-col">
                               <div className="flex gap-4">
                                 <div className="flex flex-col">
-                                  <button
-                                    onClick={() => fetchTableOrders("23")}
-                                    className={`w-8 h-60 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(23)}`}
-                                  >
-                                    <p className="font-bold text-white">23</p>
-                                  </button>
-                                  <button
-                                    onClick={() => fetchTableOrders("24")}
-                                    className={`w-8 h-60 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(24)}`}
-                                  >
-                                    <p className="font-bold text-white">24</p>
-                                  </button>
-                                  <button
-                                    onClick={() => fetchTableOrders("25")}
-                                    className={`w-8 h-60 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
-                                  >
-                                    <p className="font-bold text-white">25</p>
-                                  </button>
+                                <button
+                                  onClick={() => fetchTableOrders("25")}
+                                  className={`w-8 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
+                                >
+                                  <p className="font-bold text-white">25</p>
+                                </button>
+                                <button
+                                  onClick={() => fetchTableOrders("25")}
+                                  className={`w-8 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
+                                >
+                                  <p className="font-bold text-white">25</p>
+                                </button>
                                 </div>
                               </div>
 
                             </div>
                           </div>
                         </div>
+                        <div className="flex items-center justify-center space-x-6 ml-24 mt-56">
+                        <div className="relative w-40 h-12 mt-3 bg-yellow-600 rounded-lg border-4 border-yellow-700 shadow-lg flex items-center justify-center text-white font-bold text-xl transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
+                          <p className="absolute bottom-4 text-yellow-900 font-semibold">Pintu</p>
+                        </div>
+                          <div className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+                             Non Smooking
+                          </div>
+                          <div className="px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
+                            Full AC
+                          </div>                         
+                        </div>
+                        <div className="w-full flex flex-col border-2 border-neutral-400 rounded-md">
+  {/* Konten Anda */}
+</div>
+
                       </div>
                       {/* END SECTION 3 KANAN */}
+                      
                     </div>
+                    
                     {/* END SECTION 3 */}
+                    <div className="flex items-center justify-center ">
+  <div className="w-1/3 h-20 flex flex-col items-center justify-center bg-white rounded-lg border-4 border-gray-300 px-20 py-4 shadow-lg transform transition duration-300 hover:scale-105">
+    <span className="mt-2 text-xl font-bold text-gray-700">Toilet</span>
+  </div>
+  
+</div>
 
-                    <div className="flex flex-row xs:w-[1500px] lg:w-full justify-between mt-12 mb-4 px-40">
+                    <div className="flex flex-row xs:w-[1500px] lg:w-full justify-between mt-1 mb-4 px-40">                    
                       <div className="flex justify-center flex-grow">
-                        <div className="flex flex-row gap-12">
+                        
+                        <div className="flex flex-row gap-64">
                           <div className="relative flex items-center justify-center bg-gradient-to-r from-gray-300 to-gray-100 px-44 py-2 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
                             <span className="text-2xl font-bold text-gray-700">Tangga</span>
                           </div>
-
                           <div className="relative flex items-center justify-center bg-gradient-to-r from-gray-300 to-gray-100 px-44 py-2 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
                             <span className="text-2xl font-bold text-gray-700">Tangga</span>
                           </div>
+                          
                         </div>
-
+                        
                       </div>
+                      
                       <div className="flex items-center">
-                        <div className="flex items-center justify-center space-x-6">
-                          <div className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
-                            Non Smoking
-                          </div>
-                          <div className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold rounded-full shadow-md transition transform duration-300 hover:scale-105">
-                            Full AC
-                          </div>
-                        </div>
+                        
 
                       </div>
                     </div>
