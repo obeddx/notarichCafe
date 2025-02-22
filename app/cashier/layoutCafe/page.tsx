@@ -16,6 +16,7 @@ interface Order {
   paymentId?: string;
   createdAt: string;
   orderItems: OrderItem[];
+  customerName: string; // Tambahkan field ini
 }
 
 interface OrderItem {
@@ -235,6 +236,7 @@ useEffect(() => {
       <div className="flex justify-between items-start mb-2">
         <div>
           <p className="font-semibold">Order ID: {order.id}</p>
+          <p className="text-sm text-gray-600">Customer: {order.customerName}</p> {/* Tampilkan nama customer di sini */}
           <p className="text-sm text-gray-600">
             {new Date(order.createdAt).toLocaleDateString("id-ID", {
               weekday: "long",
@@ -246,9 +248,11 @@ useEffect(() => {
             })}
           </p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-sm ${order.status === "pending" ? "bg-yellow-500" : order.status === "Sedang Diproses" ? "bg-blue-500" : "bg-green-500"} text-white`}>{order.status}</span>
+        <span className={`px-3 py-1 rounded-full text-sm ${order.status === "pending" ? "bg-yellow-500" : order.status === "Sedang Diproses" ? "bg-blue-500" : "bg-green-500"} text-white`}>
+          {order.status}
+        </span>
       </div>
-
+  
       <div className="border-t pt-3 mt-3">
         <h3 className="font-semibold mb-2">Item Pesanan:</h3>
         <div className="grid gap-2">
@@ -266,7 +270,7 @@ useEffect(() => {
           ))}
         </div>
       </div>
-
+  
       <div className="border-t pt-3 mt-3 flex justify-between items-center">
         <p className="text-lg font-bold">Total: Rp {order.total.toLocaleString()}</p>
       </div>
@@ -511,7 +515,7 @@ useEffect(() => {
                               <div className="flex flex-col items-center justify-center h-full">
                                 <h1 className="text-4xl font-bold text-gray-800 text-center">Bar</h1>
                                 <button
-                                onClick={() => fetchTableOrders("37")}
+                                onClick={() => fetchTableOrders("sementara")}
                                 className={`w-20 h-24 ${getTableColor(37)} rounded-lg transform transition-all 
                                 hover:scale-105 hover:shadow-lg relative group justify-center items-center`}
                               >
@@ -1201,52 +1205,54 @@ useEffect(() => {
 
         {/* Empty State */}
         {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
-  <div className="text-center py-8">
-    {/* Tambahkan kondisi untuk meja 37 */}
-    {selectedTableNumber !== "37" && (
-      <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
-    )}
-    <div className="flex justify-center gap-4">
-      <Link 
-        href={`/menu?table=${selectedTableNumber}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors"
-      >
-        Pesan Sekarang
-      </Link>
-      {/* Tambahkan kondisi untuk meja 37 */}
-      {selectedTableNumber !== "37" && (
-        <>
-          {manuallyMarkedTables.includes(selectedTableNumber) ? (
-            <button
-              onClick={() => resetTable(selectedTableNumber)}
-              className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Reset Meja
-            </button>
-          ) : (
-            <button
-              onClick={() => markTableAsOccupied(selectedTableNumber)}
-              className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-            >
-              Tandai sebagai Terisi
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  </div>
-)}
+          <div className="text-center py-8">
+            {selectedTableNumber !== "sementara" && (
+              <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+            )}
+            <div className="flex justify-center gap-4">
+              {selectedTableNumber !== "sementara" && (
+                <>
+                  {manuallyMarkedTables.includes(selectedTableNumber) ? (
+                    <button
+                      onClick={() => resetTable(selectedTableNumber)}
+                      className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Reset Meja
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => markTableAsOccupied(selectedTableNumber)}
+                      className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+                    >
+                      Tandai sebagai Terisi
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="p-4 border-t">
+      {/* Bagian Tombol Pesan Sekarang dan Tutup */}
+      <div className="p-4 border-t flex justify-between gap-4">
+        {/* Tombol Pesan Sekarang untuk Semua Meja */}
+        <Link 
+          href={`/menu?table=${selectedTableNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors flex-1 text-center"
+        >
+          Pesan Sekarang
+        </Link>
+
+        {/* Tombol Tutup */}
         <button
           onClick={() => {
             setIsPopupVisible(false);
             fetchData(); // Refetch data terbaru saat menutup popup
           }}
-          className="w-full bg-[#FF8A00] hover:bg-[#FF6A00] text-white py-2 px-4 rounded-lg transition"
+          className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition flex-1"
         >
           Tutup
         </button>
