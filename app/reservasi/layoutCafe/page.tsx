@@ -1244,12 +1244,12 @@ const Booking1 = () => {
         {getTableColor(Number(selectedTableNumber)) === "bg-green-800" && (
           <button
             onClick={() => {
-              router.push(`/reservasi?meja=${selectedTableNumber}`);
+              router.push(`/menu?table=${selectedTableNumber}`);
               setIsPopupVisible(false);
             }}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition mt-3"
           >
-            Pilih Meja
+            Pilih Meja dan pesan menu
           </button>
         )}
       </div>
