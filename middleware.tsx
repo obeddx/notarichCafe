@@ -6,7 +6,7 @@ export function middleware(req: NextRequest) {
   // Periksa apakah URL yang diakses berawalan /manager atau /kasir
   if (
     req.nextUrl.pathname.startsWith("/manager") ||
-    req.nextUrl.pathname.startsWith("/kasir")
+    req.nextUrl.pathname.startsWith("/cashier")
   ) {
     // Cek apakah ada cookie "user"
     const userCookie = req.cookies.get("user");
@@ -24,5 +24,5 @@ export function middleware(req: NextRequest) {
 
 // Atur matcher agar middleware berjalan untuk rute /manager/* dan /kasir/*
 export const config = {
-  matcher: ["/manager/:path*", "/kasir/:path*"],
+  matcher: ["/manager/:path*", "/cashier/:path*"],
 };

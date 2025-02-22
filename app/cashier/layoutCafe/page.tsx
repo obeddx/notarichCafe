@@ -1201,35 +1201,43 @@ useEffect(() => {
 
         {/* Empty State */}
         {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
-            <div className="flex justify-center gap-4">
-              <Link 
-                href={`/menu?table=${selectedTableNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors"
-              >
-                Pesan Sekarang
-              </Link>
-              {manuallyMarkedTables.includes(selectedTableNumber) ? (
-                <button
-                  onClick={() => resetTable(selectedTableNumber)}
-                  className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Reset Meja
-                </button>
-              ) : (
-                <button
-                  onClick={() => markTableAsOccupied(selectedTableNumber)}
-                  className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-                >
-                  Tandai sebagai Terisi
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+  <div className="text-center py-8">
+    {/* Tambahkan kondisi untuk meja 37 */}
+    {selectedTableNumber !== "37" && (
+      <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+    )}
+    <div className="flex justify-center gap-4">
+      <Link 
+        href={`/menu?table=${selectedTableNumber}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors"
+      >
+        Pesan Sekarang
+      </Link>
+      {/* Tambahkan kondisi untuk meja 37 */}
+      {selectedTableNumber !== "37" && (
+        <>
+          {manuallyMarkedTables.includes(selectedTableNumber) ? (
+            <button
+              onClick={() => resetTable(selectedTableNumber)}
+              className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Reset Meja
+            </button>
+          ) : (
+            <button
+              onClick={() => markTableAsOccupied(selectedTableNumber)}
+              className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+            >
+              Tandai sebagai Terisi
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  </div>
+)}
       </div>
 
       <div className="p-4 border-t">
