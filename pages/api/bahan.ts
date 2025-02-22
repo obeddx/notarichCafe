@@ -12,16 +12,10 @@ export default async function handler(
       // Ambil ingredient aktif beserta data harga (unitPrice dan price) yang aktif
       const ingredients = await prisma.ingredient.findMany({
         where: { isActive: true },
-        include: {
-          prices: { // Ganti 'prices' dengan nama field relasi yang benar sesuai schema Anda
-            select: {
-              unitPrice: true,
-              price: true,
-            },
-            where: { isActive: true },
-          },
-        },
-      });
+        
+          
+        }); 
+      
       return res.status(200).json(ingredients);
     } catch (error) {
       console.error("Error fetching ingredients:", error);

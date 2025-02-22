@@ -11,8 +11,7 @@ export default async function handler(
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  // Ekstrak data dari request body
-  // Pastikan client mengirimkan: name, start, warehouseStart, stockIn, used, wasted, stockMin, unit, unitPrice, price
+  // Ekstrak data dari request body sesuai dengan form yang dikirim client
   const {
     name,
     start,
@@ -22,8 +21,11 @@ export default async function handler(
     wasted,
     stockMin,
     unit,
-    unitPrice,
+    finishedUnit,
+    category,
+    type,
     price,
+    
   } = req.body;
 
   // Validasi sederhana
@@ -36,8 +38,11 @@ export default async function handler(
     wasted === undefined ||
     stockMin === undefined ||
     !unit ||
-    !unitPrice ||
-    price === undefined
+    !finishedUnit ||
+    !category ||
+    !type ||
+    price === undefined 
+    
   ) {
     return res.status(400).json({ message: "Missing required fields" });
   }
@@ -50,7 +55,7 @@ export default async function handler(
     Number(warehouseStart) + Number(stockIn) - Number(used) - Number(wasted);
 
   try {
-    // Buat record Ingredient baru
+    // Buat record Ingredient baru dengan field tambahan finishedUnit, category, dan type
     const newIngredient = await prisma.ingredient.create({
       data: {
         name,
@@ -60,7 +65,11 @@ export default async function handler(
         wasted: Number(wasted),
         stock: calculatedStock,
         stockMin: Number(stockMin),
-        unit, // Unit utama untuk ingredient
+        unit,
+        finishedUnit,
+        category,
+        type, // misalnya "RAW" atau "SEMI_FINISHED"
+        price: parseFloat(price),
         isActive: true,
       },
     });
@@ -81,22 +90,15 @@ export default async function handler(
       },
     });
 
-    // Buat record IngredientPrice dengan unitPrice yang berbeda
-    const newIngredientPrice = await prisma.ingredientPrice.create({
-      data: {
-        ingredientId: newIngredient.id,
-        unitPrice: unitPrice, // Menggunakan unitPrice untuk harga (misalnya: "100 gram")
-        price: parseFloat(price),
-        isActive: true,
-      },
-    });
+    // Buat record IngredientPrice dengan unitPrice yang diberikan
+    
 
     return res.status(200).json({
       message:
         "Ingredient, Gudang, and IngredientPrice created successfully",
       ingredient: newIngredient,
       gudang: newGudang,
-      ingredientPrice: newIngredientPrice,
+      
       toast: {
         type: "success",
         color: "green",

@@ -5,11 +5,12 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 export interface MyNotification {
   message: string;
   date: string;
+  isRead: boolean;
 }
 
 interface NotificationContextType {
   notifications: MyNotification[];
-  setNotifications: (notifications: MyNotification[]) => void;
+  setNotifications: React.Dispatch<React.SetStateAction<MyNotification[]>>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -17,15 +18,18 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<MyNotification[]>([]);
 
-  // Muat notifikasi dari localStorage saat provider di-mount
   useEffect(() => {
     const stored = localStorage.getItem("notifications");
     if (stored) {
-      setNotifications(JSON.parse(stored));
+      const parsed = JSON.parse(stored);
+      const updatedNotifications = parsed.map((notif: any) => ({
+        ...notif,
+        isRead: typeof notif.isRead === "boolean" ? notif.isRead : false,
+      }));
+      setNotifications(updatedNotifications);
     }
   }, []);
 
-  // Simpan notifikasi ke localStorage setiap kali notifications berubah
   useEffect(() => {
     localStorage.setItem("notifications", JSON.stringify(notifications));
   }, [notifications]);

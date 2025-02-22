@@ -34,24 +34,22 @@ model Ingredient {
   stock       Float                   // Stok akhir: (start + stockIn) - used - wasted
   stockMin    Float                   // Minimum stock yang diharapkan
   unit        String                  // Satuan utama, misalnya "gram", "pack", "butir", dll.
+  finishedUnit    String @default("-")
   isActive    Boolean                 @default(true) // Untuk soft delete
+  category        String  @default("main")                  // Field kategori untuk ingredient
+  type            IngredientType           @default(RAW) // Tipe ingredient: RAW atau SEMI_FINISHED
+  price       Float @default(0)
   menus       MenuIngredient[]
   dailyStocks DailyIngredientStock[]
-  prices      IngredientPrice[]        // Relasi ke harga bahan
+
   gudang      Gudang?
+   // Relasi untuk mengelola komposisi semi finished ingredient
+  // Jika ingredient ini bertipe SEMI_FINISHED, maka field ini akan berisi data raw ingredient yang menyusunnya
+  semiCompositions  IngredientComposition[]  @relation("SemiIngredient")
+  // Jika ingredient ini dipakai sebagai raw ingredient pada suatu semi finished ingredient
+  rawCompositions   IngredientComposition[]  @relation("RawIngredient")
 }
 
-model IngredientPrice {
-  id           Int        @id @default(autoincrement())
-  ingredientId Int
-  unitPrice    String     // Satuan harga khusus, misalnya "100 gram", "50 gram"
-  price        Float      // Harga bahan dalam satuan tersebut
-  isActive     Boolean    @default(true) // Untuk soft delete
-
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
-  
-  @@unique([ingredientId, unitPrice]) // Mencegah duplikasi harga dengan satuan yang sama untuk satu ingredient
-}
 
 model MenuIngredient {
   id           Int         @id @default(autoincrement())
@@ -126,7 +124,7 @@ model User {
   username   String   @unique
   email      String   @unique
   password   String
-  role       Role     
+  role       Role     @default(manager)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -214,4 +212,21 @@ enum StatusReservasi {
   OCCUPIED  // Meja sudah ditempati
   COMPLETED // Reservasi selesai
   CANCELED  // Reservasi dibatalkan
+}
+
+enum IngredientType {
+  RAW
+  SEMI_FINISHED
+}
+
+model IngredientComposition {
+  id                Int         @id @default(autoincrement())
+  semiIngredientId  Int         // Ingredient dengan tipe SEMI_FINISHED
+  rawIngredientId   Int         // Ingredient dengan tipe RAW
+  amount          Float  @default(0)     // Jumlah raw ingredient yang dibutuhkan
+
+  semiIngredient Ingredient @relation("SemiIngredient", fields: [semiIngredientId], references: [id])
+  rawIngredient  Ingredient @relation("RawIngredient", fields: [rawIngredientId], references: [id])
+
+  @@unique([semiIngredientId, rawIngredientId])
 }

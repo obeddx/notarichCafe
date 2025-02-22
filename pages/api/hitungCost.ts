@@ -1,3 +1,4 @@
+// pages/api/ingredients/[id].ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from "@prisma/client";
 
@@ -9,16 +10,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Ambil semua menu beserta ingredient-nya dan harga bahan (IngredientPrice)
+    // Ambil semua menu beserta ingredient-nya
     const menus = await prisma.menu.findMany({
       include: {
         ingredients: {
           include: {
-            ingredient: {
-              include: {
-                prices: true, // Ambil data harga dari IngredientPrice
-              }
-            }
+            ingredient: true, // Tidak perlu lagi include prices
           }
         }
       }
@@ -28,18 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const updatedMenus = await Promise.all(menus.map(async (menu) => {
       const totalCost = menu.ingredients.reduce((acc, item) => {
         const ingredient = item.ingredient;
-        // Cari harga aktif untuk ingredient tersebut
-        const ingredientPrice = ingredient.prices.find(p => p.isActive);
-        if (!ingredientPrice) return acc;
-
-        // Ambil angka dari unitPrice, misalnya "100 gram" → 100
-        const unitValue = parseFloat(ingredientPrice.unitPrice.split(" ")[0]);
-        if (isNaN(unitValue) || unitValue <= 0) return acc;
-
-        // Harga per unit (sesuai unitPrice)
-        const pricePerUnit = ingredientPrice.price / unitValue;
-        // Hitung biaya untuk bahan ini berdasarkan jumlah (item.amount)
-        const cost = item.amount * pricePerUnit;
+        // Harga per unit sudah ada di ingredient.price (misal: per 1 gram atau 1 butir)
+        const cost = item.amount * ingredient.price;
         return acc + cost;
       }, 0);
 
@@ -56,7 +43,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     }));
 
-    // Kembalikan array menu yang telah diperbarui ke frontend
     res.status(200).json(updatedMenus);
   } catch (error) {
     console.error(error);

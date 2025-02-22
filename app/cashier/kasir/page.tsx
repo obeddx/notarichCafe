@@ -56,6 +56,15 @@ export default function KasirPage() {
   const { notifications, setNotifications } = useNotifications();
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // const [badgeVisible, setBadgeVisible] = useState(true);
+
+  const unreadCount = notifications.filter((notif) => !notif.isRead).length;
+  // Fungsi untuk menandai semua notifikasi sebagai sudah dibaca (hanya mengubah isRead)
+  const handleMarkAllAsRead = () => {
+    setNotifications((prevNotifications) =>
+      prevNotifications.map((notif) => ({ ...notif, isRead: true }))
+    );
+  };
 
 
   const fetchOrders = async () => {
@@ -250,7 +259,11 @@ export default function KasirPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!window.confirm("Periksa input Anda sebelum menekan Yes, perubahan tidak akan bisa diganti!")) {
+    if (
+      !window.confirm(
+        "Periksa input Anda sebelum menekan Yes, perubahan tidak akan bisa diganti!"
+      )
+    ) {
       return;
     }
     const newNotifs: MyNotification[] = [];
@@ -260,7 +273,8 @@ export default function KasirPage() {
         const diff = actual - ingredient.stock;
         const message = `Selisih untuk ${ingredient.name} adalah ${diff} ${ingredient.unit}.`;
         const date = new Date().toLocaleString();
-        newNotifs.push({ message, date });
+        // Menambahkan properti isRead dengan nilai false untuk notifikasi baru
+        newNotifs.push({ message, date, isRead: false });
         toast.success("Berhasil Validasi Stock Nyata", { position: "top-right" });
         toast.error(message, { position: "top-right" });
       }
@@ -270,6 +284,7 @@ export default function KasirPage() {
     }
     setModalOpen(false);
   };
+  
 
 
   // Di dalam komponen KasirPage (sebelum return)
@@ -300,9 +315,17 @@ export default function KasirPage() {
           💳 Halaman Kasir
         </h1>
         <div className="flex items-center gap-4">
-          <button onClick={() => setNotificationModalOpen(true)} className="relative">
-            <FiBell className="text-3xl text-[#FF8A00]" />
-          </button>
+        <button
+        onClick={() => setNotificationModalOpen(true)}
+        className="relative"
+      >
+        <FiBell className="text-3xl text-[#FF8A00]" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
+            {unreadCount}
+          </span>
+        )}
+      </button>
         </div>
 
         {error && <p className="text-red-500 text-center">{error}</p>}
@@ -398,7 +421,17 @@ export default function KasirPage() {
       {notificationModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-[#FCFFFC] p-6 rounded shadow-md w-full max-w-md max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold mb-4 text-[#0E0E0E]">Notifications</h2>
+            {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded"
+                >
+                  Mark all as read
+                </button>
+              )}
+              </div>
             {notifications.length === 0 ? (
               <p className="text-[#0E0E0E]">Tidak ada notifikasi</p>
             ) : (
@@ -407,6 +440,11 @@ export default function KasirPage() {
                   <li key={idx} className="border-b border-[#92700C] pb-2">
                     <p className="text-[#0E0E0E]">{notif.message}</p>
                     <p className="text-xs text-[#979797]">{notif.date}</p>
+                    {!notif.isRead && (
+        <span className="text-xs bg-red-500 text-white rounded px-2 py-0.5">
+          NEW
+        </span>
+      )}
                   </li>
                 ))}
               </ul>

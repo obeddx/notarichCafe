@@ -7,11 +7,7 @@ import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FiSearch } from "react-icons/fi";
 
-type Price = {
-  unitPrice: string;
-  price: number;
-};
-
+// Tipe data Ingredient sesuai skema baru
 type Ingredient = {
   id: number;
   name: string;
@@ -22,16 +18,31 @@ type Ingredient = {
   stockMin: number;
   stock: number; // Stock akhir
   unit: string;
-  prices: Price[]; // Data harga dari API
-  // Properti tambahan untuk keperluan edit di modal:
-  price?: number; // Mengambil nilai price dari prices[0].price
-  unitPriceQuantity?: number; // Mengambil nilai unitPrice dari prices[0].unitPrice (dikonversi ke number)
+  finishedUnit: string;
+  category: string;
+  type: "RAW" | "SEMI_FINISHED";
+  price: number;
 };
 
-// Tipe extended untuk menyimpan nilai originalStockIn dan originalWasted
-type SelectedIngredient = Ingredient & { 
+// Tipe extended untuk menyimpan nilai originalStockIn dan originalWasted (untuk modal edit)
+type SelectedIngredient = Ingredient & {
   originalStockIn: number;
   originalWasted: number;
+};
+
+// Tipe untuk raw ingredient (untuk digunakan pada modal semi finished)
+// Data raw ingredient biasanya di-fetch dari API; di sini disimulasikan secara statis.
+type RawIngredient = {
+  id: number;
+  name: string;
+  price: number; // Harga per unit raw
+  unit: string;
+};
+
+// Tipe untuk komposisi semi finished ingredient
+type SemiComposition = {
+  rawIngredientId: number | "";
+  amount: number | "";
 };
 
 export default function IngredientsTable() {
@@ -39,16 +50,55 @@ export default function IngredientsTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [selectedIngredient, setSelectedIngredient] = useState<SelectedIngredient | null>(null);
-  // State untuk menyimpan input tambahan stockIn dan wasted
+  // State untuk input tambahan stockIn dan wasted pada modal edit (bahan RAW)
   const [additionalStock, setAdditionalStock] = useState<string>("");
   const [additionalWasted, setAdditionalWasted] = useState<string>("");
 
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredIngredient, setFilteredIngredient] = useState<Ingredient[]>([]);
-
   const router = useRouter();
-  
+
+  // State untuk modal pilih tipe ingredient baru
+  const [showSelectTypeModal, setShowSelectTypeModal] = useState(false);
+  // State untuk modal tambah semi finished ingredient (untuk tambah baru)
+  const [showSemiModal, setShowSemiModal] = useState(false);
+
+  // --- State untuk form semi finished ingredient (untuk TAMBAH) ---
+  const [semiName, setSemiName] = useState("");
+  const [semiCategory, setSemiCategory] = useState("");
+  const [semiFinishedUnit, setSemiFinishedUnit] = useState("gram");
+  const [producedQuantity, setProducedQuantity] = useState<number>(0);
+  const [composition, setComposition] = useState<SemiComposition[]>([]);
+
+  // --- State untuk modal edit semi finished ingredient (untuk EDIT) ---
+  const [semiEditName, setSemiEditName] = useState("");
+  const [semiEditCategory, setSemiEditCategory] = useState("");
+  const [semiEditFinishedUnit, setSemiEditFinishedUnit] = useState("gram");
+  const [semiEditProducedQuantity, setSemiEditProducedQuantity] = useState<number>(0);
+  const [semiEditComposition, setSemiEditComposition] = useState<SemiComposition[]>([]);
+  const [editingSemi, setEditingSemi] = useState(false);
+
+
+  // Daftar raw ingredient, diambil dari API /api/bahanRaw
+  const [rawIngredientsList, setRawIngredientsList] = useState<RawIngredient[]>([]);
+  useEffect(() => {
+    const fetchRawIngredients = async () => {
+      try {
+        const res = await fetch("/api/bahanRaw");
+        if (!res.ok) {
+          throw new Error("Gagal mengambil data raw ingredients.");
+        }
+        const data = await res.json();
+        setRawIngredientsList(data);
+      } catch (err: any) {
+        console.error("Error fetching raw ingredients:", err.message);
+      }
+    };
+
+    fetchRawIngredients();
+  }, []);
+
   // Fungsi untuk mengambil data ingredients dari API
   const fetchIngredients = async () => {
     try {
@@ -93,30 +143,66 @@ export default function IngredientsTable() {
     }
   };
 
-  // Fungsi untuk membuka modal edit ingredient dan menginisialisasi field tambahan
-  const handleEdit = (id: number) => {
+  // Modal Edit untuk bahan RAW (biasa)
+  const handleEdit = async (id: number) => {
     const ing = ingredients.find((i) => i.id === id);
     if (ing) {
-      setSelectedIngredient({
-        ...ing,
-        // Inisialisasi field price dan unitPriceQuantity dari prices (elemen pertama)
-        price: ing.prices[0]?.price ?? 0,
-        unitPriceQuantity: ing.prices[0]?.unitPrice ? parseFloat(ing.prices[0].unitPrice) : 0,
-        originalStockIn: ing.stockIn, // Simpan nilai stockIn awal
-        originalWasted: ing.wasted,   // Simpan nilai wasted awal
-      });
-      // Reset nilai input tambahan
-      setAdditionalStock("");
-      setAdditionalWasted("");
+      if (ing.type === "RAW") {
+        setSelectedIngredient({
+          ...ing,
+          originalStockIn: ing.stockIn,
+          originalWasted: ing.wasted,
+        });
+        setAdditionalStock("");
+        setAdditionalWasted("");
+        setEditingSemi(false);
+      } else if (ing.type === "SEMI_FINISHED") {
+        // Set nilai dasar untuk modal edit semi finished
+        setSelectedIngredient({
+          ...ing,
+          originalStockIn: ing.stockIn,
+          originalWasted: ing.wasted,
+        });
+        
+        setSemiEditName(ing.name);
+        setSemiEditCategory(ing.category);
+        setSemiEditFinishedUnit(ing.finishedUnit);
+        setSemiEditProducedQuantity(ing.start); // Misal: producedQuantity disimpan di field 'start'
+        
+        // Fetch data komposisi raw ingredient yang sebelumnya digunakan
+        try {
+          const res = await fetch(`/api/ingredientComposition?semiIngredientId=${ing.id}`);
+          if (res.ok) {
+            const compositionData = await res.json();
+            setSemiEditComposition(compositionData);
+          } else {
+            console.error("Gagal mengambil data composition");
+            setSemiEditComposition([]);
+          }
+        } catch (error) {
+          console.error("Error fetching composition:", error);
+          setSemiEditComposition([]);
+        }
+        // Set flag untuk menampilkan modal edit semi finished
+        setEditingSemi(true);
+      }
     }
   };
+  
 
-  // Fungsi untuk menutup modal
+  // Fungsi untuk menutup modal edit (RAW atau SEMI_FINISHED)
   const handleModalClose = () => {
     setSelectedIngredient(null);
+    // Juga tutup modal edit semi finished jika terbuka
+    setSemiEditName("");
+    setSemiEditCategory("");
+    setSemiEditFinishedUnit("gram");
+    setSemiEditProducedQuantity(0);
+    setSemiEditComposition([]);
+    setEditingSemi(false);
   };
 
-  // Fungsi untuk submit perubahan pada modal edit ingredient
+  // Submit modal edit untuk bahan RAW
   const handleEditSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedIngredient) return;
@@ -124,7 +210,6 @@ export default function IngredientsTable() {
       const res = await fetch(`/api/bahan/${selectedIngredient.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        // Kirim seluruh data ingredient, termasuk field tambahan price dan unitPriceQuantity
         body: JSON.stringify(selectedIngredient),
       });
       const data = await res.json();
@@ -145,16 +230,47 @@ export default function IngredientsTable() {
     }
   };
 
+  // Submit modal edit untuk bahan SEMI_FINISHED
+  const handleSemiEditSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // Buat payload serupa dengan payload tambah semi finished
+    const totalCompositionPrice = calculateTotalCompositionPrice(semiEditComposition);
+    const payload = {
+      id: selectedIngredient?.id, // ID bahan yang diedit
+      name: semiEditName,
+      category: semiEditCategory,
+      finishedUnit: semiEditFinishedUnit,
+      producedQuantity: semiEditProducedQuantity,
+      type: "SEMI_FINISHED",
+      price: totalCompositionPrice,
+      composition: semiEditComposition,
+    };
+    try {
+      const res = await fetch(`/api/SemiFinishedIngredient/${selectedIngredient?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Semi finished ingredient berhasil diedit!");
+        fetchIngredients();
+        handleModalClose();
+      } else {
+        alert(data.message || "Gagal mengupdate semi finished ingredient.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan saat mengupdate semi finished ingredient.");
+    }
+  };
+
   const handleResetDailyStock = async () => {
     const confirmed = confirm("Apakah Anda yakin ingin mereset stok harian?");
     if (!confirmed) return;
-  
     try {
-      const res = await fetch("/api/resetDailyStock", {
-        method: "POST",
-      });
+      const res = await fetch("/api/resetDailyStock", { method: "POST" });
       const result = await res.json();
-      console.log("Reset result:", result);
       alert(result.message);
       if (res.ok) {
         router.push("/manager/rekapStokCafe");
@@ -164,26 +280,114 @@ export default function IngredientsTable() {
     }
   };
 
-  // Filter ingredient dengan stock akhir <= stockMin
   const lowStockIngredients = ingredients.filter(
     (ingredient) => ingredient.stock <= ingredient.stockMin
   );
 
-  // Fungsi untuk toggle sidebar
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  // Modal pilihan tipe ingredient baru
+  const handleAddIngredient = () => {
+    setShowSelectTypeModal(true);
+  };
+
+  const handleSelectRaw = () => {
+    setShowSelectTypeModal(false);
+    router.push("/manager/addBahan");
+  };
+
+  const handleSelectSemi = () => {
+    setShowSelectTypeModal(false);
+    setShowSemiModal(true);
+  };
+
+  // Fungsi untuk menambahkan baris baru pada komposisi semi finished (untuk TAMBAH)
+  const addCompositionRow = () => {
+    setComposition([...composition, { rawIngredientId: "", amount: "" }]);
+  };
+
+  // Fungsi untuk mengubah nilai pada komposisi (untuk TAMBAH)
+  const handleCompositionChange = (
+    index: number,
+    field: keyof SemiComposition,
+    value: string
+  ) => {
+    const newComposition = [...composition];
+    newComposition[index] = {
+      ...newComposition[index],
+      [field]:
+        field === "rawIngredientId"
+          ? value === "" ? "" : parseInt(value)
+          : value === "" ? "" : parseFloat(value),
+    };
+    setComposition(newComposition);
+  };
+
+  // Fungsi helper untuk menghitung total harga komposisi dari array komposisi yang diberikan
+  const calculateTotalCompositionPrice = (comp: SemiComposition[]) => {
+    return comp.reduce((total, row) => {
+      const raw = rawIngredientsList.find((r) => r.id === row.rawIngredientId);
+      if (raw && row.amount) {
+        return total + raw.price * Number(row.amount);
+      }
+      return total;
+    }, 0);
+  };
+
+  // Fungsi untuk submit form semi finished ingredient (untuk TAMBAH)
+  const handleSemiSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!semiName || !semiCategory || !semiFinishedUnit || !producedQuantity) {
+      toast.error("Semua field wajib diisi untuk semi finished ingredient.");
+      return;
+    }
+    const totalCompositionPrice = calculateTotalCompositionPrice(composition);
+    const payload = {
+      name: semiName,
+      category: semiCategory,
+      finishedUnit: semiFinishedUnit,
+      producedQuantity,
+      type: "SEMI_FINISHED",
+      price: totalCompositionPrice,
+      composition,
+    };
+    try {
+      const res = await fetch("/api/addSemiFinishedIngredient", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Semi finished ingredient berhasil dibuat!");
+        setSemiName("");
+        setSemiCategory("");
+        setSemiFinishedUnit("gram");
+        setProducedQuantity(0);
+        setComposition([]);
+        setShowSemiModal(false);
+        fetchIngredients();
+      } else {
+        toast.error(data.message || "Gagal membuat semi finished ingredient.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Terjadi kesalahan pada server.");
+    }
   };
 
   if (loading) return <p>Loading ingredients...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
 
   return (
-    <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
+    <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Daftar Ingredients</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-      <Link href="/manager/addBahan">
-        <p className="text-blue-500 hover:underline pb-4">+ Tambah Ingredient Baru</p>
-      </Link>
+      <button onClick={handleAddIngredient} className="text-blue-500 hover:underline pb-4">
+        + Tambah Ingredient Baru
+      </button>
       <div className="p-4">
         {lowStockIngredients.length > 0 ? (
           lowStockIngredients.map((ingredient) => (
@@ -213,46 +417,47 @@ export default function IngredientsTable() {
         <table className="min-w-full bg-white border border-gray-200">
           <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock In</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wasted</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Min</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Akhir</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Satuan Harga</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stock In</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Used</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Wasted</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stock Min</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stock Akhir</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Finished Unit</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredIngredient.map((ingredient) => (
               <tr key={ingredient.id} className="text-center">
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.start}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.stockIn}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.used}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.wasted}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.stockMin}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.stock}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {ingredient.prices.map((price, index) => (
-                    <span key={index}>{price.price}</span>
-                  ))}
+                <td className="px-4 py-2">{ingredient.id}</td>
+                <td className="px-4 py-2">{ingredient.name}</td>
+                <td className="px-4 py-2">{ingredient.start}</td>
+                <td className="px-4 py-2">{ingredient.stockIn}</td>
+                <td className="px-4 py-2">{ingredient.used}</td>
+                <td className="px-4 py-2">{ingredient.wasted}</td>
+                <td className="px-4 py-2">{ingredient.stockMin}</td>
+                <td className="px-4 py-2">{ingredient.stock}</td>
+                <td className="px-4 py-2">
+                  {new Intl.NumberFormat("id-ID", {
+                    style: "currency",
+                    currency: "IDR",
+                  }).format(ingredient.price)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {ingredient.prices.map((price, index) => (
-                    <span key={index}>{price.unitPrice}</span>
-                  ))}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">{ingredient.unit}</td>
-                <td className="px-8 py-4 whitespace-nowrap">
+                <td className="px-4 py-2">{ingredient.unit}</td>
+                <td className="px-4 py-2">{ingredient.finishedUnit}</td>
+                <td className="px-4 py-2">{ingredient.category}</td>
+                <td className="px-4 py-2">{ingredient.type}</td>
+                <td className="px-4 py-2">
                   <button
                     onClick={() => handleEdit(ingredient.id)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded mr-3"
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded mr-2"
                   >
                     Edit
                   </button>
@@ -267,7 +472,7 @@ export default function IngredientsTable() {
             ))}
             {filteredIngredient.length === 0 && (
               <tr>
-                <td className="py-2 px-4 border-b text-center" colSpan={10}>
+                <td className="py-2 px-4 border-b text-center" colSpan={14}>
                   Tidak ada data ingredients.
                 </td>
               </tr>
@@ -276,7 +481,7 @@ export default function IngredientsTable() {
         </table>
         <button 
           onClick={handleResetDailyStock} 
-          className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
+          className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200 mt-4"
         >
           Rekap Stock Cafe
         </button>
@@ -284,35 +489,53 @@ export default function IngredientsTable() {
         <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4">
           <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
           <p className="text-sm text-gray-700">
-            <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Reset Stock</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk menyimpan rekap pengeluaran stok hari ini.
+            <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Reset Stock</span> hanya pada saat <span className="font-semibold">closing cafe</span> untuk menyimpan rekap pengeluaran stok hari ini.
           </p>
         </div>
       </div>
 
-      {/* Modal Edit Ingredient */}
-      {selectedIngredient && (
+      {/* Modal Edit Ingredient untuk Bahan RAW */}
+      {selectedIngredient && selectedIngredient.type === "RAW" && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-y-auto">
-          <div
-            className="bg-white rounded-lg p-6 w-full max-w-lg max-h-screen overflow-y-auto"
-            style={{ maxHeight: "calc(100vh - 40px)" }}
-          >
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-screen overflow-y-auto" style={{ maxHeight: "calc(100vh - 40px)" }}>
             <h2 className="text-xl font-bold mb-4">Edit Ingredient</h2>
             <form onSubmit={handleEditSubmit}>
+              {/* Field-field edit untuk bahan RAW */}
               <div className="mb-4">
                 <label className="block font-medium mb-1">Name:</label>
                 <input
                   type="text"
                   value={selectedIngredient.name}
                   onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      name: e.target.value,
-                    })
+                    setSelectedIngredient({ ...selectedIngredient, name: e.target.value })
                   }
                   className="w-full p-2 border border-gray-300 rounded"
                   required
                 />
               </div>
+              
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Category:</label>
+                <input
+                  type="text"
+                  value={selectedIngredient.category}
+                  onChange={(e) =>
+                    setSelectedIngredient({ ...selectedIngredient, category: e.target.value })
+                  }
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+  <label className="block font-medium mb-1">Ingredient Type:</label>
+  <select
+    value="RAW"
+    disabled
+    className="w-full p-2 border border-gray-300 rounded"
+  >
+    <option value="RAW">RAW</option>
+  </select>
+</div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Start:</label>
                 <input
@@ -322,11 +545,8 @@ export default function IngredientsTable() {
                   className="w-full p-2 border border-gray-300 rounded bg-gray-100"
                 />
               </div>
-              {/* Field untuk input tambahan stockIn */}
               <div className="mb-4">
-                <label className="block font-medium mb-1">
-                  Stock In (Tambahan):
-                </label>
+                <label className="block font-medium mb-1">Stock In (Tambahan):</label>
                 <input
                   type="number"
                   value={additionalStock}
@@ -336,9 +556,7 @@ export default function IngredientsTable() {
                     if (selectedIngredient) {
                       setSelectedIngredient({
                         ...selectedIngredient,
-                        stockIn:
-                          selectedIngredient.originalStockIn +
-                          (parseFloat(inputVal) || 0),
+                        stockIn: selectedIngredient.originalStockIn + (parseFloat(inputVal) || 0),
                       });
                     }
                   }}
@@ -347,7 +565,7 @@ export default function IngredientsTable() {
                   step="any"
                   placeholder="Masukkan tambahan stock"
                 />
-                <p>Masukkan angka 0 jika tidak ingin stock in</p>
+                <p className="text-xs text-gray-500">Masukkan angka 0 jika tidak ingin stock in</p>
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Used:</label>
@@ -359,11 +577,8 @@ export default function IngredientsTable() {
                   step="any"
                 />
               </div>
-              {/* Field untuk input tambahan wasted */}
               <div className="mb-4">
-                <label className="block font-medium mb-1">
-                  Wasted (Tambahan):
-                </label>
+                <label className="block font-medium mb-1">Wasted (Tambahan):</label>
                 <input
                   type="number"
                   value={additionalWasted}
@@ -373,9 +588,7 @@ export default function IngredientsTable() {
                     if (selectedIngredient) {
                       setSelectedIngredient({
                         ...selectedIngredient,
-                        wasted:
-                          selectedIngredient.originalWasted +
-                          (parseFloat(inputVal) || 0),
+                        wasted: selectedIngredient.originalWasted + (parseFloat(inputVal) || 0),
                       });
                     }
                   }}
@@ -384,7 +597,7 @@ export default function IngredientsTable() {
                   step="any"
                   placeholder="Masukkan tambahan wasted"
                 />
-                <p>Masukkan angka 0 jika tidak ingin wasted</p>
+                <p className="text-xs text-gray-500">Masukkan angka 0 jika tidak ingin wasted</p>
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Stock Min:</label>
@@ -401,7 +614,6 @@ export default function IngredientsTable() {
                   required
                   step="any"
                 />
-                
               </div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Unit:</label>
@@ -409,18 +621,16 @@ export default function IngredientsTable() {
                   type="text"
                   value={selectedIngredient.unit}
                   onChange={(e) =>
-                    setSelectedIngredient({
-                      ...selectedIngredient,
-                      unit: e.target.value,
-                    })
+                    setSelectedIngredient({ ...selectedIngredient, unit: e.target.value })
                   }
                   className="w-full p-2 border border-gray-300 rounded"
                   required
                 />
               </div>
-              {/* Field input untuk Price */}
               <div className="mb-4">
-                <label className="block font-medium mb-1">Price:</label>
+                <label className="block font-medium mb-1">
+                  Price per 1 {selectedIngredient.unit}:
+                </label>
                 <input
                   type="number"
                   value={selectedIngredient.price ?? ""}
@@ -435,46 +645,309 @@ export default function IngredientsTable() {
                   step="any"
                 />
               </div>
-              {/* Field Satuan Harga (2 kolom) */}
-              <div className="mb-4">
-                <label className="block font-medium mb-1">Satuan Harga:</label>
-                <div className="flex space-x-2">
-                  {/* Kolom untuk input jumlah satuan */}
-                  <input
-                    type="number"
-                    value={selectedIngredient.unitPriceQuantity ?? ""}
-                    onChange={(e) =>
-                      setSelectedIngredient({
-                        ...selectedIngredient,
-                        unitPriceQuantity: e.target.value ? parseFloat(e.target.value) : 0,
-                      })
-                    }
-                    className="w-1/2 p-2 border border-gray-300 rounded"
-                    required
-                    step="any"
-                    placeholder="Jumlah satuan"
-                  />
-                  {/* Kolom otomatis terisi (readonly) dari perubahan unit */}
-                  <input
-                    type="text"
-                    value={selectedIngredient.unit}
-                    readOnly
-                    className="w-1/2 p-2 border border-gray-300 rounded bg-gray-100"
-                    placeholder="Satuan"
-                  />
-                </div>
-              </div>
               <div className="flex justify-end space-x-4">
+                <button type="button" onClick={handleModalClose} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                  Cancel
+                </button>
+                <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Semi Finished Ingredient */}
+      {editingSemi && (
+  <div className="fixed inset-0 flex items-center justify-end bg-black bg-opacity-50 z-50 overflow-y-auto">
+    <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-screen overflow-y-auto animate-slide-in-right" style={{ maxHeight: "calc(100vh - 40px)" }}>
+      <h2 className="text-xl font-bold mb-4">Edit Semi Finished Ingredient</h2>
+      <form onSubmit={handleSemiEditSubmit}>
+        <div className="mb-4">
+          <label className="block font-medium mb-1">Nama Semi Ingredient:</label>
+          <input
+            type="text"
+            value={semiEditName}
+            onChange={(e) => setSemiEditName(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block font-medium mb-1">Kategori Semi:</label>
+          <input
+            type="text"
+            value={semiEditCategory}
+            onChange={(e) => setSemiEditCategory(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block font-medium mb-1">Finished Unit:</label>
+          <input
+            type="text"
+            value={semiEditFinishedUnit}
+            onChange={(e) => setSemiEditFinishedUnit(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block font-medium mb-1">Jumlah Semi Ingredient yang Dibuat:</label>
+          <input
+            type="number"
+            value={semiEditProducedQuantity || ""}
+            onChange={(e) => setSemiEditProducedQuantity(parseFloat(e.target.value))}
+            className="w-full p-2 border border-gray-300 rounded"
+            required
+          />
+        </div>
+        <div className="mb-4">
+  <h3 className="font-semibold mb-2">Komposisi Raw Ingredient:</h3>
+  {semiEditComposition.map((row, index) => {
+    const selectedRaw = rawIngredientsList.find((r) => r.id === row.rawIngredientId);
+    return (
+      <div key={index} className="flex gap-2 mb-2 items-center">
+        <select
+          value={row.rawIngredientId}
+          onChange={(e) =>
+            setSemiEditComposition((prev) => {
+              const newComp = [...prev];
+              newComp[index] = {
+                ...newComp[index],
+                rawIngredientId: e.target.value === "" ? "" : parseInt(e.target.value),
+              };
+              return newComp;
+            })
+          }
+          className="p-2 border border-gray-300 rounded"
+          required
+        >
+          <option value="">Pilih Raw Ingredient</option>
+          {rawIngredientsList.map((raw) => (
+            <option key={raw.id} value={raw.id}>
+              {raw.name} ({raw.unit})
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          value={row.amount}
+          onChange={(e) =>
+            setSemiEditComposition((prev) => {
+              const newComp = [...prev];
+              newComp[index] = {
+                ...newComp[index],
+                amount: e.target.value === "" ? "" : parseFloat(e.target.value),
+              };
+              return newComp;
+            })
+          }
+          className="w-24 p-2 border border-gray-300 rounded"
+          placeholder="Amount"
+          required
+          step="any"
+        />
+        <input
+          type="text"
+          value={
+            selectedRaw && row.amount
+              ? (selectedRaw.price * Number(row.amount)).toLocaleString("id-ID", {
+                  style: "currency",
+                  currency: "IDR",
+                })
+              : ""
+          }
+          readOnly
+          className="w-32 p-2 border border-gray-300 rounded bg-gray-100"
+          placeholder="Total Price"
+        />
+      </div>
+    );
+  })}
+  <button
+    type="button"
+    onClick={() => setSemiEditComposition([...semiEditComposition, { rawIngredientId: "", amount: "" }])}
+    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+  >
+    Add Raw Ingredient
+  </button>
+</div>
+
+        <div className="mt-4">
+          <label className="block font-medium mb-1">Total Harga Komposisi:</label>
+          <input
+            type="text"
+            value={calculateTotalCompositionPrice(semiEditComposition).toLocaleString("id-ID", {
+              style: "currency",
+              currency: "IDR",
+            })}
+            readOnly
+            className="w-full p-2 border border-gray-300 rounded bg-gray-100"
+          />
+        </div>
+        <div className="mt-4 flex justify-end space-x-4">
+          <button
+            type="button"
+            onClick={handleModalClose}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+          <button type="submit" className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
+
+      {/* Modal Pilihan Tipe Ingredient Baru */}
+      {showSelectTypeModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg">
+            <h2 className="text-xl font-bold mb-4">Pilih Tipe Ingredient</h2>
+            <div className="flex justify-around">
+              <button onClick={handleSelectRaw} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                Raw Ingredient
+              </button>
+              <button onClick={handleSelectSemi} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                Semi Finished Ingredient
+              </button>
+            </div>
+            <button onClick={() => setShowSelectTypeModal(false)} className="mt-4 text-gray-500 underline">
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah Semi Finished Ingredient (untuk TAMBAH) */}
+      {showSemiModal && (
+        <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-lg z-50 animate-slide-in">
+          <div className="p-6 overflow-y-auto h-full">
+            <h2 className="text-xl font-bold mb-4">Tambah Semi Finished Ingredient</h2>
+            <form onSubmit={handleSemiSubmit}>
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Nama Semi Ingredient:</label>
+                <input
+                  type="text"
+                  value={semiName}
+                  onChange={(e) => setSemiName(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Kategori Semi:</label>
+                <input
+                  type="text"
+                  value={semiCategory}
+                  onChange={(e) => setSemiCategory(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Finished Unit:</label>
+                <input
+                  type="text"
+                  value={semiFinishedUnit}
+                  onChange={(e) => setSemiFinishedUnit(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Jumlah Semi Ingredient yang Dibuat:</label>
+                <input
+                  type="number"
+                  value={producedQuantity || ""}
+                  onChange={(e) => setProducedQuantity(parseFloat(e.target.value))}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <h3 className="font-semibold mb-2">Komposisi Raw Ingredient:</h3>
+                {composition.map((row, index) => {
+                  const selectedRaw = rawIngredientsList.find((r) => r.id === row.rawIngredientId);
+                  return (
+                    <div key={index} className="flex gap-2 mb-2 items-center">
+                      <select
+                        value={row.rawIngredientId}
+                        onChange={(e) => handleCompositionChange(index, "rawIngredientId", e.target.value)}
+                        className="p-2 border border-gray-300 rounded"
+                        required
+                      >
+                        <option value="">Pilih Raw Ingredient</option>
+                        {rawIngredientsList.map((raw) => (
+                          <option key={raw.id} value={raw.id}>
+                            {raw.name} ({raw.unit})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        value={row.amount}
+                        onChange={(e) => handleCompositionChange(index, "amount", e.target.value)}
+                        className="w-24 p-2 border border-gray-300 rounded"
+                        placeholder="Amount"
+                        required
+                        step="any"
+                      />
+                      <input
+                        type="text"
+                        value={
+                          selectedRaw && row.amount
+                            ? (selectedRaw.price * Number(row.amount)).toLocaleString("id-ID", {
+                                style: "currency",
+                                currency: "IDR",
+                              })
+                            : ""
+                        }
+                        readOnly
+                        className="w-32 p-2 border border-gray-300 rounded bg-gray-100"
+                        placeholder="Total Price"
+                      />
+                    </div>
+                  );
+                })}
                 <button
                   type="button"
-                  onClick={handleModalClose}
+                  onClick={addCompositionRow}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                >
+                  Add Raw Ingredient
+                </button>
+              </div>
+              <div className="mt-4">
+                <label className="block font-medium mb-1">Total Harga Komposisi:</label>
+                <input
+                  type="text"
+                  value={calculateTotalCompositionPrice(composition).toLocaleString("id-ID", {
+                    style: "currency",
+                    currency: "IDR",
+                  })}
+                  readOnly
+                  className="w-full p-2 border border-gray-300 rounded bg-gray-100"
+                />
+              </div>
+              <div className="mt-4 flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setShowSemiModal(false)}
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
                 >
                   Save
                 </button>

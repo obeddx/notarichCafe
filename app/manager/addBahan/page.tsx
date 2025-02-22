@@ -17,18 +17,22 @@ export default function CreateIngredient() {
   const [used] = useState("0");
   const [wasted] = useState("0");
   const [stockMin, setStockMin] = useState("");
-  // Unit untuk ingredient (misalnya: botol, pack)
+  // Unit untuk ingredient (misalnya: gram, pack, dll)
   const [unit, setUnit] = useState("");
+  // Field untuk finished unit (misalnya: gram, liter), default "gram"
+  const [finishedUnit, setFinishedUnit] = useState("gram");
   // Field untuk harga (angka)
   const [price, setPrice] = useState("");
-  // State untuk unit harga yang berkaitan (misalnya: "100g", "50g")
-  const [unitPrice, setUnitPrice] = useState("");
+  // Field kategori, default "main"
+  const [category, setCategory] = useState("");
+  // Dropdown untuk tipe ingredient, default RAW
+  const [type, setType] = useState("RAW");
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     // Validasi bahwa semua field yang diperlukan telah diisi
-    if (!name || !start || !warehouseStart || !stockMin || !unit || !price || !unitPrice) {
+    if (!name || !start || !warehouseStart || !stockMin || !unit || !price) {
       toast.error("Semua field harus diisi!");
       return;
     }
@@ -41,9 +45,11 @@ export default function CreateIngredient() {
       used: parseFloat(used),
       wasted: parseFloat(wasted),
       stockMin: parseFloat(stockMin),
-      unit, // Unit untuk Ingredient
+      unit,
+      finishedUnit,
+      category,
+      type,
       price: parseFloat(price),
-      unitPrice, // Unit harga untuk IngredientPrice
     };
 
     try {
@@ -55,15 +61,17 @@ export default function CreateIngredient() {
       const result = await res.json();
 
       if (res.ok) {
-        toast.success(result.toast.text);
-        // Reset field yang bisa diubah user
+        toast.success(result.toast?.text || "Ingredient berhasil dibuat!");
+        // Reset field yang dapat diubah
         setName("");
         setStart("");
         setWarehouseStart("");
         setStockMin("");
         setUnit("");
+        setFinishedUnit("gram");
+        setCategory("");
+        setType("RAW");
         setPrice("");
-        setUnitPrice("");
       } else {
         toast.error(result.message || "Gagal membuat ingredient.");
       }
@@ -98,10 +106,10 @@ export default function CreateIngredient() {
               />
             </div>
 
-            {/* Row untuk Start dan Start Gudang */}
+            {/* Row untuk Start dan Warehouse Start */}
             <div className="flex gap-4">
               <div className="w-1/2">
-                <label className="block font-semibold mb-1">Start:</label>
+                <label className="block font-semibold mb-1">Stock Cafe:</label>
                 <input
                   type="number"
                   value={start}
@@ -113,7 +121,7 @@ export default function CreateIngredient() {
                 />
               </div>
               <div className="w-1/2">
-                <label className="block font-semibold mb-1">Start Gudang:</label>
+                <label className="block font-semibold mb-1">Stock Inventory:</label>
                 <input
                   type="number"
                   value={warehouseStart}
@@ -126,7 +134,7 @@ export default function CreateIngredient() {
               </div>
             </div>
 
-            {/* Row untuk Ingredient Unit dan Unit Price */}
+            {/* Row untuk Ingredient Unit dan Finished Unit */}
             <div className="flex gap-4">
               <div className="w-1/2">
                 <label className="block font-semibold mb-1">Ingredient Unit:</label>
@@ -140,13 +148,13 @@ export default function CreateIngredient() {
                 />
               </div>
               <div className="w-1/2">
-                <label className="block font-semibold mb-1">Satuan Harga:</label>
+                <label className="block font-semibold mb-1">Finished Unit:</label>
                 <input
                   type="text"
-                  value={unitPrice}
-                  onChange={(e) => setUnitPrice(e.target.value)}
+                  value={finishedUnit}
+                  onChange={(e) => setFinishedUnit(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
-                  placeholder="e.g., 100 gram, 1 botol"
+                  placeholder="e.g., gram, liter"
                   required
                 />
               </div>
@@ -154,7 +162,7 @@ export default function CreateIngredient() {
 
             {/* Input Price */}
             <div>
-              <label className="block font-semibold mb-1">Price:</label>
+              <label className="block font-semibold mb-1">Price per 1 {unit}:</label>
               <input
                 type="number"
                 value={price}
@@ -162,13 +170,13 @@ export default function CreateIngredient() {
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
                 required
                 step="any"
-                placeholder="Harga per satuan harga"
+                placeholder="Harga per finished unit"
               />
             </div>
 
             {/* Input Stock Min */}
             <div>
-              <label className="block font-semibold mb-1">Stock Min:</label>
+              <label className="block font-semibold mb-1">Stock Min / Alert at:</label>
               <input
                 type="number"
                 value={stockMin}
@@ -180,7 +188,7 @@ export default function CreateIngredient() {
               />
             </div>
 
-            {/* Input Stock In (readonly) */}
+            {/* Readonly fields: Stock In, Used, Wasted */}
             <div>
               <label className="block font-semibold mb-1">Stock In:</label>
               <input
@@ -193,7 +201,6 @@ export default function CreateIngredient() {
               />
             </div>
 
-            {/* Input Used (readonly) */}
             <div>
               <label className="block font-semibold mb-1">Used:</label>
               <input
@@ -206,7 +213,6 @@ export default function CreateIngredient() {
               />
             </div>
 
-            {/* Input Wasted (readonly) */}
             <div>
               <label className="block font-semibold mb-1">Wasted:</label>
               <input
@@ -217,6 +223,33 @@ export default function CreateIngredient() {
                 required
                 step="any"
               />
+            </div>
+
+            {/* Input Category */}
+            <div>
+              <label className="block font-semibold mb-1">Category:</label>
+              <input
+                type="text"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
+                placeholder="Masukkan kategori ingredient (default: main)"
+                required
+              />
+            </div>
+
+            {/* Dropdown untuk Ingredient Type */}
+            <div>
+              <label className="block font-semibold mb-1">Ingredient Type:</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
+                required
+              >
+                <option value="RAW">RAW</option>
+                <option value="SEMI_FINISHED">SEMI_FINISHED</option>
+              </select>
             </div>
 
             <button
