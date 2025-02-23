@@ -22,7 +22,7 @@ export default async function handler(
     stockMin,
     unit,
     finishedUnit,
-    category,
+    categoryId,
     type,
     price,
     
@@ -38,8 +38,8 @@ export default async function handler(
     wasted === undefined ||
     stockMin === undefined ||
     !unit ||
-    !finishedUnit ||
-    !category ||
+    !finishedUnit || 
+    !categoryId ||
     !type ||
     price === undefined 
     
@@ -67,7 +67,7 @@ export default async function handler(
         stockMin: Number(stockMin),
         unit,
         finishedUnit,
-        category,
+        categoryId,
         type, // misalnya "RAW" atau "SEMI_FINISHED"
         price: parseFloat(price),
         isActive: true,

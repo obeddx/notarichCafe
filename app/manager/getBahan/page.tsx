@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
-import Link from "next/link";
+// import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -19,10 +19,15 @@ type Ingredient = {
   stock: number; // Stock akhir
   unit: string;
   finishedUnit: string;
-  category: string;
+  categoryId: number;
   type: "RAW" | "SEMI_FINISHED";
   price: number;
 };
+ type Categories = {
+  id: number;
+  name: string;
+  description:string;
+ };
 
 // Tipe extended untuk menyimpan nilai originalStockIn dan originalWasted (untuk modal edit)
 type SelectedIngredient = Ingredient & {
@@ -47,6 +52,7 @@ type SemiComposition = {
 
 export default function IngredientsTable() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [categories, setCategories] = useState<Categories[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [selectedIngredient, setSelectedIngredient] = useState<SelectedIngredient | null>(null);
@@ -97,6 +103,23 @@ export default function IngredientsTable() {
     };
 
     fetchRawIngredients();
+  }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/categories");
+        if (!res.ok) {
+          throw new Error("Gagal mengambil data categori.");
+        }
+        const data = await res.json();
+        setCategories(data.categories);
+      } catch (err: any) {
+        console.error("Error fetching raw ingredients:", err.message);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   // Fungsi untuk mengambil data ingredients dari API
@@ -163,12 +186,13 @@ export default function IngredientsTable() {
           originalStockIn: ing.stockIn,
           originalWasted: ing.wasted,
         });
-        
+  
+        // Set nilai form edit semi finished
         setSemiEditName(ing.name);
-        setSemiEditCategory(ing.category);
+        setSemiEditCategory(ing.categoryId.toString()); // Pastikan categoryId dikonversi ke string
         setSemiEditFinishedUnit(ing.finishedUnit);
         setSemiEditProducedQuantity(ing.start); // Misal: producedQuantity disimpan di field 'start'
-        
+  
         // Fetch data komposisi raw ingredient yang sebelumnya digunakan
         try {
           const res = await fetch(`/api/ingredientComposition?semiIngredientId=${ing.id}`);
@@ -183,6 +207,7 @@ export default function IngredientsTable() {
           console.error("Error fetching composition:", error);
           setSemiEditComposition([]);
         }
+  
         // Set flag untuk menampilkan modal edit semi finished
         setEditingSemi(true);
       }
@@ -236,9 +261,9 @@ export default function IngredientsTable() {
     // Buat payload serupa dengan payload tambah semi finished
     const totalCompositionPrice = calculateTotalCompositionPrice(semiEditComposition);
     const payload = {
-      id: selectedIngredient?.id, // ID bahan yang diedit
+      id: selectedIngredient?.id,
       name: semiEditName,
-      category: semiEditCategory,
+      categoryId: parseInt(semiEditCategory), // Menggunakan categoryId
       finishedUnit: semiEditFinishedUnit,
       producedQuantity: semiEditProducedQuantity,
       type: "SEMI_FINISHED",
@@ -346,7 +371,7 @@ export default function IngredientsTable() {
     const totalCompositionPrice = calculateTotalCompositionPrice(composition);
     const payload = {
       name: semiName,
-      category: semiCategory,
+      categoryId: parseInt(semiCategory), // Ubah ke categoryId
       finishedUnit: semiFinishedUnit,
       producedQuantity,
       type: "SEMI_FINISHED",
@@ -425,7 +450,7 @@ export default function IngredientsTable() {
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Wasted</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stock Min</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stock Akhir</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Harga per Unit</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Finished Unit</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
@@ -433,51 +458,57 @@ export default function IngredientsTable() {
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
             </tr>
           </thead>
+
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredIngredient.map((ingredient) => (
-              <tr key={ingredient.id} className="text-center">
-                <td className="px-4 py-2">{ingredient.id}</td>
-                <td className="px-4 py-2">{ingredient.name}</td>
-                <td className="px-4 py-2">{ingredient.start}</td>
-                <td className="px-4 py-2">{ingredient.stockIn}</td>
-                <td className="px-4 py-2">{ingredient.used}</td>
-                <td className="px-4 py-2">{ingredient.wasted}</td>
-                <td className="px-4 py-2">{ingredient.stockMin}</td>
-                <td className="px-4 py-2">{ingredient.stock}</td>
-                <td className="px-4 py-2">
-                  {new Intl.NumberFormat("id-ID", {
-                    style: "currency",
-                    currency: "IDR",
-                  }).format(ingredient.price)}
-                </td>
-                <td className="px-4 py-2">{ingredient.unit}</td>
-                <td className="px-4 py-2">{ingredient.finishedUnit}</td>
-                <td className="px-4 py-2">{ingredient.category}</td>
-                <td className="px-4 py-2">{ingredient.type}</td>
-                <td className="px-4 py-2">
-                  <button
-                    onClick={() => handleEdit(ingredient.id)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded mr-2"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(ingredient.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filteredIngredient.length === 0 && (
-              <tr>
-                <td className="py-2 px-4 border-b text-center" colSpan={14}>
-                  Tidak ada data ingredients.
-                </td>
-              </tr>
-            )}
-          </tbody>
+  {filteredIngredient.map((ingredient) => {
+    const categoryName = categories.find((cat) => cat.id === ingredient.categoryId)?.name || "Unknown";
+    return (
+      <tr key={ingredient.id} className="text-center">
+        <>
+          <td className="px-4 py-2">{ingredient.id}</td>
+          <td className="px-4 py-2">{ingredient.name}</td>
+          <td className="px-4 py-2">{ingredient.start}</td>
+          <td className="px-4 py-2">{ingredient.stockIn}</td>
+          <td className="px-4 py-2">{ingredient.used}</td>
+          <td className="px-4 py-2">{ingredient.wasted}</td>
+          <td className="px-4 py-2">{ingredient.stockMin}</td>
+          <td className="px-4 py-2">{ingredient.stock}</td>
+          <td className="px-4 py-2">
+            {new Intl.NumberFormat("id-ID", {
+              style: "currency",
+              currency: "IDR",
+            }).format(ingredient.price)}
+          </td>
+          <td className="px-4 py-2">{ingredient.unit}</td>
+          <td className="px-4 py-2">{ingredient.finishedUnit}</td>
+          <td className="px-4 py-2">{categoryName}</td>
+          <td className="px-4 py-2">{ingredient.type}</td>
+          <td className="px-4 py-2">
+            <button
+              onClick={() => handleEdit(ingredient.id)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded mr-2"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => handleDelete(ingredient.id)}
+              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+            >
+              Delete
+            </button>
+          </td>
+        </>
+      </tr>
+    );
+  })}
+  {filteredIngredient.length === 0 && (
+    <tr>
+      <td className="py-2 px-4 border-b text-center" colSpan={14}>
+        Tidak ada data ingredients.
+      </td>
+    </tr>
+  )}
+</tbody>
         </table>
         <button 
           onClick={handleResetDailyStock} 
@@ -513,19 +544,27 @@ export default function IngredientsTable() {
                   required
                 />
               </div>
-              
               <div className="mb-4">
-                <label className="block font-medium mb-1">Category:</label>
-                <input
-                  type="text"
-                  value={selectedIngredient.category}
-                  onChange={(e) =>
-                    setSelectedIngredient({ ...selectedIngredient, category: e.target.value })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
+  <label className="block font-medium mb-1">Kategori:</label>
+  <select
+    value={selectedIngredient?.categoryId || ""}
+    onChange={(e) =>
+      setSelectedIngredient({
+        ...selectedIngredient,
+        categoryId: parseInt(e.target.value),
+      })
+    }
+    className="w-full p-2 border border-gray-300 rounded"
+    required
+  >
+    <option value="">Pilih Kategori</option>
+    {categories.map((cat) => (
+      <option key={cat.id} value={cat.id}>
+        {cat.name}
+      </option>
+    ))}
+  </select>
+</div>
               <div className="mb-4">
   <label className="block font-medium mb-1">Ingredient Type:</label>
   <select
@@ -675,15 +714,21 @@ export default function IngredientsTable() {
           />
         </div>
         <div className="mb-4">
-          <label className="block font-medium mb-1">Kategori Semi:</label>
-          <input
-            type="text"
-            value={semiEditCategory}
-            onChange={(e) => setSemiEditCategory(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded"
-            required
-          />
-        </div>
+  <label className="block font-medium mb-1">Kategori Semi:</label>
+  <select
+    value={semiEditCategory}
+    onChange={(e) => setSemiEditCategory(e.target.value)}
+    className="w-full p-2 border border-gray-300 rounded"
+    required
+  >
+    <option value="">Pilih Kategori</option>
+    {categories.map((cat) => (
+      <option key={cat.id} value={cat.id}>
+        {cat.name}
+      </option>
+    ))}
+  </select>
+</div>
         <div className="mb-4">
           <label className="block font-medium mb-1">Finished Unit:</label>
           <input
@@ -775,7 +820,6 @@ export default function IngredientsTable() {
     Add Raw Ingredient
   </button>
 </div>
-
         <div className="mt-4">
           <label className="block font-medium mb-1">Total Harga Komposisi:</label>
           <input
@@ -843,15 +887,21 @@ export default function IngredientsTable() {
                 />
               </div>
               <div className="mb-4">
-                <label className="block font-medium mb-1">Kategori Semi:</label>
-                <input
-                  type="text"
-                  value={semiCategory}
-                  onChange={(e) => setSemiCategory(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
+  <label className="block font-medium mb-1">Kategori:</label>
+  <select
+    value={semiCategory}
+    onChange={(e) => setSemiCategory(e.target.value)}
+    className="w-full p-2 border border-gray-300 rounded"
+    required
+  >
+    <option value="">Pilih Kategori</option>
+    {categories.map((cat) => (
+      <option key={cat.id} value={cat.id}>
+        {cat.name}
+      </option>
+    ))}
+  </select>
+</div>
               <div className="mb-4">
                 <label className="block font-medium mb-1">Finished Unit:</label>
                 <input

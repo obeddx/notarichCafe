@@ -6,12 +6,11 @@ const prisma = new PrismaClient();
 
 type Payload = {
   name: string;
-  category: string;
+  categoryId: number; // Menggunakan categoryId sebagai number
   finishedUnit: string;
   producedQuantity: number;
   type: "SEMI_FINISHED";
   price: number;
-  // Array composition, setiap objek memiliki rawIngredientId dan amount (jumlah raw ingredient yang dibutuhkan per unit semi finished)
   composition: Array<{
     rawIngredientId: number;
     amount: number;
@@ -29,7 +28,7 @@ export default async function handler(
 
   const {
     name,
-    category,
+    categoryId, // Mengambil categoryId dari body
     finishedUnit,
     producedQuantity,
     type,
@@ -40,7 +39,7 @@ export default async function handler(
   // Validasi field wajib
   if (
     !name ||
-    !category ||
+    !categoryId || // Validasi categoryId
     !finishedUnit ||
     producedQuantity === undefined ||
     !type ||
@@ -52,12 +51,11 @@ export default async function handler(
   }
 
   try {
-    // Buat record ingredient baru dengan tipe SEMI_FINISHED.
-    // Misalnya, untuk semi finished, kita set nilai awal stock = producedQuantity.
+    // Buat record ingredient baru dengan tipe SEMI_FINISHED
     const newSemiIngredient = await prisma.ingredient.create({
       data: {
         name,
-        category,
+        categoryId, // Menggunakan categoryId
         finishedUnit,
         type, // Harus "SEMI_FINISHED"
         price,
@@ -67,7 +65,6 @@ export default async function handler(
         wasted: 0,
         stock: producedQuantity, // Stock awal sama dengan producedQuantity
         stockMin: 0, // Bisa disesuaikan jika diperlukan
-        // Untuk semi finished, kita gunakan finishedUnit sebagai unit
         unit: finishedUnit,
         isActive: true,
       },

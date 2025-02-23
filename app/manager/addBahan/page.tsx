@@ -1,12 +1,20 @@
 "use client";
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect} from "react";
 import toast, { Toaster } from "react-hot-toast";
 import Sidebar from "@/components/sidebar";
+import { useRouter } from "next/navigation";
+
+type Categories = {
+  id: number;
+  name: string;
+  description:string;
+ };
 
 export default function CreateIngredient() {
   // State untuk Sidebar
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
+  const [categories, setCategories] = useState<Categories[]>([]);
 
   // State untuk form ingredient
   const [name, setName] = useState("");
@@ -20,13 +28,32 @@ export default function CreateIngredient() {
   // Unit untuk ingredient (misalnya: gram, pack, dll)
   const [unit, setUnit] = useState("");
   // Field untuk finished unit (misalnya: gram, liter), default "gram"
-  const [finishedUnit, setFinishedUnit] = useState("gram");
+  const [finishedUnit, setFinishedUnit] = useState("-");
   // Field untuk harga (angka)
   const [price, setPrice] = useState("");
   // Field kategori, default "main"
   const [category, setCategory] = useState("");
   // Dropdown untuk tipe ingredient, default RAW
   const [type, setType] = useState("RAW");
+
+  const router = useRouter();
+
+    useEffect(() => {
+      const fetchCategories = async () => {
+        try {
+          const res = await fetch("/api/categories");
+          if (!res.ok) {
+            throw new Error("Gagal mengambil data categori.");
+          }
+          const data = await res.json();
+          setCategories(data.categories);
+        } catch (err: any) {
+          console.error("Error fetching raw ingredients:", err.message);
+        }
+      };
+  
+      fetchCategories();
+    }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -47,7 +74,7 @@ export default function CreateIngredient() {
       stockMin: parseFloat(stockMin),
       unit,
       finishedUnit,
-      category,
+      categoryId: parseInt(category),
       type,
       price: parseFloat(price),
     };
@@ -72,6 +99,7 @@ export default function CreateIngredient() {
         setCategory("");
         setType("RAW");
         setPrice("");
+        router.push('/manager/getBahan');
       } else {
         toast.error(result.message || "Gagal membuat ingredient.");
       }
@@ -134,6 +162,24 @@ export default function CreateIngredient() {
               </div>
             </div>
 
+             {/* Input Category */}
+             <div className="mb-4">
+  <label className="block font-medium mb-1">Kategori Semi:</label>
+  <select
+    value={category}
+    onChange={(e) => setCategory(e.target.value)}
+    className="w-full p-2 border border-gray-300 rounded"
+    required
+  >
+    <option value="">Pilih Kategori</option>
+    {categories.map((cat) => (
+      <option key={cat.id} value={cat.id}>
+        {cat.name}
+      </option>
+    ))}
+  </select>
+</div>
+
             {/* Row untuk Ingredient Unit dan Finished Unit */}
             <div className="flex gap-4">
               <div className="w-1/2">
@@ -155,7 +201,7 @@ export default function CreateIngredient() {
                   onChange={(e) => setFinishedUnit(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
                   placeholder="e.g., gram, liter"
-                  required
+                  readOnly
                 />
               </div>
             </div>
@@ -225,18 +271,7 @@ export default function CreateIngredient() {
               />
             </div>
 
-            {/* Input Category */}
-            <div>
-              <label className="block font-semibold mb-1">Category:</label>
-              <input
-                type="text"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
-                placeholder="Masukkan kategori ingredient (default: main)"
-                required
-              />
-            </div>
+           
 
             {/* Dropdown untuk Ingredient Type */}
             <div>

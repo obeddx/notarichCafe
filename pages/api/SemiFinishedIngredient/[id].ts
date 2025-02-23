@@ -6,12 +6,11 @@ const prisma = new PrismaClient();
 
 type PayloadUpdate = {
   name: string;
-  category: string;
+  categoryId: number; // Menggunakan categoryId sebagai number
   finishedUnit: string;
   producedQuantity: number;
   type: "SEMI_FINISHED";
   price: number;
-  // Array composition, setiap objek memiliki rawIngredientId dan amount (jumlah raw ingredient yang dibutuhkan per unit semi finished)
   composition: Array<{
     rawIngredientId: number;
     amount: number;
@@ -40,7 +39,7 @@ export default async function handler(
   // Destructure field lainnya dari body
   const {
     name,
-    category,
+    categoryId,
     finishedUnit,
     producedQuantity,
     type,
@@ -51,7 +50,7 @@ export default async function handler(
   // Validasi field wajib
   if (
     !name ||
-    !category ||
+    !categoryId ||
     !finishedUnit ||
     producedQuantity === undefined ||
     !type ||
@@ -69,7 +68,7 @@ export default async function handler(
       where: { id: ingredientId },
       data: {
         name,
-        category,
+        categoryId,
         finishedUnit,
         type, // Harus "SEMI_FINISHED"
         price,

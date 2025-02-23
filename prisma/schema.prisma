@@ -37,6 +37,9 @@ model Ingredient {
   finishedUnit    String @default("-")
   isActive    Boolean                 @default(true) // Untuk soft delete
   category        String  @default("main")                  // Field kategori untuk ingredient
+  categoryId  Int @default(3)                // foreign key ke kategori
+  categories    IngredientCategory  @relation(fields: [categoryId], references: [id])            
+ 
   type            IngredientType           @default(RAW) // Tipe ingredient: RAW atau SEMI_FINISHED
   price       Float @default(0)
   menus       MenuIngredient[]
@@ -48,6 +51,15 @@ model Ingredient {
   semiCompositions  IngredientComposition[]  @relation("SemiIngredient")
   // Jika ingredient ini dipakai sebagai raw ingredient pada suatu semi finished ingredient
   rawCompositions   IngredientComposition[]  @relation("RawIngredient")
+}
+
+model IngredientCategory {
+  id           Int          @id @default(autoincrement())
+  name         String
+  description  String?      // keterangan opsional
+  ingredients  Ingredient[] // relasi one-to-many ke ingredient
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 

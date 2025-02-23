@@ -27,7 +27,7 @@ export default async function handler(
       unit, 
       isActive,
       price,
-      category,
+      categoryId,
       type
     } = req.body;
 
@@ -64,7 +64,7 @@ export default async function handler(
           ...(isActive !== undefined && { isActive }),
           stock: newIngredientStock,
           price: price !== undefined ? Number(price) : ingredient.price,
-          category: category !== undefined ? category : undefined,
+          categoryId: categoryId !== undefined ? categoryId : undefined,
           type: type !== undefined ? type : undefined,
           finishedUnit: "-",
         },
