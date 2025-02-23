@@ -3,6 +3,14 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Interface untuk hasil aggregasi
+interface AggregatedItem {
+  menuName: string;
+  category: string;
+  quantity: number;
+  total: number;
+}
+
 function getStartAndEndDates(period: string, dateString?: string) {
   const date = dateString ? new Date(dateString) : new Date();
   let startDate: Date, endDate: Date;
@@ -55,24 +63,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ({ startDate, endDate } = getStartAndEndDates(period, date));
     }
 
-    const result = await prisma.completedOrder.groupBy({
-      by: ['paymentMethod'],
+    // Query yang diperbaiki menggunakan CompletedOrderItem
+    const orderItems = await prisma.completedOrderItem.findMany({
       where: {
-        createdAt: { gte: startDate, lt: endDate },
-        paymentMethod: { not: null }
+        order: {
+          createdAt: { gte: startDate, lt: endDate }
+        }
       },
-      _count: { paymentMethod: true },
-      _sum: { total: true },
-      orderBy: { _count: { paymentMethod: 'desc' } }
+      include: {
+        menu: true
+      }
     });
 
-    const formattedResult = result.map(item => ({
-      paymentMethod: item.paymentMethod || 'Unknown',
-      count: item._count.paymentMethod,
-      totalRevenue: item._sum.total || 0
-    }));
+    // Agregasi data dengan type safety
+    const aggregatedData = orderItems.reduce((acc: Record<number, AggregatedItem>, item) => {
+      const menuId = item.menuId;
+      if (!acc[menuId]) {
+        acc[menuId] = {
+          menuName: item.menu.name,
+          category: item.menu.category,
+          quantity: 0,
+          total: 0
+        };
+      }
+      acc[menuId].quantity += item.quantity;
+      acc[menuId].total += item.quantity * Number(item.menu.price);
+      return acc;
+    }, {});
 
-    res.status(200).json(formattedResult);
+    // Konversi ke array dan urutkan
+    const result = Object.values(aggregatedData).sort((a, b) => b.total - a.total);
+
+    res.status(200).json(result);
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ 
