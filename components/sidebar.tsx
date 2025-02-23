@@ -68,8 +68,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             label="Ingredients"
             isOpen={isOpen}
             items={[
-              { href: "/manager/rekapStokCafe", label: "Ingredients Library" },
-              { href: "/manager/rekapStokGudang", label: "Ingredient Category" },
+              { href: "/manager/getBahan", label: "Ingredients Library" },
+              { href: "/manager/ingridientCategory", label: "Ingredient Category" },
               { href: "/manager/rekapPenjualan", label: "Recipes" },
             ]}
             border
