@@ -5,8 +5,7 @@ import SidebarCashier from "@/components/sidebarCashier";
 import toast from "react-hot-toast";
 import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
-import Link from "next/link";
-
+import {  X } from "lucide-react";
 interface Order {
   id: number;
   tableNumber: string;
@@ -38,6 +37,11 @@ interface Menu {
 }
 
 const Bookinge = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [, setOrders] = useState<Order[]>([]);
+    const [, setLoading] = useState(true);
+    const [, setError] = useState<string | null>(null);
   const [selectedFloor, setSelectedFloor] = useState(1);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [selectedTableOrders, setSelectedTableOrders] = useState<Order[]>([]);
@@ -46,7 +50,42 @@ const Bookinge = () => {
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
   const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State untuk mengontrol sidebar
+  const [selectedTableNumberForOrder, setSelectedTableNumberForOrder] = useState<string>("");
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [selectedMenuItems, setSelectedMenuItems] = useState<CartItem[]>([]);
+  const [customerName, setCustomerName] = useState("");
+const [selectedCategory, setSelectedCategory] = useState<string>("");
+const [menus, setMenus] = useState<Menu[]>([]);
 
+interface CartItem {
+  menu: Menu;
+  quantity: number;
+  note?: string;
+}
+
+useEffect(() => {
+  const fetchMenus = async () => {
+    try {
+      const response = await fetch("/api/getMenu");
+      const data = await response.json();
+      setMenus(data);
+    } catch (error) {
+      console.error("Error fetching menus:", error);
+    }
+  };
+  fetchMenus();
+}, []);
+<style jsx global>{`
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+`}</style>
   const fetchMeja = async () => {
     try {
       const response = await fetch('/api/nomeja');
@@ -276,6 +315,24 @@ useEffect(() => {
       </div>
     </div>
   );
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/orders");
+      if (!response.ok) throw new Error("Gagal mengambil data pesanan");
+  
+      const data = await response.json();
+      setOrders(data.orders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      setError("Gagal memuat data pesanan. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col md:flex-row h-screen min-w-[1400px]">
       <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
@@ -1237,14 +1294,15 @@ useEffect(() => {
       {/* Bagian Tombol Pesan Sekarang dan Tutup */}
       <div className="p-4 border-t flex justify-between gap-4">
         {/* Tombol Pesan Sekarang untuk Semua Meja */}
-        <Link 
-          href={`/menu?table=${selectedTableNumber}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors flex-1 text-center"
-        >
-          Pesan Sekarang
-        </Link>
+        <button
+  onClick={() => {
+    setSelectedTableNumberForOrder(selectedTableNumber);
+    setIsOrderModalOpen(true);
+  }}
+  className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors flex-1 text-center"
+>
+  Pesan Sekarang
+</button>
 
         {/* Tombol Tutup */}
         <button
@@ -1256,6 +1314,227 @@ useEffect(() => {
         >
           Tutup
         </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{isOrderModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Buat Pesanan Baru - Meja {selectedTableNumberForOrder}</h2>
+        <button onClick={() => setIsOrderModalOpen(false)}>
+          <X className="w-6 h-6 text-gray-600 hover:text-red-500" />
+        </button>
+      </div>
+
+      {/* Form Input Pelanggan */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <label className="block text-sm font-medium mb-1">Nomor Meja</label>
+          <input
+            type="text"
+            value={selectedTableNumberForOrder}
+            readOnly
+            className="w-full p-2 border rounded-md bg-gray-100"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Nama Pelanggan</label>
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            className="w-full p-2 border rounded-md"
+            placeholder="Masukkan nama pelanggan"
+          />
+        </div>
+      </div>
+ {/* Search Bar */}
+ <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Cari Menu</label>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full p-2 border rounded-md"
+          placeholder="Cari nama menu..."
+        />
+      </div>
+
+      {/* Filter Kategori */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Filter Kategori</label>
+        <select
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="w-full p-2 border rounded-md"
+        >
+          <option value="">Semua Kategori</option>
+          {Array.from(new Set(menus.map((menu) => menu.category))).map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Daftar Menu */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {menus
+.filter((menu) => 
+  (!selectedCategory || menu.category === selectedCategory) &&
+  (!searchQuery || menu.name.toLowerCase().includes(searchQuery.toLowerCase())))          .map((menu) => (
+            <div
+              key={menu.id}
+              className="border p-4 rounded-lg flex flex-col items-center justify-between"
+            >
+              <img
+                src={menu.image}
+                alt={menu.name}
+                className="w-24 h-24 object-cover rounded-full mb-2"
+              />
+              <h3 className="font-semibold text-center">{menu.name}</h3>
+              <p className="text-sm text-gray-600 text-center">
+                Rp {menu.price.toLocaleString()}
+              </p>
+              <button
+                onClick={() => {
+                  setSelectedMenuItems((prev) => {
+                    const existing = prev.find((item) => item.menu.id === menu.id);
+                    if (existing) {
+                      return prev.map((item) =>
+                        item.menu.id === menu.id
+                          ? { ...item, quantity: item.quantity + 1 }
+                          : item
+                      );
+                    }
+                    return [...prev, { menu, quantity: 1, note: "" }];
+                  });
+                }}
+                className="mt-2 bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
+              >
+                Tambah
+              </button>
+            </div>
+          ))}
+      </div>
+
+      {/* Keranjang Pesanan */}
+      <div className="mt-6 border-t pt-4">
+        <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
+        {selectedMenuItems.map((item) => (
+  <div key={item.menu.id} className="flex justify-between items-center mb-3 p-2 bg-gray-50 rounded">
+    <div className="flex-1">
+      <p className="font-medium">{item.menu.name}</p>
+      <input
+        type="text"
+        placeholder="Catatan..."
+        value={item.note}
+        onChange={(e) => {
+          setSelectedMenuItems((prev) =>
+            prev.map((prevItem) =>
+              prevItem.menu.id === item.menu.id
+                ? { ...prevItem, note: e.target.value }
+                : prevItem
+            )
+          );
+        }}
+        className="text-sm mt-1 p-1 border rounded w-full"
+      />
+    </div>
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            setSelectedMenuItems((prev) =>
+              prev
+                .map((prevItem) =>
+                  prevItem.menu.id === item.menu.id
+                    ? { ...prevItem, quantity: Math.max(0, prevItem.quantity - 1) }
+                    : prevItem
+                )
+                .filter((prevItem) => prevItem.quantity > 0) // Hapus item jika jumlah = 0
+            );
+          }}
+          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+        >
+          -
+        </button>
+        <span>{item.quantity}</span>
+        <button
+          onClick={() => {
+            setSelectedMenuItems((prev) =>
+              prev.map((prevItem) =>
+                prevItem.menu.id === item.menu.id
+                  ? { ...prevItem, quantity: prevItem.quantity + 1 }
+                  : prevItem
+              )
+            );
+          }}
+          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  </div>
+))}
+
+
+        <div className="mt-4">
+          <button
+            onClick={async () => {
+              if (!selectedTableNumberForOrder || !customerName) {
+                toast.error("Harap isi nomor meja dan nama pelanggan");
+                return;
+              }
+
+              try {
+                const response = await fetch("/api/placeOrder", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    customerName,
+                    tableNumber: selectedTableNumberForOrder,
+                    items: selectedMenuItems.map((item) => ({
+                      menuId: item.menu.id,
+                      quantity: item.quantity,
+                      note: item.note,
+                    })),
+                    total: selectedMenuItems.reduce(
+                      (sum, item) => sum + item.menu.price * item.quantity,
+                      0
+                    ),
+                  }),
+                });
+
+                if (response.ok) {
+                  toast.success("Pesanan berhasil dibuat!");
+                  setIsOrderModalOpen(false);
+                  setSelectedMenuItems([]);
+                  setCustomerName("");
+                  setSelectedTableNumberForOrder("");
+                  fetchOrders();
+                } else {
+                  throw new Error("Gagal membuat pesanan");
+                }
+              } catch (error) {
+                console.error("Error:", error);
+                toast.error("Gagal membuat pesanan");
+              }
+            }}
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md"
+          >
+            Simpan Pesanan (Total: Rp{" "}
+            {selectedMenuItems
+              .reduce((sum, item) => sum + item.menu.price * item.quantity, 0)
+              .toLocaleString()}
+            )
+          </button>
+        </div>
       </div>
     </div>
   </div>

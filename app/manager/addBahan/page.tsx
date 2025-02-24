@@ -110,7 +110,7 @@ export default function CreateIngredient() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-200 to-amber-700">
+    <div className="min-h-screen ">
       {/* Sidebar */}
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
 

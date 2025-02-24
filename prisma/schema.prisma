@@ -38,7 +38,7 @@ model Ingredient {
   isActive    Boolean                 @default(true) // Untuk soft delete
   category        String  @default("main")                  // Field kategori untuk ingredient
   categoryId  Int @default(3)                // foreign key ke kategori
-  categories    IngredientCategory  @relation(fields: [categoryId], references: [id]) 
+  categories    IngredientCategory  @relation(fields: [categoryId], references: [id])
   batchYield  Float  @default(0)         
  
   type            IngredientType           @default(RAW) // Tipe ingredient: RAW atau SEMI_FINISHED
@@ -58,9 +58,9 @@ model IngredientCategory {
   id           Int          @id @default(autoincrement())
   name         String
   description  String?      // keterangan opsional
-  ingredients  Ingredient[] // relasi one-to-many ke ingredient
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  ingredients  Ingredient[] // relasi one-to-many ke ingredient
 }
 
 
