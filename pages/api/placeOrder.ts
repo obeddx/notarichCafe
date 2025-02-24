@@ -5,7 +5,6 @@ const prisma = new PrismaClient();
 
 interface OrderItem {
   menuId: number;
-  menuName: string;
   quantity: number;
   note?: string;
 }
@@ -16,8 +15,8 @@ interface OrderDetails {
   total: number;
   customerName: string;
   isCashierOrder?: boolean;
-  // Tambahkan field reservasiId untuk menandai order reservasi
   reservasiId?: number;
+  discountId?: number; // ID discount untuk scope TOTAL (opsional, hanya dari kasir)
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -32,21 +31,87 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ message: "Invalid order data" });
     }
 
+    // Logging untuk debugging
+    console.log("Order Details Received:", orderDetails);
+
+    // Ambil data menu beserta discount
+    const menuIds = orderDetails.items.map((item) => item.menuId);
+    const menus = await prisma.menu.findMany({
+      where: { id: { in: menuIds } },
+      include: { discounts: { include: { discount: true } } },
+    });
+
+    // Ambil tax dan gratuity aktif
+    const tax = await prisma.tax.findFirst({ where: { isActive: true } });
+    const gratuity = await prisma.gratuity.findFirst({ where: { isActive: true } });
+
+    // Hitung total sebelum discount
+    let totalBeforeDiscount = 0;
+    const orderItemsData = orderDetails.items.map((item) => {
+      const menu = menus.find((m) => m.id === item.menuId);
+      if (!menu) throw new Error(`Menu with ID ${item.menuId} not found`);
+      const price = menu.price;
+      const subtotal = price * item.quantity;
+      totalBeforeDiscount += subtotal;
+
+      // Hitung discount scope MENU
+      let discountAmount = 0;
+      const menuDiscount = menu.discounts.find((d) => d.discount.isActive);
+      if (menuDiscount) {
+        const discount = menuDiscount.discount;
+        discountAmount =
+          discount.type === "PERCENTAGE"
+            ? (discount.value / 100) * price * item.quantity
+            : discount.value * item.quantity;
+      }
+
+      return {
+        menuId: item.menuId,
+        quantity: item.quantity,
+        note: item.note || "",
+        price,
+        discountAmount,
+      };
+    });
+
+    // Hitung discount scope TOTAL (jika ada, hanya dari kasir)
+    let totalDiscountAmount = orderItemsData.reduce((sum, item) => sum + item.discountAmount, 0);
+    if (orderDetails.discountId) {
+      const discount = await prisma.discount.findUnique({
+        where: { id: orderDetails.discountId },
+      });
+      if (discount && discount.isActive && discount.scope === "TOTAL") {
+        totalDiscountAmount +=
+          discount.type === "PERCENTAGE"
+            ? (discount.value / 100) * totalBeforeDiscount
+            : discount.value;
+        console.log(`Applied TOTAL discount: ${discount.name}, Amount: ${totalDiscountAmount - orderItemsData.reduce((sum, item) => sum + item.discountAmount, 0)}`);
+      } else {
+        console.warn(`Discount ID ${orderDetails.discountId} invalid or not TOTAL scope`);
+      }
+    }
+
+    // Hitung tax dan gratuity
+    const totalAfterDiscount = totalBeforeDiscount - totalDiscountAmount;
+    const taxAmount = tax ? (tax.value / 100) * totalAfterDiscount : 0;
+    const gratuityAmount = gratuity ? (gratuity.value / 100) * totalAfterDiscount : 0;
+    const finalTotal = totalAfterDiscount + taxAmount + gratuityAmount;
+
     // Simpan Order ke database
     const newOrder = await prisma.order.create({
       data: {
         customerName: orderDetails.customerName,
         tableNumber: orderDetails.tableNumber,
-        total: orderDetails.total,
+        total: totalBeforeDiscount,
+        discountId: orderDetails.discountId || null,
+        discountAmount: totalDiscountAmount,
+        taxAmount,
+        gratuityAmount,
+        finalTotal,
         status: orderDetails.isCashierOrder ? "Sedang Diproses" : "pending",
         reservasiId: orderDetails.reservasiId || null,
         orderItems: {
-          create: orderDetails.items.map((item) => ({
-            menuId: item.menuId,
-            menuName: item.menuName,
-            quantity: item.quantity,
-            note: item.note || "",
-          })),
+          create: orderItemsData,
         },
       },
       include: {
@@ -58,7 +123,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // **Pastikan res.socket tidak null sebelum mengaksesnya**
+    console.log("New Order Created:", {
+      id: newOrder.id,
+      totalBeforeDiscount,
+      totalDiscountAmount,
+      taxAmount,
+      gratuityAmount,
+      finalTotal,
+      discountId: newOrder.discountId,
+    });
+
     if (res.socket && (res.socket as any).server) {
       const io = (res.socket as any).server.io;
       if (io) {

@@ -25,6 +25,15 @@ interface MenuIngredient {
   ingredient: Ingredient;
 }
 
+interface Discount {
+  id: number;
+  name: string;
+  type: "PERCENTAGE" | "NORMAL";
+  scope: "MENU" | "TOTAL";
+  value: number;
+  isActive: boolean;
+}
+
 interface Menu {
   id: number;
   name: string;
@@ -35,6 +44,7 @@ interface Menu {
   category: string;
   rating: number;
   stock: boolean;
+  discounts: { discount: Discount }[];
 }
 
 interface CartItem {
@@ -68,18 +78,17 @@ export default function MenuPage() {
   const [noteVisibility, setNoteVisibility] = useState<{ [key: number]: boolean }>({});
   const [orderError, setOrderError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
-
-  // States untuk alur pembayaran
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [paymentOption, setPaymentOption] = useState<"cash" | "ewallet" | null>(null);
-  const [orderRecord, setOrderRecord] = useState<string>(""); // Dapat diganti tipe sesuai kebutuhan
+  const [orderRecord, setOrderRecord] = useState<string>("");
   const [snapToken, setSnapToken] = useState<string>("");
   const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(""); // State untuk menyimpan query pencarian
+  const [searchQuery, setSearchQuery] = useState("");
+  const [discounts, setDiscounts] = useState<Discount[]>([]); // Daftar discount untuk scope TOTAL
+  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null); // Discount scope TOTAL yang dipilih
 
   const searchParams = useSearchParams();
 
-  // Ambil nilai tableNumber dari URL atau sessionStorage
   useEffect(() => {
     const tableFromUrl = searchParams?.get("table");
     const tableFromSession = sessionStorage.getItem("tableNumber");
@@ -90,7 +99,6 @@ export default function MenuPage() {
     }
   }, [searchParams]);
 
-  // Kirim tableNumber ke API /api/nomeja
   useEffect(() => {
     if (tableNumber !== "Unknown") {
       const sendTableNumber = async () => {
@@ -100,9 +108,7 @@ export default function MenuPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tableNumber }),
           });
-          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-          }
+          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
           const result = await response.json();
           console.log("Table number sent successfully:", result);
         } catch (error) {
@@ -113,24 +119,19 @@ export default function MenuPage() {
     }
   }, [tableNumber]);
 
-  // Load cart dari sessionStorage berdasarkan nomor meja
   useEffect(() => {
     const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
-    }
+    if (storedCart) setCart(JSON.parse(storedCart));
   }, [tableNumber]);
 
-  // Fetch menu data dari API
+  // Fetch menu data dan discount
   useEffect(() => {
-    const fetchMenu = async () => {
+    const fetchMenuAndDiscounts = async () => {
       try {
-        const response = await fetch("/api/getMenu");
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
-        const transformedMenu: Menu[] = data.map((item: Partial<Menu>) => ({
+        const menuResponse = await fetch("/api/getMenu"); // Pastikan rute sesuai
+        if (!menuResponse.ok) throw new Error(`HTTP error! Status: ${menuResponse.status}`);
+        const menuData = await menuResponse.json();
+        const transformedMenu: Menu[] = menuData.map((item: Partial<Menu>) => ({
           id: item.id ?? 0,
           name: item.name ?? "Unknown",
           image: item.image ? item.image : "/default-image.jpg",
@@ -140,22 +141,24 @@ export default function MenuPage() {
           category: item.category ?? "Uncategorized",
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
+          discounts: item.discounts ?? [], // Pastikan defaults ke array kosong
         }));
         setMenus(transformedMenu);
+  
+        const discountResponse = await fetch("/api/diskon");
+        if (!discountResponse.ok) throw new Error(`HTTP error! Status: ${discountResponse.status}`);
+        const discountData = await discountResponse.json();
+        setDiscounts(discountData.filter((d: Discount) => d.scope === "TOTAL" && d.isActive));
       } catch (err) {
-        if (err instanceof Error) {
-          setError(`Failed to load menu data: ${err.message}`);
-        } else {
-          setError("Failed to load menu data.");
-        }
+        if (err instanceof Error) setError(`Failed to load data: ${err.message}`);
+        else setError("Failed to load data.");
       } finally {
         setLoading(false);
       }
     };
-    fetchMenu();
+    fetchMenuAndDiscounts();
   }, []);
 
-  // Fungsi untuk menambahkan item ke cart
   const addToCart = (menu: Menu) => {
     setCart((prevCart) => {
       const existingItemIndex = prevCart.findIndex((item) => item.menu.id === menu.id);
@@ -174,7 +177,6 @@ export default function MenuPage() {
     toast.success(`${menu.name} added to cart!`);
   };
 
-  // Fungsi untuk menghapus item dari cart
   const removeFromCart = (menuId: number) => {
     setCart((prevCart) => {
       const updatedCart = prevCart
@@ -197,7 +199,6 @@ export default function MenuPage() {
     toast.error("Item removed from cart!");
   };
 
-  // Fungsi untuk mengupdate note di cart
   const updateCartItemNote = (menuId: number, note: string) => {
     setCart((prevCart) => {
       const updatedCart = prevCart.map((item) =>
@@ -208,13 +209,52 @@ export default function MenuPage() {
     });
   };
 
-  // Toggle visibilitas note
   const toggleNoteVisibility = (menuId: number) => {
     setNoteVisibility((prev) => ({ ...prev, [menuId]: !prev[menuId] }));
   };
 
-  // Fungsi untuk membuat order di backend
+  const calculateItemPrice = (menu: Menu) => {
+    let price = menu.price;
+    // Pengecekan apakah discounts ada dan merupakan array
+    const activeDiscount = Array.isArray(menu.discounts)
+      ? menu.discounts.find((d) => d.discount.isActive)
+      : undefined;
+    if (activeDiscount) {
+      price -=
+        activeDiscount.discount.type === "PERCENTAGE"
+          ? (activeDiscount.discount.value / 100) * menu.price
+          : activeDiscount.discount.value;
+    }
+    return price > 0 ? price : 0; // Pastikan harga tidak negatif
+  };
+
+ const calculateCartTotals = () => {
+  let totalBeforeDiscount = 0;
+  let totalDiscountAmount = 0;
+
+  cart.forEach((item) => {
+    const originalPrice = item.menu.price * item.quantity;
+    const discountedPrice = calculateItemPrice(item.menu) * item.quantity;
+    totalBeforeDiscount += originalPrice;
+    totalDiscountAmount += originalPrice - discountedPrice;
+  });
+
+  if (selectedDiscountId) {
+    const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
+    if (selectedDiscount) {
+      totalDiscountAmount +=
+        selectedDiscount.type === "PERCENTAGE"
+          ? (selectedDiscount.value / 100) * totalBeforeDiscount
+          : selectedDiscount.value;
+    }
+  }
+
+  const totalAfterDiscount = totalBeforeDiscount - totalDiscountAmount;
+  return { totalBeforeDiscount, totalDiscountAmount, totalAfterDiscount };
+};
+
   const createOrder = async () => {
+    const { totalBeforeDiscount } = calculateCartTotals();
     const orderDetails = {
       customerName,
       tableNumber,
@@ -223,7 +263,8 @@ export default function MenuPage() {
         quantity: item.quantity,
         note: item.note,
       })),
-      total: cart.reduce((total, item) => total + item.menu.price * item.quantity, 0),
+      total: totalBeforeDiscount,
+      discountId: selectedDiscountId || undefined,
     };
     try {
       const response = await fetch("/api/placeOrder", {
@@ -231,18 +272,15 @@ export default function MenuPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderDetails),
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
       const data = await response.json();
       return data.order;
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Error creating order:", error);
       return null;
     }
   };
 
-  // Fungsi untuk menampilkan modal pilihan pembayaran (tanpa langsung membuat order)
   const handleShowPaymentModal = () => {
     if (!customerName.trim()) {
       toast.error("Please enter customer name!");
@@ -251,54 +289,41 @@ export default function MenuPage() {
     setShowPaymentMethodModal(true);
   };
 
-  // Handler untuk menutup modal receipt (order summary) dan mengosongkan cart
   const handleCloseOrderSummary = () => {
     setShowReceiptModal(false);
     setCart([]);
+    setSelectedDiscountId(null);
     sessionStorage.removeItem(`cart_table_${tableNumber}`);
   };
 
-  // Fungsi untuk generate PDF receipt menggunakan jsPDF
   const generateReceiptPDF = () => {
-    const doc = new jsPDF({
-      unit: "mm",
-      format: [58, 200],
-    });
-
+    const doc = new jsPDF({ unit: "mm", format: [58, 200] });
     const margin = 5;
     const pageWidth = 58;
     const rightMargin = pageWidth - margin;
-
     let yPosition = margin;
 
-    // Header: Nama Cafe
     doc.setFontSize(16);
     doc.text("NotarichCafe", pageWidth / 2, yPosition, { align: "center" });
     yPosition += 6;
 
-    // Informasi Transaksi
     const now = new Date();
-    const dateStr = now.toLocaleDateString(); // Misal: "2/24/2025"
-    const dayStr = now.toLocaleDateString("en-US", { weekday: "long" }); // Misal: "Monday"
-    const timeStr = now.toLocaleTimeString(); // Misal: "10:05:30 AM"
     doc.setFontSize(10);
-    doc.text(`Tanggal: ${dateStr}`, margin, yPosition);
+    doc.text(`Tanggal: ${now.toLocaleDateString()}`, margin, yPosition);
     yPosition += 5;
-    doc.text(`Hari: ${dayStr}`, margin, yPosition);
+    doc.text(`Hari: ${now.toLocaleDateString("en-US", { weekday: "long" })}`, margin, yPosition);
     yPosition += 5;
-    doc.text(`Jam: ${timeStr}`, margin, yPosition);
+    doc.text(`Jam: ${now.toLocaleTimeString()}`, margin, yPosition);
     yPosition += 5;
     doc.text(`Operator: Kasir 1`, margin, yPosition);
     yPosition += 5;
     doc.text(`Meja: ${tableNumber}`, margin, yPosition);
     yPosition += 7;
 
-    // Divider
     yPosition += 2;
     doc.line(margin, yPosition, rightMargin, yPosition);
     yPosition += 4;
 
-    // Header Pesanan
     doc.setFontSize(12);
     doc.text("Pesanan", margin, yPosition);
     yPosition += 5;
@@ -310,20 +335,24 @@ export default function MenuPage() {
     yPosition += 4;
 
     let totalQty = 0;
-    let totalPrice = 0;
+    const { totalBeforeDiscount, totalDiscountAmount, totalAfterDiscount } = calculateCartTotals();
     cart.forEach((item) => {
-      const itemTotal = item.menu.price * item.quantity;
+      const itemTotal = calculateItemPrice(item.menu) * item.quantity;
       doc.text(item.menu.name, margin, yPosition, { maxWidth: 30 });
-      doc.text(`${item.quantity} x ${item.menu.price}`, margin, yPosition + 4, { maxWidth: 30 });
+      doc.text(`${item.quantity} x ${calculateItemPrice(item.menu).toLocaleString()}`, margin, yPosition + 4, { maxWidth: 30 });
       doc.text(`Rp${itemTotal.toLocaleString()}`, rightMargin, yPosition, { align: "right" });
       totalQty += item.quantity;
-      totalPrice += itemTotal;
       yPosition += 10;
     });
+
     yPosition += 2;
     doc.text(`Total qty = ${totalQty}`, margin, yPosition);
     yPosition += 6;
-    doc.text(`Total : Rp${totalPrice.toLocaleString()}`, margin, yPosition);
+    doc.text(`Subtotal: Rp${totalBeforeDiscount.toLocaleString()}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Diskon: Rp${totalDiscountAmount.toLocaleString()}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Total: Rp${totalAfterDiscount.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
     doc.text(`Pembayaran: ${paymentOption === "ewallet" ? "E-Wallet" : "Tunai"}`, margin, yPosition);
     yPosition += 10;
@@ -336,7 +365,6 @@ export default function MenuPage() {
     doc.save("receipt.pdf");
   };
 
-  // Modal: Pilihan Metode Pembayaran
   const renderPaymentMethodModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md">
@@ -345,7 +373,6 @@ export default function MenuPage() {
           onClick={async () => {
             setPaymentOption("cash");
             setShowPaymentMethodModal(false);
-            // Untuk opsi tunai: langsung buat order dan tampilkan modal receipt
             const order = await createOrder();
             if (order) {
               setOrderRecord(order);
@@ -364,11 +391,12 @@ export default function MenuPage() {
           onClick={async () => {
             setPaymentOption("ewallet");
             setShowPaymentMethodModal(false);
+            const { totalBeforeDiscount } = calculateCartTotals();
             const payload = {
               orderId: "ORDER-" + new Date().getTime(),
-              total: cart.reduce((total, item) => total + item.menu.price * item.quantity, 0),
+              total: totalBeforeDiscount,
               customerName,
-              customerEmail: "", // Gunakan default atau nilai valid jika diperlukan
+              customerEmail: "",
               customerPhone: "",
               item_details: cart.map((item) => ({
                 id: item.menu.id.toString(),
@@ -397,7 +425,6 @@ export default function MenuPage() {
                         generateReceiptPDF();
                         setCart([]);
                         sessionStorage.removeItem(`cart_table_${tableNumber}`);
-
                       } else {
                         setOrderError("Failed to create order after payment.");
                         toast.error("Failed to create order after payment.");
@@ -407,32 +434,6 @@ export default function MenuPage() {
                     onError: (result: unknown) => console.log("Pembayaran error:", result),
                     onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
                   });
-                } else {
-                  const script = document.createElement("script");
-                  script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-                  script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
-                  document.body.appendChild(script);
-                  script.onload = () => {
-                    window.snap.pay(data.snapToken, {
-                      onSuccess: async (result: unknown) => {
-                        console.log("Pembayaran sukses:", result);
-                        const order = await createOrder();
-                        if (order) {
-                          setOrderRecord(order);
-                          toast.success("Order placed successfully!");
-                          generateReceiptPDF();
-                          setCart([]);
-                          sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                        } else {
-                          setOrderError("Failed to create order after payment.");
-                          toast.error("Failed to create order after payment.");
-                        }
-                      },
-                      onPending: (result: unknown) => console.log("Pembayaran pending:", result),
-                      onError: (result: unknown) => console.log("Pembayaran error:", result),
-                      onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-                    });
-                  };
                 }
               } else {
                 console.error("Gagal mendapatkan snap token", data);
@@ -455,57 +456,57 @@ export default function MenuPage() {
     </div>
   );
 
-  // Modal: Receipt (Order Summary)
-  const renderReceiptModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md" id="receipt-content">
-        <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Receipt</h2>
-        <h3 className="text-xl text-black mb-4">Table Number: {tableNumber}</h3>
-        <ul className="space-y-2">
-          {cart.map((item) => (
-            <li key={item.menu.id} className="flex justify-between text-black">
-              <span>
-                {item.quantity}x {item.menu.name}
-              </span>
-              <span>Rp{(item.menu.price * item.quantity).toLocaleString()}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-4 border-t pt-4">
-          <p className="text-lg font-semibold text-black">
-            Total: Rp
-            {cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+  const renderReceiptModal = () => {
+    const { totalBeforeDiscount, totalDiscountAmount, totalAfterDiscount } = calculateCartTotals();
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg w-full max-w-md" id="receipt-content">
+          <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Receipt</h2>
+          <h3 className="text-xl text-black mb-4">Table Number: {tableNumber}</h3>
+          <ul className="space-y-2">
+            {cart.map((item) => (
+              <li key={item.menu.id} className="flex justify-between text-black">
+                <span>
+                  {item.quantity}x {item.menu.name}
+                </span>
+                <span>Rp{(calculateItemPrice(item.menu) * item.quantity).toLocaleString()}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 border-t pt-4">
+            <p className="text-lg text-black">Subtotal: Rp{totalBeforeDiscount.toLocaleString()}</p>
+            <p className="text-lg text-black">Diskon: Rp{totalDiscountAmount.toLocaleString()}</p>
+            <p className="text-lg font-semibold text-black">
+              Total: Rp{totalAfterDiscount.toLocaleString()}
+            </p>
+          </div>
+          <p className="mt-4 text-center text-green-600 font-semibold">
+            Silahkan menuju kasir untuk melanjutkan proses pembayaran
           </p>
+          <button
+            onClick={handleCloseOrderSummary}
+            className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
+          >
+            Tutup & Selesai
+          </button>
         </div>
-        <p className="mt-4 text-center text-green-600 font-semibold">
-          Silahkan menuju kasir untuk melanjutkan proses pembayaran
-        </p>
-        <button
-          onClick={handleCloseOrderSummary}
-          className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
-        >
-          Tutup & Selesai
-        </button>
       </div>
-    </div>
-  );
+    );
+  };
 
   const filteredMenu =
     selectedCategory === "All Menu"
-      ? menus.filter((item) =>
-          item.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      : menus.filter((item) =>
-          item.category.toLowerCase().includes(selectedCategory.toLowerCase()) &&
-          item.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ? menus.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      : menus.filter(
+          (item) =>
+            item.category.toLowerCase().includes(selectedCategory.toLowerCase()) &&
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
   if (tableNumber === "Unknown") {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center">
-        <h2 className="text-2xl mb-4">
-          Table number tidak terdeteksi. Silakan scan barcode meja Anda.
-        </h2>
+        <h2 className="text-2xl mb-4">Table number tidak terdeteksi. Silakan scan barcode meja Anda.</h2>
         <Link href="/scan">
           <button className="bg-orange-600 text-white p-4 rounded-full shadow-lg hover:bg-orange-700 transition">
             Scan Barcode
@@ -519,7 +520,6 @@ export default function MenuPage() {
     <div className="min-h-screen">
       <Toaster position="top-right" reverseOrder={false} />
 
-      {/* Hero Section */}
       <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
         <div className="max-w-2xl text-center md:text-left">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
@@ -535,24 +535,19 @@ export default function MenuPage() {
         </div>
       </section>
 
-      {/* Menu Section */}
       <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
-        <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">
-          Our Popular Menu
-        </h2>
+        <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">Our Popular Menu</h2>
         <h2 className="text-2xl text-white mb-4">Table Number: {tableNumber}</h2>
- {/* Search Bar */}
- <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Cari Menu</label>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full p-2 border rounded-md"
-          placeholder="Cari nama menu..."
-        />
-      </div>
-        {/* Category Buttons */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1">Cari Menu</label>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full p-2 border rounded-md"
+            placeholder="Cari nama menu..."
+          />
+        </div>
         <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
           {categories.map((category) => (
             <button
@@ -577,70 +572,93 @@ export default function MenuPage() {
           <p className="text-center text-gray-500">No menu available for this category.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredMenu.map((item) => (
-              <div
-                key={item.id}
-                className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
-              >
-                {/* Desktop Layout */}
-                <div className="hidden sm:block">
-                  <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      layout="fill"
-                      objectFit="cover"
-                      className="rounded-lg"
-                    />
+            {filteredMenu.map((item) => {
+              const discountedPrice = calculateItemPrice(item);
+              return (
+                <div
+                  key={item.id}
+                  className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
+                >
+                  <div className="hidden sm:block">
+                    <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
+                      <Image
+                        src={item.image}
+                        alt={item.name}
+                        layout="fill"
+                        objectFit="cover"
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <div className="p-4 text-center">
+                      <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
+                      <p className="text-gray-600 text-left">{item.description}</p>
+                      <div className="text-left">
+                        {discountedPrice < item.price ? (
+                          <>
+                            <p className="text-sm text-gray-500 line-through">
+                              Rp{item.price.toLocaleString()}
+                            </p>
+                            <p className="text-lg font-semibold text-orange-600">
+                              Rp{discountedPrice.toLocaleString()}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-lg font-semibold text-orange-600">
+                            Rp{item.price.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => addToCart(item)}
+                        className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                      >
+                        <ShoppingCart className="w-5 h-5" />
+                        Add to Cart
+                      </button>
+                    </div>
                   </div>
-                  <div className="p-4 text-center">
-                    <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
-                    <p className="text-gray-600 text-left">{item.description}</p>
-                    <p className="text-lg font-semibold text-orange-600 mt-2 text-left">
-                      Rp{item.price.toLocaleString()}
-                    </p>
+                  <div className="sm:hidden flex items-center gap-4">
+                    <div className="relative w-24 h-24 flex-shrink-0">
+                      <Image
+                        src={item.image}
+                        alt={item.name}
+                        layout="fill"
+                        objectFit="cover"
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <div className="flex-grow">
+                      <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
+                      <p className="text-sm text-gray-600">{item.description}</p>
+                      {discountedPrice < item.price ? (
+                        <>
+                          <p className="text-xs text-gray-500 line-through">
+                            Rp{item.price.toLocaleString()}
+                          </p>
+                          <p className="text-md font-semibold text-orange-600">
+                            Rp{discountedPrice.toLocaleString()}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-md font-semibold text-orange-600">
+                          Rp{item.price.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
                     <button
                       onClick={() => addToCart(item)}
-                      className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                      className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition"
                     >
-                      <ShoppingCart className="w-5 h-5" />
-                      Add to Cart
+                      +
                     </button>
                   </div>
                 </div>
-
-                {/* Mobile Layout */}
-                <div className="sm:hidden flex items-center gap-4">
-                  <div className="relative w-24 h-24 flex-shrink-0">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      layout="fill"
-                      objectFit="cover"
-                      className="rounded-lg"
-                    />
-                  </div>
-                  <div className="flex-grow">
-                    <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
-                    <p className="text-sm text-gray-600">{item.description}</p>
-                    <p className="text-md font-semibold text-orange-600 mt-1">
-                      Rp{item.price.toLocaleString()}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => addToCart(item)}
-                    className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Floating Cart Button */}
       <button
         onClick={() => setIsCartOpen(true)}
         className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3"
@@ -654,13 +672,12 @@ export default function MenuPage() {
         <span className="hidden sm:block">Cart</span>
         <div className="sm:hidden flex flex-col items-center">
           <span className="text-sm font-semibold">
-            Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+            Rp{calculateCartTotals().totalAfterDiscount.toLocaleString()}
           </span>
           <span className="text-xs">Checkout</span>
         </div>
       </button>
 
-      {/* Cart Popup */}
       {isCartOpen && (
         <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50 flex flex-col">
           <div className="flex justify-between items-center border-b pb-4 mb-4">
@@ -676,14 +693,14 @@ export default function MenuPage() {
               <div className="flex-grow overflow-y-auto">
                 <ul className="space-y-4">
                   {cart.map((item) => {
-                    const itemTotalPrice = item.menu.price * item.quantity;
+                    const itemTotalPrice = calculateItemPrice(item.menu) * item.quantity;
                     const isNoteOpen = noteVisibility[item.menu.id] || false;
                     return (
                       <li key={item.menu.id} className="flex flex-col border-b pb-4">
                         <div className="flex justify-between items-center">
                           <h3 className="text-lg font-semibold text-gray-900">{item.menu.name}</h3>
                           <p className="text-orange-600 font-semibold">
-                            Rp{item.menu.price.toLocaleString()} x {item.quantity}
+                            Rp{calculateItemPrice(item.menu).toLocaleString()} x {item.quantity}
                           </p>
                         </div>
                         <p className="text-right text-gray-700 font-semibold">
@@ -738,13 +755,17 @@ export default function MenuPage() {
                   required
                 />
               </div>
+             
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
-                <h3 className="text-xl font-bold text-gray-900">Total Harga:</h3>
+                <h3 className="text-xl font-bold text-gray-900">Rincian Harga:</h3>
+                <p className="text-lg text-gray-900">
+                  Subtotal: Rp{calculateCartTotals().totalBeforeDiscount.toLocaleString()}
+                </p>
+                <p className="text-lg text-gray-900">
+                  Diskon: Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}
+                </p>
                 <p className="text-2xl text-orange-600 font-semibold">
-                  Rp
-                  {cart
-                    .reduce((total, item) => total + item.menu.price * item.quantity, 0)
-                    .toLocaleString()}
+                  Total: Rp{calculateCartTotals().totalAfterDiscount.toLocaleString()}
                 </p>
                 <button
                   onClick={handleShowPaymentModal}
@@ -758,13 +779,8 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Render Modal Pilihan Metode Pembayaran */}
       {showPaymentMethodModal && renderPaymentMethodModal()}
-
-      {/* Render Modal Receipt */}
       {showReceiptModal && renderReceiptModal()}
-
-      {/* Error Popup */}
       {orderError && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md">

@@ -13,83 +13,73 @@ model Menu {
   description  String?
   image        String
   price        Float
-  hargaBakul   Float           @default(0.0) // Tambahkan nilai default
+  hargaBakul   Float           @default(0.0)
   category     String
   Status       String
-  maxBeli      Int @default(100)
-  isActive Boolean @default(true)
-  orderItems   OrderItem[] 
+  maxBeli      Int             @default(100)
+  isActive     Boolean         @default(true)
+  orderItems   OrderItem[]
   ingredients  MenuIngredient[]
   completedOrderItems CompletedOrderItem[]
+  discounts    MenuDiscount[]    // Relasi ke discount bertipe MENU
 }
-
 
 model Ingredient {
   id          Int                     @id @default(autoincrement())
   name        String
-  start       Float                   // Stok awal
-  stockIn     Float                   // Tambahan stok
-  used        Float                   // Bahan yang sudah digunakan
-  wasted      Float                   // Bahan yang basi/dibuang
-  stock       Float                   // Stok akhir: (start + stockIn) - used - wasted
-  stockMin    Float                   // Minimum stock yang diharapkan
-  unit        String                  // Satuan utama, misalnya "gram", "pack", "butir", dll.
-  finishedUnit    String @default("-")
-  isActive    Boolean                 @default(true) // Untuk soft delete
-  category        String  @default("main")                  // Field kategori untuk ingredient
-  categoryId  Int @default(3)                // foreign key ke kategori
-  categories    IngredientCategory  @relation(fields: [categoryId], references: [id])
-  batchYield  Float  @default(0)         
- 
-  type            IngredientType           @default(RAW) // Tipe ingredient: RAW atau SEMI_FINISHED
-  price       Float @default(0)
+  start       Float
+  stockIn     Float
+  used        Float
+  wasted      Float
+  stock       Float
+  stockMin    Float
+  unit        String
+  finishedUnit String             @default("-")
+  isActive    Boolean             @default(true)
+  category    String              @default("main")
+  categoryId  Int                 @default(3)
+  categories  IngredientCategory  @relation(fields: [categoryId], references: [id])
+  batchYield  Float               @default(0)
+  type        IngredientType      @default(RAW)
+  price       Float               @default(0)
   menus       MenuIngredient[]
   dailyStocks DailyIngredientStock[]
-
   gudang      Gudang?
-   // Relasi untuk mengelola komposisi semi finished ingredient
-  // Jika ingredient ini bertipe SEMI_FINISHED, maka field ini akan berisi data raw ingredient yang menyusunnya
-  semiCompositions  IngredientComposition[]  @relation("SemiIngredient")
-  // Jika ingredient ini dipakai sebagai raw ingredient pada suatu semi finished ingredient
-  rawCompositions   IngredientComposition[]  @relation("RawIngredient")
+  semiCompositions IngredientComposition[] @relation("SemiIngredient")
+  rawCompositions  IngredientComposition[] @relation("RawIngredient")
 }
 
 model IngredientCategory {
   id           Int          @id @default(autoincrement())
   name         String
-  description  String?      // keterangan opsional
+  description  String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
-  ingredients  Ingredient[] // relasi one-to-many ke ingredient
+  ingredients  Ingredient[]
 }
-
 
 model MenuIngredient {
   id           Int         @id @default(autoincrement())
   menuId       Int
   ingredientId Int
-  amount       Float       // Jumlah bahan yang diperlukan untuk menu ini
-
+  amount       Float
   menu         Menu        @relation(fields: [menuId], references: [id])
   ingredient   Ingredient  @relation(fields: [ingredientId], references: [id])
-
   @@unique([menuId, ingredientId])
 }
 
 model DailyIngredientStock {
   id             Int       @id @default(autoincrement())
-  date           DateTime  // Tanggal data dicatat
+  date           DateTime
   ingredientId   Int
-  ingredientName String    // Nama ingredient
-  start          Float     // Stok awal hari itu
-  stockIn        Float     // Penambahan stok hari itu
-  used           Float     // Bahan yang digunakan hari itu
-  wasted         Float     // Bahan yang dibuang hari itu
-  stock          Float     // Stok akhir hari itu
-  stockMin       Float     // Minimum stock untuk hari tersebut
-
+  ingredientName String
+  start          Float
+  stockIn        Float
+  used           Float
+  wasted         Float
+  stock          Float
+  stockMin       Float
   ingredient     Ingredient @relation(fields: [ingredientId], references: [id])
-  
   @@index([date])
 }
 
@@ -98,32 +88,29 @@ model Gudang {
   ingredientId Int       @unique
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
   name         String
-  start        Float     // Stok awal di gudang
-  stockIn      Float     // Jumlah penerimaan stok baru ke gudang (jika diperlukan)
-  used         Float     // Jumlah stok yang sudah diambil (dipakai) dari gudang
-  wasted       Float     // Jumlah stok yang rusak atau dibuang di gudang
-  stock        Float     // Stok akhir di gudang: (start + stockIn) - used - wasted
-  stockMin     Float     // Minimum stock di gudang
-  unit         String    // Satuan, disamakan dengan Ingredient
+  start        Float
+  stockIn      Float
+  used         Float
+  wasted       Float
+  stock        Float
+  stockMin     Float
+  unit         String
   isActive     Boolean   @default(true)
-  // Field back-relation untuk DailyGudangStock
   dailyStocks  DailyGudangStock[]
 }
 
 model DailyGudangStock {
   id       Int       @id @default(autoincrement())
-  date     DateTime  // Tanggal data dicatat
+  date     DateTime
   gudangId Int
-  gudangName String    // Nama ingredient
-  start    Float     // Stok awal di gudang pada hari tersebut
-  stockIn  Float     // Penambahan stok di gudang pada hari tersebut
-  used     Float     // Jumlah stok yang diambil (dipakai) di gudang pada hari tersebut
-  wasted   Float     // Jumlah stok yang rusak atau dibuang di gudang pada hari tersebut
-  stock    Float     // Stok akhir di gudang pada hari tersebut
-  stockMin Float     // Minimum stock di gudang pada hari tersebut
-
+  gudangName String
+  start    Float
+  stockIn  Float
+  used     Float
+  wasted   Float
+  stock    Float
+  stockMin Float
   gudang   Gudang    @relation(fields: [gudangId], references: [id])
-  
   @@index([date])
 }
 
@@ -145,33 +132,33 @@ model User {
 model Order {
   id            Int             @id @default(autoincrement())
   tableNumber   String
-  total         Float
+  total         Float           // Total sebelum discount, tax, dan gratuity
+  discountId    Int?            // Foreign key ke Discount (opsional, untuk scope TOTAL)
+  discountAmount Float          @default(0.0) // Nilai diskon yang diterapkan
+  taxAmount     Float           @default(0.0) // Nilai pajak yang diterapkan
+  gratuityAmount Float          @default(0.0) // Nilai gratuity yang diterapkan
+  finalTotal    Float           @default(0.0)// Total akhir setelah discount, tax, dan gratuity
   status        String          @default("pending")
-  paymentMethod String?         // Metode pembayaran (tunai, e-wallet, kartu)
-  paymentId     String?         // ID pembayaran untuk non-tunai
-  customerName  String          // Nama pelanggan
+  paymentMethod String?
+  paymentId     String?
+  customerName  String
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
-
-  // Relasi ke OrderItem
   orderItems    OrderItem[]
-
-  // Relasi ke Reservasi (Opsional)
-  reservasiId   Int?            // ID Reservasi (hanya jika order berasal dari reservasi)
+  reservasiId   Int?
   reservasi     Reservasi?      @relation(name: "ReservasiOrder", fields: [reservasiId], references: [id], onDelete: SetNull)
-
-
   completedOrder CompletedOrder?
+  discount      Discount?       @relation(fields: [discountId], references: [id])
 }
 
-
-model OrderItem { 
+model OrderItem {
   id        Int    @id @default(autoincrement())
   orderId   Int
   menuId    Int
   quantity  Int
   note      String?
-  
+  price     Float           @default(0.0)// Harga per item sebelum discount
+  discountAmount Float     @default(0.0) // Diskon per item (jika ada discount MENU)
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menu      Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
 }
@@ -179,17 +166,19 @@ model OrderItem {
 model CompletedOrder {
   id             Int         @id @default(autoincrement())
   tableNumber    String
-  total          Float
+  total          Float       // Total sebelum discount, tax, dan gratuity
+  discountId     Int?        // Foreign key ke Discount (opsional, untuk scope TOTAL)
+  discountAmount Float       @default(0.0)
+  taxAmount      Float       @default(0.0)
+  gratuityAmount Float       @default(0.0)
+  finalTotal     Float       @default(0.0)// Total akhir setelah discount, tax, dan gratuity
   paymentMethod  String?
   paymentId      String?
   createdAt      DateTime    @default(now())
-
-  // Relasi ke CompletedOrderItem
   orderItems     CompletedOrderItem[]
-
-  // Relasi balik ke Order
   originalOrder  Order?      @relation(fields: [originalOrderId], references: [id])
-  originalOrderId Int?   @unique      // Foreign key untuk Order
+  originalOrderId Int?        @unique
+  discount       Discount?   @relation(fields: [discountId], references: [id])
 }
 
 model CompletedOrderItem {
@@ -198,11 +187,11 @@ model CompletedOrderItem {
   menuId    Int
   quantity  Int
   note      String?
-
+  price     Float           @default(0.0)// Harga per item sebelum discount
+  discountAmount Float     @default(0.0) // Diskon per item
   order     CompletedOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menu      Menu           @relation(fields: [menuId], references: [id], onDelete: Cascade)
 }
-
 
 model DataMeja {
   id         Int  @id @default(autoincrement()) @map("id")
@@ -216,23 +205,20 @@ model Reservasi {
   jumlahTamu       Int
   tanggalReservasi DateTime
   nomorMeja        String?
-  durasiPemesanan  Int              @default(60) // Default 60 menit agar tidak error
-  kodeBooking      String?           @unique
+  durasiPemesanan  Int              @default(60)
+  kodeBooking      String?          @unique
   status           StatusReservasi  @default(BOOKED)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
-
-  // Relasi ke Order
   orders           Order[]          @relation(name: "ReservasiOrder")
 }
 
-
 enum StatusReservasi {
-  BOOKED    // Saat reservasi baru dibuat
-  RESERVED  // Meja telah dikonfirmasi
-  OCCUPIED  // Meja sudah ditempati
-  COMPLETED // Reservasi selesai
-  CANCELED  // Reservasi dibatalkan
+  BOOKED
+  RESERVED
+  OCCUPIED
+  COMPLETED
+  CANCELED
 }
 
 enum IngredientType {
@@ -242,13 +228,11 @@ enum IngredientType {
 
 model IngredientComposition {
   id                Int         @id @default(autoincrement())
-  semiIngredientId  Int         // Ingredient dengan tipe SEMI_FINISHED
-  rawIngredientId   Int         // Ingredient dengan tipe RAW
-  amount          Float  @default(0)     // Jumlah raw ingredient yang dibutuhkan
-
-  semiIngredient Ingredient @relation("SemiIngredient", fields: [semiIngredientId], references: [id])
-  rawIngredient  Ingredient @relation("RawIngredient", fields: [rawIngredientId], references: [id])
-
+  semiIngredientId  Int
+  rawIngredientId   Int
+  amount            Float       @default(0)
+  semiIngredient    Ingredient  @relation("SemiIngredient", fields: [semiIngredientId], references: [id])
+  rawIngredient     Ingredient  @relation("RawIngredient", fields: [rawIngredientId], references: [id])
   @@unique([semiIngredientId, rawIngredientId])
 }
 
@@ -264,14 +248,41 @@ enum DiscountScope {
 
 model Discount {
   id        Int           @id @default(autoincrement())
-  name      String     
+  name      String
   type      DiscountType
   scope     DiscountScope
-  value     Float         // Jika type = PERCENTAGE, value dianggap sebagai persen (misal: 10 untuk 10%), 
-                          // jika type = NORMAL, value adalah nominal diskon (misal: 5000 untuk Rp5.000)
-  // Jika scope diskon adalah MENU, maka akan ada relasi ke model Menu:
-
+  value     Float
   isActive  Boolean       @default(true)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+  orders    Order[]       // Relasi untuk discount scope TOTAL
+  completedOrders CompletedOrder[] // Relasi untuk completed order
+  menus     MenuDiscount[] // Relasi untuk discount scope MENU
+}
+
+model MenuDiscount {
+  id           Int         @id @default(autoincrement())
+  menuId       Int
+  discountId   Int
+  menu         Menu        @relation(fields: [menuId], references: [id])
+  discount     Discount    @relation(fields: [discountId], references: [id])
+  @@unique([menuId, discountId])
+}
+
+model Tax {
+  id        Int      @id @default(autoincrement())
+  name      String
+  value     Float    // Dalam persentase, misal 10 untuk 10%
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Gratuity {
+  id        Int      @id @default(autoincrement())
+  name      String
+  value     Float    // Dalam persentase, misal 5 untuk 5%
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
