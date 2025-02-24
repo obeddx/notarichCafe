@@ -830,13 +830,13 @@ useEffect(() => {
       <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
       <div className="flex flex-col items-center">
         <button
-          onClick={() => fetchTableOrders("34")}
+          onClick={() => fetchTableOrders("35")}
           className="flex items-center justify-center"
         >
-          <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
+          <div className={`${getTableColor(35)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
             <p className="font-bold text-white">3</p>
           </div>
-          <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
+          <div className={`${getTableColor(35)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg -ml-3`}>
             <p className="font-bold text-white">5</p>
           </div>
         </button>
