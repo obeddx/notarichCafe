@@ -385,7 +385,7 @@ useEffect(() => {
                         <div className="flex flex-row mt-10">
                           <div className="flex flex-col justify-center items-center mx-4">
                             {/* Meja 1 */}
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex items-center space-x-2 mb-24">
                               <div className="w-8 h-20 bg-amber-600 rounded-t-lg shadow-md" />
                               <button
                                 onClick={() => fetchTableOrders("1")}
@@ -435,9 +435,9 @@ useEffect(() => {
                           </div>
 
                           {/* Meja 4,5,6,7 */}
-                          <div className="flex flex-col justify-center ml-12">
+                          <div className="flex flex-col justify-center ml-12 mt-8">
                             {/* Meja 4 */}
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex items-center space-x-2 mb-8">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
                                 onClick={() => fetchTableOrders("4")}
@@ -450,7 +450,7 @@ useEffect(() => {
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                             </div>
                             {/* Meja 5 */}
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex items-center space-x-2 mb-8">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
                                 onClick={() => fetchTableOrders("5")}
@@ -463,7 +463,7 @@ useEffect(() => {
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                             </div>
                             {/* Meja 6 */}
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex items-center space-x-2 mb-8">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
                                 onClick={() => fetchTableOrders("6")}
@@ -476,7 +476,7 @@ useEffect(() => {
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                             </div>
                             {/* Meja 7 */}
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex items-center space-x-2 mb-8">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
                                 onClick={() => fetchTableOrders("7")}
