@@ -8,6 +8,9 @@ import { AlertTriangle } from "lucide-react";
 import { useNotifications, MyNotification } from "../../contexts/NotificationContext";
 import CombinedPaymentForm from "@/components/combinedPaymentForm";
 import { jsPDF } from "jspdf";
+import { ShoppingCart, X } from "lucide-react";
+import  io  from "socket.io-client";
+import type { Socket } from "socket.io-client"; // ✅ Import tipe Socket dengan benar
 
 interface Menu {
   id: number;
@@ -46,6 +49,13 @@ interface Ingredient {
   unit: string;
 }
 
+interface CartItem {
+  menu: Menu;
+  quantity: number;
+  note: string;
+}
+
+const SOCKET_URL = "http://localhost:3000"; // Sesuaikan dengan URL backend kamu
 export default function KasirPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +66,12 @@ export default function KasirPage() {
   const { notifications, setNotifications } = useNotifications();
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [selectedMenuItems, setSelectedMenuItems] = useState<CartItem[]>([]);
+  const [customerName, setCustomerName] = useState("");
+  const [tableNumberInput, setTableNumberInput] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
   // const [badgeVisible, setBadgeVisible] = useState(true);
 
   const unreadCount = notifications.filter((notif) => !notif.isRead).length;
@@ -83,43 +99,62 @@ export default function KasirPage() {
       setLoading(false);
     }
   };
+// KasirPage.tsx (tambahkan di useEffect yang sudah ada)
+const [menus, setMenus] = useState<Menu[]>([]);
+
+useEffect(() => {
+  const fetchMenus = async () => {
+    try {
+      const response = await fetch("/api/getMenu");
+      const data = await response.json();
+      setMenus(data);
+    } catch (error) {
+      console.error("Error fetching menus:", error);
+    }
+  };
+  fetchMenus();
+}, []);
 
   useEffect(() => {
     fetchOrders(); // Panggil fetchOrders saat komponen dimuat
   }, []);
 
-  useEffect(() => {
-    const checkForNewOrders = async () => {
-      try {
-        const response = await fetch("/api/orders");
-        if (!response.ok) return;
 
-        const data = await response.json();
-        const newOrders = data.orders;
+ // Inisialisasi WebSocket dan listener untuk notifikasi update pesanan
+ useEffect(() => {
+  fetch("/api/socket") // Memanggil API untuk memastikan koneksi WebSocket tersedia
+    .then(() => console.log("API /api/socket dipanggil"))
+    .catch((err) => console.error("Error memanggil API /api/socket:", err));
 
-        // Bandingkan panjang array orders dengan newOrders
-        if (orders.length !== newOrders.length) {
-          fetchOrders(); // Jika ada perubahan, panggil fetchOrders
-        } else {
-          // Bandingkan setiap pesanan berdasarkan ID
-          const hasNewOrder = newOrders.some(
-            (newOrder: Order) => !orders.some((order) => order.id === newOrder.id)
-          );
-          if (hasNewOrder) {
-            fetchOrders(); // Jika ada pesanan baru, panggil fetchOrders
-          }
-        }
-      } catch (error) {
-        console.error("Error checking for new orders:", error);
-      }
-    };
+  // Membuat koneksi WebSocket dengan path yang benar
+  const socket = io(SOCKET_URL, {
+    path: "/api/socket", // Pastikan path ini sesuai dengan API WebSocket Anda
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 5000,
+  });
 
-    // Set interval untuk memeriksa pesanan baru setiap 5 detik
-    const interval = setInterval(checkForNewOrders, 1000);
+  socket.on("connect", () => {
+    console.log("Terhubung ke WebSocket server:", socket.id);
+  });
 
-    // Bersihkan interval saat komponen di-unmount
-    return () => clearInterval(interval);
-  }, [orders]); // Jalankan efek ini setiap kali `orders` berubah
+  socket.on("ordersUpdated", (newOrder: any) => {
+    console.log("Pesanan baru diterima:", newOrder);
+    fetchOrders(); // Memperbarui daftar pesanan setelah menerima event baru
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Socket terputus");
+  });
+
+  return () => {
+    socket.disconnect();
+    console.log("WebSocket disconnected");
+  };
+}, []);
+
+
+
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -302,12 +337,12 @@ export default function KasirPage() {
 `}</style>
 
   return (
+    
     <div className="flex min-h-screen bg-gradient-to-b from-[#FFFAF0] to-[#FFE4C4]">
       {/* Sidebar */}
       <div className={`h-full fixed transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-20"}`}>
         <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
-
       {/* Konten utama */}
       <div className={`flex-1 p-6 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"}`}>
         <Toaster />
@@ -326,6 +361,224 @@ export default function KasirPage() {
           </span>
         )}
       </button>
+      <div className="flex items-center gap-4 mb-2">
+  <button
+    onClick={() => setIsOrderModalOpen(true)}
+    className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg flex items-center gap-2"
+  >
+    <ShoppingCart className="w-5 h-5" />
+    Buat Pesanan Baru
+  </button>
+  {/* Tombol notifikasi yang sudah ada */}
+</div>
+{isOrderModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Buat Pesanan Baru</h2>
+        <button onClick={() => setIsOrderModalOpen(false)}>
+          <X className="w-6 h-6 text-gray-600 hover:text-red-500" />
+        </button>
+      </div>
+
+      {/* Form Input Pelanggan */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <label className="block text-sm font-medium mb-1">Nomor Meja</label>
+          <input
+            type="text"
+            value={tableNumberInput}
+            onChange={(e) => setTableNumberInput(e.target.value)}
+            className="w-full p-2 border rounded-md"
+            placeholder="Masukkan nomor meja"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Nama Pelanggan</label>
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            className="w-full p-2 border rounded-md"
+            placeholder="Masukkan nama pelanggan"
+          />
+        </div>
+      </div>
+
+      {/* Filter Kategori */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Filter Kategori</label>
+        <select
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="w-full p-2 border rounded-md"
+        >
+          <option value="">Semua Kategori</option>
+          {Array.from(new Set(menus.map((menu) => menu.category))).map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Daftar Menu */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {menus
+          .filter((menu) => !selectedCategory || menu.category === selectedCategory)
+          .map((menu) => (
+            <div
+              key={menu.id}
+              className="border p-4 rounded-lg flex flex-col items-center justify-between"
+            >
+              <img
+                src={menu.image}
+                alt={menu.name}
+                className="w-24 h-24 object-cover rounded-full mb-2"
+              />
+              <h3 className="font-semibold text-center">{menu.name}</h3>
+              <p className="text-sm text-gray-600 text-center">
+                Rp {menu.price.toLocaleString()}
+              </p>
+              <button
+                onClick={() => {
+                  setSelectedMenuItems((prev) => {
+                    const existing = prev.find((item) => item.menu.id === menu.id);
+                    if (existing) {
+                      return prev.map((item) =>
+                        item.menu.id === menu.id
+                          ? { ...item, quantity: item.quantity + 1 }
+                          : item
+                      );
+                    }
+                    return [...prev, { menu, quantity: 1, note: "" }];
+                  });
+                }}
+                className="mt-2 bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
+              >
+                Tambah
+              </button>
+            </div>
+          ))}
+      </div>
+
+      {/* Keranjang Pesanan */}
+      <div className="mt-6 border-t pt-4">
+        <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
+        {selectedMenuItems.map((item) => (
+          <div className="flex justify-between items-center mb-3 p-2 bg-gray-50 rounded">
+  <div className="flex-1">
+    <p className="font-medium">{item.menu.name}</p>
+    <input
+      type="text"
+      placeholder="Catatan..."
+      value={item.note}
+      onChange={(e) => {
+        setSelectedMenuItems((prev) =>
+          prev.map((prevItem) =>
+            prevItem.menu.id === item.menu.id
+              ? { ...prevItem, note: e.target.value }
+              : prevItem
+          )
+        );
+      }}
+      className="text-sm mt-1 p-1 border rounded w-full"
+    />
+  </div>
+  <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => {
+          setSelectedMenuItems((prev) =>
+            prev
+              .map((prevItem) =>
+                prevItem.menu.id === item.menu.id
+                  ? { ...prevItem, quantity: Math.max(0, prevItem.quantity - 1) }
+                  : prevItem
+              )
+              .filter((prevItem) => prevItem.quantity > 0) // Hapus item jika jumlah = 0
+          );
+        }}
+        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+      >
+        -
+      </button>
+      <span>{item.quantity}</span>
+      <button
+        onClick={() => {
+          setSelectedMenuItems((prev) =>
+            prev.map((prevItem) =>
+              prevItem.menu.id === item.menu.id
+                ? { ...prevItem, quantity: prevItem.quantity + 1 }
+                : prevItem
+            )
+          );
+        }}
+        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+      >
+        +
+      </button>
+    </div>
+  </div>
+</div>
+        ))}
+
+        <div className="mt-4">
+          <button
+            onClick={async () => {
+              if (!tableNumberInput || !customerName) {
+                toast.error("Harap isi nomor meja dan nama pelanggan");
+                return;
+              }
+
+              try {
+                const response = await fetch("/api/placeOrder", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    customerName,
+                    tableNumber: tableNumberInput,
+                    items: selectedMenuItems.map((item) => ({
+                      menuId: item.menu.id,
+                      quantity: item.quantity,
+                      note: item.note,
+                    })),
+                    total: selectedMenuItems.reduce(
+                      (sum, item) => sum + item.menu.price * item.quantity,
+                      0
+                    ),
+                  }),
+                });
+
+                if (response.ok) {
+                  toast.success("Pesanan berhasil dibuat!");
+                  setIsOrderModalOpen(false);
+                  setSelectedMenuItems([]);
+                  setCustomerName("");
+                  setTableNumberInput("");
+                  fetchOrders();
+                } else {
+                  throw new Error("Gagal membuat pesanan");
+                }
+              } catch (error) {
+                console.error("Error:", error);
+                toast.error("Gagal membuat pesanan");
+              }
+            }}
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md"
+          >
+            Simpan Pesanan (Total: Rp{" "}
+            {selectedMenuItems
+              .reduce((sum, item) => sum + item.menu.price * item.quantity, 0)
+              .toLocaleString()}
+            )
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         </div>
 
         {error && <p className="text-red-500 text-center">{error}</p>}
@@ -349,22 +602,22 @@ export default function KasirPage() {
             />
           </div>
         )}
-        <div className="flex mt-4">
-          <button
-            onClick={() => setModalOpen(true)}
-            className="px-6 py-3 bg-red-500 hover:bg-red-700 text-[#FCFFFC] rounded-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-all duration-300"
-          >
-            <span>🚪 Closing</span>
-          </button>
-          <div className="flex items-start bg-[#FCFFFC] border-l-4 border-[#FF8A00] p-3 rounded-md ml-4">
-            <AlertTriangle className="text-[#0E0E0E] w-5 h-5 mr-2 mt-1" />
-            <p className="text-sm text-[#0E0E0E]">
-              <span className="font-semibold text-[#FF8A00]">Perhatian:</span> Tekan tombol{" "}
-              <span className="font-semibold text-[#0E0E0E]">Closing</span> hanya pada saat{" "}
-              <span className="font-semibold">closing cafe</span>, untuk validasi stok cafe hari ini.
-            </p>
-          </div>
-        </div>
+<div className="flex mt-4">
+  <button
+    onClick={() => setModalOpen(true)}
+    className="px-6 py-3 bg-red-500 hover:bg-red-700 text-[#FCFFFC] rounded-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-all duration-300"
+  >
+    <span>🚪 Closing</span>
+  </button>
+  <div className="flex items-start bg-[#FCFFFC] border-l-4 border-[#FF8A00] p-3 rounded-md ml-4">
+    <AlertTriangle className="text-[#0E0E0E] w-5 h-5 mr-2 mt-1" />
+    <p className="text-sm text-[#0E0E0E]">
+      <span className="font-semibold text-[#FF8A00]">Perhatian:</span> Tekan tombol{" "}
+      <span className="font-semibold text-[#0E0E0E]">Closing</span> hanya pada saat{" "}
+      <span className="font-semibold">closing cafe</span>, untuk validasi stok cafe hari ini.
+    </p>
+  </div>
+</div>
       </div>
 
       {/* Modal Input Stock */}
