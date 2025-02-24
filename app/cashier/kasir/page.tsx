@@ -184,7 +184,6 @@ export default function KasirPage() {
       const data = await res.json();
       const updatedOrder = data.order;
 
-      // Perbarui state orders dengan data terbaru dari backend
       setOrders((prevOrders) =>
         prevOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
       );
@@ -906,27 +905,30 @@ function OrderItemComponent({
 
   // Fungsi untuk menghitung ulang total berdasarkan diskon yang dipilih
   const calculateTotals = (discountId: number | null) => {
-    let totalDiscountAmount = order.orderItems.reduce((sum, item) => sum + item.discountAmount, 0);
+    // Hitung total awal termasuk pajak dan gratuity
+    const menuDiscountAmount = order.orderItems.reduce((sum, item) => sum + item.discountAmount, 0);
+    const totalAfterMenuDiscount = order.total - menuDiscountAmount;
+    const initialFinalTotal = totalAfterMenuDiscount + order.taxAmount + order.gratuityAmount;
+
+    // Hitung total diskon termasuk scope TOTAL
+    let totalDiscountAmount = menuDiscountAmount;
     if (discountId) {
       const selectedDiscount = discounts.find((d) => d.id === discountId);
       if (selectedDiscount) {
         const additionalDiscount =
           selectedDiscount.type === "PERCENTAGE"
-            ? (selectedDiscount.value / 100) * order.total
+            ? (selectedDiscount.value / 100) * initialFinalTotal
             : selectedDiscount.value;
         totalDiscountAmount += additionalDiscount;
       }
     }
 
-    // Batasi diskon agar tidak melebihi total (100%)
-    totalDiscountAmount = Math.min(totalDiscountAmount, order.total);
-    const totalAfterDiscount = order.total - totalDiscountAmount;
-    const taxAmount = order.taxAmount; // Gunakan nilai dari order, akan diperbarui oleh backend
-    const gratuityAmount = order.gratuityAmount; // Gunakan nilai dari order
-    const finalTotal = totalAfterDiscount + taxAmount + gratuityAmount;
+    // Batasi totalDiscountAmount agar tidak melebihi initialFinalTotal
+    totalDiscountAmount = Math.min(totalDiscountAmount, initialFinalTotal);
+    const finalTotal = initialFinalTotal - totalDiscountAmount;
 
     setLocalDiscountAmount(totalDiscountAmount);
-    setLocalFinalTotal(finalTotal >= 0 ? finalTotal : 0); // Pastikan tidak negatif
+    setLocalFinalTotal(finalTotal >= 0 ? finalTotal : 0);
   };
 
   useEffect(() => {
@@ -934,7 +936,7 @@ function OrderItemComponent({
   }, [selectedDiscountId, order]);
 
   const calculateChange = (given: string) => {
-    const total = localFinalTotal; // Gunakan localFinalTotal untuk preview
+    const total = localFinalTotal;
     const givenNumber = parseFloat(given) || 0;
     const changeAmount = givenNumber - total;
     setChange(changeAmount >= 0 ? changeAmount : 0);

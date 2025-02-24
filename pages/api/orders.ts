@@ -5,7 +5,6 @@ const prisma = new PrismaClient();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
-    // Kode GET tetap sama
     const orders = await prisma.order.findMany({
       include: {
         orderItems: {
@@ -34,29 +33,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ message: "Pesanan tidak ditemukan" });
       }
 
-      // Hitung ulang discountAmount
-      let totalDiscountAmount = order.orderItems.reduce((sum, item) => sum + item.discountAmount, 0);
+      // Hitung total diskon scope MENU dari orderItems
+      let menuDiscountAmount = order.orderItems.reduce((sum, item) => sum + item.discountAmount, 0);
+      let totalAfterMenuDiscount = order.total - menuDiscountAmount;
+
+      // Gunakan pajak dan gratuity awal dari order
+      const initialFinalTotal = totalAfterMenuDiscount + order.taxAmount + order.gratuityAmount;
+
+      // Hitung total diskon termasuk scope TOTAL
+      let totalDiscountAmount = menuDiscountAmount;
       if (discountId) {
         const discount = await prisma.discount.findUnique({
           where: { id: discountId },
         });
         if (discount && discount.isActive && discount.scope === "TOTAL") {
           const additionalDiscount =
-            discount.type === "PERCENTAGE" ? (discount.value / 100) * order.total : discount.value;
+            discount.type === "PERCENTAGE"
+              ? (discount.value / 100) * initialFinalTotal
+              : discount.value;
           totalDiscountAmount += additionalDiscount;
         }
       }
 
-      // Batasi diskon agar tidak melebihi total (100%)
-      totalDiscountAmount = Math.min(totalDiscountAmount, order.total);
-      const totalAfterDiscount = order.total - totalDiscountAmount;
-
-      // Hitung ulang tax dan gratuity berdasarkan totalAfterDiscount
-      const tax = await prisma.tax.findFirst({ where: { isActive: true } });
-      const gratuity = await prisma.gratuity.findFirst({ where: { isActive: true } });
-      const taxAmount = tax ? (tax.value / 100) * totalAfterDiscount : 0;
-      const gratuityAmount = gratuity ? (gratuity.value / 100) * totalAfterDiscount : 0;
-      const finalTotal = totalAfterDiscount + taxAmount + gratuityAmount;
+      // Batasi totalDiscountAmount agar tidak melebihi initialFinalTotal
+      totalDiscountAmount = Math.min(totalDiscountAmount, initialFinalTotal);
+      const finalTotal = initialFinalTotal - totalDiscountAmount;
 
       const updatedOrder = await prisma.order.update({
         where: { id: orderId },
@@ -65,9 +66,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           paymentId: paymentMethod !== "tunai" ? paymentId : null,
           discountId: discountId || null,
           discountAmount: totalDiscountAmount,
-          taxAmount,
-          gratuityAmount,
-          finalTotal,
+          taxAmount: order.taxAmount, // Pertahankan nilai awal
+          gratuityAmount: order.gratuityAmount, // Pertahankan nilai awal
+          finalTotal: finalTotal >= 0 ? finalTotal : 0,
           status: "Sedang Diproses",
         },
         include: {
@@ -76,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               menu: true,
             },
           },
-          discount: true, // Sertakan data diskon untuk frontend
+          discount: true,
         },
       });
 
