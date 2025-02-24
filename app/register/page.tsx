@@ -11,12 +11,22 @@ export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("kasir"); // Default role adalah kasir
+  const [role, setRole] = useState("kasir");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [generateToken, setGenerateToken] = useState(false);
 
   const router = useRouter();
+
+  const generateManualToken = () => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
+    let token = '';
+    for (let i = 0; i < 50; i++) {
+      token += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return token;
+  };
 
   const validateInput = () => {
     if (username.length < 3 || username.length > 20) {
@@ -42,15 +52,21 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      // Generate token manual jika opsi dipilih
+      const token = generateToken ? generateManualToken() : null;
+
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password, role }),
+        body: JSON.stringify({ username, email, password, role, token }),
       });
 
       const data = await res.json();
       if (res.ok) {
         toast.success("Registrasi berhasil, silakan login!");
+        if (data.token) {
+          toast.info(`Token Anda: ${data.token}`);
+        }
         setTimeout(() => router.push("/portal"), 1500);
       } else {
         setErrorMessage(data.message || "Registrasi gagal");
@@ -102,6 +118,15 @@ export default function RegisterPage() {
               <label className="flex items-center text-sm font-medium text-gray-700">
                 <input type="radio" value="manager" checked={role === "manager"} onChange={(e) => setRole(e.target.value)} className="mr-1" />
                 Manager
+              </label>
+            </div>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">Generate Token?</label>
+            <div className="flex items-center mt-1">
+              <label className="mr-4 flex items-center text-sm font-medium text-gray-700">
+                <input type="checkbox" checked={generateToken} onChange={(e) => setGenerateToken(e.target.checked)} className="mr-1" />
+                Generate Token
               </label>
             </div>
           </div>

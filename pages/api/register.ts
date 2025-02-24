@@ -1,57 +1,35 @@
-// pages/api/register.ts
-
-import type { NextApiRequest, NextApiResponse } from "next";
-import argon2 from "argon2";
+import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
+import * as argon2 from "argon2";
 
 const prisma = new PrismaClient();
 
-// Tambahkan validasi untuk role menggunakan z.enum
-const registerSchema = z.object({
-  username: z.string().min(3).max(20),
-  email: z.string().email(),
-  password: z.string().min(6),
-  role: z.enum(["kasir", "manager"]),
-});
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method Not Allowed" });
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
+  const { username, email, password, role, token } = req.body;
+
   try {
-    const parsedData = registerSchema.safeParse(req.body);
-    if (!parsedData.success) {
-      return res.status(400).json({ message: "Invalid input" });
-    }
-
-    const { username, email, password, role } = parsedData.data;
-
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username }],
-      },
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ message: "Invalid registration details" });
-    }
-
+    // Hash password
     const hashedPassword = await argon2.hash(password);
-    const newUser = await prisma.user.create({
+
+    // Simpan data pengguna ke database
+    const user = await prisma.user.create({
       data: {
         username,
         email,
         password: hashedPassword,
-        role, // Menyimpan role yang dipilih dari form
+        role,
+        token, // Simpan token di database
       },
     });
 
-    return res.status(201).json({ message: "User registered successfully" });
+    return res.status(201).json({ message: "Registrasi berhasil", user });
   } catch (error) {
     console.error("Error during registration:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Terjadi kesalahan, coba lagi nanti" });
   } finally {
     await prisma.$disconnect();
   }
