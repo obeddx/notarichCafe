@@ -156,6 +156,11 @@ model Order {
   // Relasi ke OrderItem
   orderItems    OrderItem[]
 
+  // Relasi ke Reservasi (Opsional)
+  reservasiId   Int?            // ID Reservasi (hanya jika order berasal dari reservasi)
+  reservasi     Reservasi?      @relation(name: "ReservasiOrder", fields: [reservasiId], references: [id], onDelete: SetNull)
+
+
   completedOrder CompletedOrder?
 }
 
@@ -216,6 +221,9 @@ model Reservasi {
   status           StatusReservasi  @default(BOOKED)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+
+  // Relasi ke Order
+  orders           Order[]          @relation(name: "ReservasiOrder")
 }
 
 
