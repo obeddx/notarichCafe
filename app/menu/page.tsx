@@ -5,6 +5,7 @@ import { ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
+import { jsPDF } from "jspdf";
 
 interface Ingredient {
   id: number;
@@ -65,9 +66,15 @@ export default function MenuPage() {
   const [tableNumber, setTableNumber] = useState<string>("Unknown");
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [noteVisibility, setNoteVisibility] = useState<{ [key: number]: boolean }>({});
-  const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
+
+  // States untuk alur pembayaran
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [paymentOption, setPaymentOption] = useState<"cash" | "ewallet" | null>(null);
+  const [orderRecord, setOrderRecord] = useState<string>(""); // Dapat diganti tipe sesuai kebutuhan
+  const [snapToken, setSnapToken] = useState<string>("");
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -77,7 +84,6 @@ export default function MenuPage() {
     const tableFromSession = sessionStorage.getItem("tableNumber");
     const finalTableNumber = tableFromUrl || tableFromSession || "Unknown";
     setTableNumber(finalTableNumber);
-
     if (tableFromUrl) {
       sessionStorage.setItem("tableNumber", tableFromUrl);
     }
@@ -90,9 +96,7 @@ export default function MenuPage() {
         try {
           const response = await fetch("/api/nomeja", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tableNumber }),
           });
           if (!response.ok) {
@@ -125,7 +129,6 @@ export default function MenuPage() {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         const data = await response.json();
-  
         const transformedMenu: Menu[] = data.map((item: Partial<Menu>) => ({
           id: item.id ?? 0,
           name: item.name ?? "Unknown",
@@ -137,7 +140,6 @@ export default function MenuPage() {
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
         }));
-  
         setMenus(transformedMenu);
       } catch (err) {
         if (err instanceof Error) {
@@ -149,108 +151,71 @@ export default function MenuPage() {
         setLoading(false);
       }
     };
-  
     fetchMenu();
   }, []);
-  
 
-  // Tambahkan item ke keranjang
+  // Fungsi untuk menambahkan item ke cart
   const addToCart = (menu: Menu) => {
     setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex(
-        (item) => item.menu.id === menu.id
-      );
-
+      const existingItemIndex = prevCart.findIndex((item) => item.menu.id === menu.id);
       let updatedCart;
       if (existingItemIndex !== -1) {
-        // Jika item sudah ada, tambahkan quantity
         updatedCart = prevCart.map((item, index) =>
-          index === existingItemIndex
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
         );
       } else {
-        // Jika belum ada, tambahkan item baru
         updatedCart = [...prevCart, { menu, quantity: 1, note: "" }];
       }
-
-      // Inisialisasi noteVisibility untuk item baru
-      setNoteVisibility((prev) => ({
-        ...prev,
-        [menu.id]: false, // Default visibility untuk item baru
-      }));
-
-      sessionStorage.setItem(
-        `cart_table_${tableNumber}`,
-        JSON.stringify(updatedCart)
-      );
+      setNoteVisibility((prev) => ({ ...prev, [menu.id]: false }));
+      sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
     });
-
-    toast.success(`${menu.name} added to cart!`); // Notifikasi di halaman menu
+    toast.success(`${menu.name} added to cart!`);
   };
 
-  // Hapus item dari keranjang
+  // Fungsi untuk menghapus item dari cart
   const removeFromCart = (menuId: number) => {
     setCart((prevCart) => {
       const updatedCart = prevCart
         .map((item) => {
           if (item.menu.id === menuId) {
-            if (item.quantity > 1) {
-              return { ...item, quantity: item.quantity - 1 };
-            }
-            return null; // Jika quantity 1, hapus item
+            if (item.quantity > 1) return { ...item, quantity: item.quantity - 1 };
+            return null;
           }
           return item;
         })
         .filter(Boolean) as CartItem[];
-
-      // Hapus noteVisibility untuk item yang dihapus
       setNoteVisibility((prev) => {
         const newVisibility = { ...prev };
         delete newVisibility[menuId];
         return newVisibility;
       });
-
-      sessionStorage.setItem(
-        `cart_table_${tableNumber}`,
-        JSON.stringify(updatedCart)
-      );
+      sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
     });
     toast.error("Item removed from cart!");
   };
 
-  // Update note untuk item di keranjang
+  // Fungsi untuk mengupdate note di cart
   const updateCartItemNote = (menuId: number, note: string) => {
     setCart((prevCart) => {
       const updatedCart = prevCart.map((item) =>
         item.menu.id === menuId ? { ...item, note } : item
       );
-      sessionStorage.setItem(
-        `cart_table_${tableNumber}`,
-        JSON.stringify(updatedCart)
-      );
+      sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
     });
   };
 
-  // Fungsi untuk mengontrol visibilitas catatan
+  // Toggle visibilitas note
   const toggleNoteVisibility = (menuId: number) => {
-    setNoteVisibility((prev) => ({
-      ...prev,
-      [menuId]: !prev[menuId], // Toggle visibility
-    }));
+    setNoteVisibility((prev) => ({ ...prev, [menuId]: !prev[menuId] }));
   };
 
-  // Kirim pesanan ke sistem kasir
-  const placeOrder = async () => {
-    if (!customerName.trim()) {
-      toast.error("Please enter customer name!");
-      return;
-    }
+  // Fungsi untuk membuat order di backend
+  const createOrder = async () => {
     const orderDetails = {
-      customerName, // Tambahkan customerName
+      customerName,
       tableNumber,
       items: cart.map((item) => ({
         menuId: item.menu.id,
@@ -259,49 +224,278 @@ export default function MenuPage() {
       })),
       total: cart.reduce((total, item) => total + item.menu.price * item.quantity, 0),
     };
-
     try {
       const response = await fetch("/api/placeOrder", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderDetails),
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-
-      toast.success("Order placed successfully!");
-      setShowOrderSummary(true); // Tampilkan ringkasan pesanan
-      setIsCartOpen(false);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(`Failed to load menu data: ${err.message}`);
-      } else {
-        setError("Failed to load menu data.");
-      }
-      setOrderError("Failed to place order. Please try again later."); // Set pesan error
-      toast.error("Failed to place order. Please try again later."); // Notifikasi error
+      const data = await response.json();
+      return data.order;
+    } catch (error: unknown) {
+      console.error("Error creating order:", error);
+      return null;
     }
   };
 
-  const handleCloseOrderSummary = () => {
-    setShowOrderSummary(false); // Tutup ringkasan pesanan
-    setCart([]); // Hapus cart
-    sessionStorage.removeItem(`cart_table_${tableNumber}`); // Hapus cart dari sessionStorage
+  // Fungsi untuk menampilkan modal pilihan pembayaran (tanpa langsung membuat order)
+  const handleShowPaymentModal = () => {
+    if (!customerName.trim()) {
+      toast.error("Please enter customer name!");
+      return;
+    }
+    setShowPaymentMethodModal(true);
   };
 
-  // Filter menu berdasarkan kategori yang dipilih
+  // Handler untuk menutup modal receipt (order summary) dan mengosongkan cart
+  const handleCloseOrderSummary = () => {
+    setShowReceiptModal(false);
+    setCart([]);
+    sessionStorage.removeItem(`cart_table_${tableNumber}`);
+  };
+
+  // Fungsi untuk generate PDF receipt menggunakan jsPDF
+  const generateReceiptPDF = () => {
+    const doc = new jsPDF({
+      unit: "mm",
+      format: [58, 200],
+    });
+
+    const margin = 5;
+    const pageWidth = 58;
+    const rightMargin = pageWidth - margin;
+
+    let yPosition = margin;
+
+    // Header: Nama Cafe
+    doc.setFontSize(16);
+    doc.text("NotarichCafe", pageWidth / 2, yPosition, { align: "center" });
+    yPosition += 6;
+
+    // Informasi Transaksi
+    const now = new Date();
+    const dateStr = now.toLocaleDateString(); // Misal: "2/24/2025"
+    const dayStr = now.toLocaleDateString("en-US", { weekday: "long" }); // Misal: "Monday"
+    const timeStr = now.toLocaleTimeString(); // Misal: "10:05:30 AM"
+    doc.setFontSize(10);
+    doc.text(`Tanggal: ${dateStr}`, margin, yPosition);
+    yPosition += 5;
+    doc.text(`Hari: ${dayStr}`, margin, yPosition);
+    yPosition += 5;
+    doc.text(`Jam: ${timeStr}`, margin, yPosition);
+    yPosition += 5;
+    doc.text(`Operator: Kasir 1`, margin, yPosition);
+    yPosition += 5;
+    doc.text(`Meja: ${tableNumber}`, margin, yPosition);
+    yPosition += 7;
+
+    // Divider
+    yPosition += 2;
+    doc.line(margin, yPosition, rightMargin, yPosition);
+    yPosition += 4;
+
+    // Header Pesanan
+    doc.setFontSize(12);
+    doc.text("Pesanan", margin, yPosition);
+    yPosition += 5;
+    doc.setFontSize(10);
+    doc.text("Item", margin, yPosition);
+    doc.text("Total", rightMargin, yPosition, { align: "right" });
+    yPosition += 5;
+    doc.line(margin, yPosition, rightMargin, yPosition);
+    yPosition += 4;
+
+    let totalQty = 0;
+    let totalPrice = 0;
+    cart.forEach((item) => {
+      const itemTotal = item.menu.price * item.quantity;
+      doc.text(item.menu.name, margin, yPosition, { maxWidth: 30 });
+      doc.text(`${item.quantity} x ${item.menu.price}`, margin, yPosition + 4, { maxWidth: 30 });
+      doc.text(`Rp${itemTotal.toLocaleString()}`, rightMargin, yPosition, { align: "right" });
+      totalQty += item.quantity;
+      totalPrice += itemTotal;
+      yPosition += 10;
+    });
+    yPosition += 2;
+    doc.text(`Total qty = ${totalQty}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Total : Rp${totalPrice.toLocaleString()}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Pembayaran: ${paymentOption === "ewallet" ? "E-Wallet" : "Tunai"}`, margin, yPosition);
+    yPosition += 10;
+    doc.setFont("helvetica", "bold");
+    const footerMaxWidth = pageWidth - 2 * margin;
+    doc.text("Terimakasih telah berkunjung.", margin, yPosition, { maxWidth: footerMaxWidth, align: "center" });
+    yPosition += 5;
+    doc.text("Semoga hari anda menyenangkan!", margin, yPosition, { maxWidth: footerMaxWidth, align: "center" });
+
+    doc.save("receipt.pdf");
+  };
+
+  // Modal: Pilihan Metode Pembayaran
+  const renderPaymentMethodModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold text-orange-600 mb-4">Pilih Metode Pembayaran</h2>
+        <button
+          onClick={async () => {
+            setPaymentOption("cash");
+            setShowPaymentMethodModal(false);
+            // Untuk opsi tunai: langsung buat order dan tampilkan modal receipt
+            const order = await createOrder();
+            if (order) {
+              setOrderRecord(order);
+              toast.success("Order placed successfully!");
+              setShowReceiptModal(true);
+            } else {
+              setOrderError("Failed to create order. Please try again.");
+              toast.error("Failed to create order. Please try again.");
+            }
+          }}
+          className="w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition mb-4"
+        >
+          Tunai
+        </button>
+        <button
+          onClick={async () => {
+            setPaymentOption("ewallet");
+            setShowPaymentMethodModal(false);
+            const payload = {
+              orderId: "ORDER-" + new Date().getTime(),
+              total: cart.reduce((total, item) => total + item.menu.price * item.quantity, 0),
+              customerName,
+              customerEmail: "", // Gunakan default atau nilai valid jika diperlukan
+              customerPhone: "",
+              item_details: cart.map((item) => ({
+                id: item.menu.id.toString(),
+                price: item.menu.price,
+                quantity: item.quantity,
+                name: item.menu.name,
+              })),
+            };
+            try {
+              const response = await fetch("/api/payment/generateSnapToken", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+              const data = await response.json();
+              if (data.success && data.snapToken) {
+                setSnapToken(data.snapToken);
+                if (window.snap) {
+                  window.snap.pay(data.snapToken, {
+                    onSuccess: async (result: unknown) => {
+                      console.log("Pembayaran sukses:", result);
+                      const order = await createOrder();
+                      if (order) {
+                        setOrderRecord(order);
+                        toast.success("Order placed successfully!");
+                        generateReceiptPDF();
+                        setCart([]);
+                        sessionStorage.removeItem(`cart_table_${tableNumber}`);
+
+                      } else {
+                        setOrderError("Failed to create order after payment.");
+                        toast.error("Failed to create order after payment.");
+                      }
+                    },
+                    onPending: (result: unknown) => console.log("Pembayaran pending:", result),
+                    onError: (result: unknown) => console.log("Pembayaran error:", result),
+                    onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                  });
+                } else {
+                  const script = document.createElement("script");
+                  script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+                  script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
+                  document.body.appendChild(script);
+                  script.onload = () => {
+                    window.snap.pay(data.snapToken, {
+                      onSuccess: async (result: unknown) => {
+                        console.log("Pembayaran sukses:", result);
+                        const order = await createOrder();
+                        if (order) {
+                          setOrderRecord(order);
+                          toast.success("Order placed successfully!");
+                          generateReceiptPDF();
+                          setCart([]);
+                          sessionStorage.removeItem(`cart_table_${tableNumber}`);
+                        } else {
+                          setOrderError("Failed to create order after payment.");
+                          toast.error("Failed to create order after payment.");
+                        }
+                      },
+                      onPending: (result: unknown) => console.log("Pembayaran pending:", result),
+                      onError: (result: unknown) => console.log("Pembayaran error:", result),
+                      onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                    });
+                  };
+                }
+              } else {
+                console.error("Gagal mendapatkan snap token", data);
+              }
+            } catch (error: unknown) {
+              console.error("Error generating snap token:", error);
+            }
+          }}
+          className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
+        >
+          E-Wallet
+        </button>
+        <button
+          onClick={() => setShowPaymentMethodModal(false)}
+          className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
+        >
+          Batal
+        </button>
+      </div>
+    </div>
+  );
+
+  // Modal: Receipt (Order Summary)
+  const renderReceiptModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg w-full max-w-md" id="receipt-content">
+        <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Receipt</h2>
+        <h3 className="text-xl text-black mb-4">Table Number: {tableNumber}</h3>
+        <ul className="space-y-2">
+          {cart.map((item) => (
+            <li key={item.menu.id} className="flex justify-between text-black">
+              <span>
+                {item.quantity}x {item.menu.name}
+              </span>
+              <span>Rp{(item.menu.price * item.quantity).toLocaleString()}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 border-t pt-4">
+          <p className="text-lg font-semibold text-black">
+            Total: Rp
+            {cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
+          </p>
+        </div>
+        <p className="mt-4 text-center text-green-600 font-semibold">
+          Silahkan menuju kasir untuk melanjutkan proses pembayaran
+        </p>
+        <button
+          onClick={handleCloseOrderSummary}
+          className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
+        >
+          Tutup & Selesai
+        </button>
+      </div>
+    </div>
+  );
+
   const filteredMenu =
     selectedCategory === "All Menu"
-      ? menus // Tampilkan semua menu jika "All Menu" dipilih
+      ? menus
       : menus.filter((item) =>
           item.category.toLowerCase().includes(selectedCategory.toLowerCase())
         );
 
-  // Jika tableNumber masih "Unknown", tampilkan tombol scan barcode
   if (tableNumber === "Unknown") {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center">
@@ -333,12 +527,7 @@ export default function MenuPage() {
           </p>
         </div>
         <div className="w-full md:w-[600px] lg:w-[700px] h-[400px] md:h-[500px] relative flex justify-center">
-          <Image
-            src="/CaramelFrappucino.png"
-            alt="Coffee Cup"
-            layout="fill"
-            objectFit="contain"
-          />
+          <Image src="/CaramelFrappucino.png" alt="Coffee Cup" layout="fill" objectFit="contain" />
         </div>
       </section>
 
@@ -366,15 +555,12 @@ export default function MenuPage() {
           ))}
         </div>
 
-        {/* Menu Items */}
         {loading ? (
           <p className="text-center text-gray-500">Loading menu...</p>
         ) : error ? (
           <p className="text-center text-red-500">{error}</p>
         ) : filteredMenu.length === 0 ? (
-          <p className="text-center text-gray-500">
-            No menu available for this category.
-          </p>
+          <p className="text-center text-gray-500">No menu available for this category.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMenu.map((item) => (
@@ -382,7 +568,7 @@ export default function MenuPage() {
                 key={item.id}
                 className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
               >
-                {/* Layout untuk Desktop */}
+                {/* Desktop Layout */}
                 <div className="hidden sm:block">
                   <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
                     <Image
@@ -409,9 +595,8 @@ export default function MenuPage() {
                   </div>
                 </div>
 
-                {/* Layout untuk Mobile */}
+                {/* Mobile Layout */}
                 <div className="sm:hidden flex items-center gap-4">
-                  {/* Gambar */}
                   <div className="relative w-24 h-24 flex-shrink-0">
                     <Image
                       src={item.image}
@@ -421,8 +606,6 @@ export default function MenuPage() {
                       className="rounded-lg"
                     />
                   </div>
-
-                  {/* Informasi Menu */}
                   <div className="flex-grow">
                     <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
                     <p className="text-sm text-gray-600">{item.description}</p>
@@ -430,8 +613,6 @@ export default function MenuPage() {
                       Rp{item.price.toLocaleString()}
                     </p>
                   </div>
-
-                  {/* Tombol + */}
                   <button
                     onClick={() => addToCart(item)}
                     className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition"
@@ -451,15 +632,12 @@ export default function MenuPage() {
         className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3"
       >
         <ShoppingCart className="w-6 h-6" />
-        {/* Badge untuk jumlah item di keranjang */}
         {cart.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
             {cart.reduce((total, item) => total + item.quantity, 0)}
           </span>
         )}
-
         <span className="hidden sm:block">Cart</span>
-        {/* Tampilkan total harga dan tulisan Checkout di mobile */}
         <div className="sm:hidden flex flex-col items-center">
           <span className="text-sm font-semibold">
             Rp{cart.reduce((total, item) => total + item.menu.price * item.quantity, 0).toLocaleString()}
@@ -477,24 +655,19 @@ export default function MenuPage() {
               <X className="w-6 h-6 text-gray-800 hover:text-orange-600" />
             </button>
           </div>
-
           {cart.length === 0 ? (
             <p className="text-center text-gray-500 flex-grow">Your cart is empty.</p>
           ) : (
             <>
-              {/* List Item Keranjang */}
               <div className="flex-grow overflow-y-auto">
                 <ul className="space-y-4">
                   {cart.map((item) => {
                     const itemTotalPrice = item.menu.price * item.quantity;
                     const isNoteOpen = noteVisibility[item.menu.id] || false;
-
                     return (
                       <li key={item.menu.id} className="flex flex-col border-b pb-4">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {item.menu.name}
-                          </h3>
+                          <h3 className="text-lg font-semibold text-gray-900">{item.menu.name}</h3>
                           <p className="text-orange-600 font-semibold">
                             Rp{item.menu.price.toLocaleString()} x {item.quantity}
                           </p>
@@ -521,8 +694,6 @@ export default function MenuPage() {
                             </button>
                           </div>
                         </div>
-
-                        {/* Tombol Add Note dan Textarea */}
                         {isNoteOpen ? (
                           <textarea
                             className="mt-2 p-2 border rounded-lg w-full"
@@ -544,16 +715,15 @@ export default function MenuPage() {
                 </ul>
               </div>
               <div className="mb-4">
-    <input
-      type="text"
-      placeholder="Customer Name (Required)"
-      value={customerName}
-      onChange={(e) => setCustomerName(e.target.value)}
-      className="w-full p-2 border border-gray-300 rounded-md"
-      required
-    />
-  </div>
-              {/* Total Harga */}
+                <input
+                  type="text"
+                  placeholder="Customer Name (Required)"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  required
+                />
+              </div>
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
                 <h3 className="text-xl font-bold text-gray-900">Total Harga:</h3>
                 <p className="text-2xl text-orange-600 font-semibold">
@@ -563,7 +733,7 @@ export default function MenuPage() {
                     .toLocaleString()}
                 </p>
                 <button
-                  onClick={placeOrder}
+                  onClick={handleShowPaymentModal}
                   className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
                 >
                   Pesan Sekarang
@@ -574,42 +744,11 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Ringkasan Pesanan */}
-      {showOrderSummary && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Summary</h2>
-            <h3 className="text-1xl text-black mb-4">Table Number: {tableNumber}</h3>
-            <ul className="space-y-2">
-              {cart.map((item) => (
-                <li key={item.menu.id} className="flex justify-between text-black">
-                  <span>
-                    {item.quantity}x {item.menu.name}
-                  </span>
-                  <span>Rp{(item.menu.price * item.quantity).toLocaleString()}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 border-t pt-4">
-              <p className="text-lg font-semibold text-black">
-                Total: Rp
-                {cart
-                  .reduce((total, item) => total + item.menu.price * item.quantity, 0)
-                  .toLocaleString()}
-              </p>
-            </div>
-            <p className="mt-4 text-center text-red-600 font-semibold">
-              Silakan menuju kasir untuk membayar agar pesanan Anda diproses.
-            </p>
-            <button
-              onClick={handleCloseOrderSummary}
-              className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Render Modal Pilihan Metode Pembayaran */}
+      {showPaymentMethodModal && renderPaymentMethodModal()}
+
+      {/* Render Modal Receipt */}
+      {showReceiptModal && renderReceiptModal()}
 
       {/* Error Popup */}
       {orderError && (

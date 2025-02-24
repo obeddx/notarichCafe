@@ -16,6 +16,8 @@ interface OrderDetails {
   total: number;
   customerName: string;
   isCashierOrder?: boolean;
+  // Tambahkan field reservasiId untuk menandai order reservasi
+  reservasiId?: number;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -37,6 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tableNumber: orderDetails.tableNumber,
         total: orderDetails.total,
         status: orderDetails.isCashierOrder ? "Sedang Diproses" : "pending",
+        reservasiId: orderDetails.reservasiId || null,
         orderItems: {
           create: orderDetails.items.map((item) => ({
             menuId: item.menuId,
