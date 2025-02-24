@@ -16,7 +16,11 @@ interface OrderDetails {
   customerName: string;
   isCashierOrder?: boolean;
   reservasiId?: number;
-  discountId?: number; // ID discount untuk scope TOTAL (opsional, hanya dari kasir)
+  discountId?: number;
+  taxAmount?: number;
+  gratuityAmount?: number;
+  discountAmount?: number;
+  finalTotal?: number;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -31,21 +35,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ message: "Invalid order data" });
     }
 
-    // Logging untuk debugging
     console.log("Order Details Received:", orderDetails);
 
-    // Ambil data menu beserta discount
     const menuIds = orderDetails.items.map((item) => item.menuId);
     const menus = await prisma.menu.findMany({
       where: { id: { in: menuIds } },
       include: { discounts: { include: { discount: true } } },
     });
 
-    // Ambil tax dan gratuity aktif
     const tax = await prisma.tax.findFirst({ where: { isActive: true } });
     const gratuity = await prisma.gratuity.findFirst({ where: { isActive: true } });
 
-    // Hitung total sebelum discount
     let totalBeforeDiscount = 0;
     const orderItemsData = orderDetails.items.map((item) => {
       const menu = menus.find((m) => m.id === item.menuId);
@@ -54,7 +54,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const subtotal = price * item.quantity;
       totalBeforeDiscount += subtotal;
 
-      // Hitung discount scope MENU
       let discountAmount = 0;
       const menuDiscount = menu.discounts.find((d) => d.discount.isActive);
       if (menuDiscount) {
@@ -74,30 +73,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    // Hitung discount scope TOTAL (jika ada, hanya dari kasir)
-    let totalDiscountAmount = orderItemsData.reduce((sum, item) => sum + item.discountAmount, 0);
+    // Hitung total setelah diskon scope MENU
+    let totalMenuDiscountAmount = orderItemsData.reduce((sum, item) => sum + item.discountAmount, 0);
+    const totalAfterMenuDiscount = totalBeforeDiscount - totalMenuDiscountAmount;
+
+    // Hitung pajak dan gratuity berdasarkan total setelah diskon MENU
+    const taxAmount = tax ? (tax.value / 100) * totalAfterMenuDiscount : 0;
+    const gratuityAmount = gratuity ? (gratuity.value / 100) * totalAfterMenuDiscount : 0;
+    const initialFinalTotal = totalAfterMenuDiscount + taxAmount + gratuityAmount;
+
+    // Hitung diskon scope TOTAL berdasarkan initialFinalTotal
+    let totalDiscountAmount = totalMenuDiscountAmount;
     if (orderDetails.discountId) {
       const discount = await prisma.discount.findUnique({
         where: { id: orderDetails.discountId },
       });
       if (discount && discount.isActive && discount.scope === "TOTAL") {
-        totalDiscountAmount +=
+        const additionalDiscount =
           discount.type === "PERCENTAGE"
-            ? (discount.value / 100) * totalBeforeDiscount
+            ? (discount.value / 100) * initialFinalTotal
             : discount.value;
-        console.log(`Applied TOTAL discount: ${discount.name}, Amount: ${totalDiscountAmount - orderItemsData.reduce((sum, item) => sum + item.discountAmount, 0)}`);
+        totalDiscountAmount += additionalDiscount;
+        console.log(`Applied TOTAL discount: ${discount.name}, Amount: ${additionalDiscount}`);
       } else {
         console.warn(`Discount ID ${orderDetails.discountId} invalid or not TOTAL scope`);
       }
     }
 
-    // Hitung tax dan gratuity
-    const totalAfterDiscount = totalBeforeDiscount - totalDiscountAmount;
-    const taxAmount = tax ? (tax.value / 100) * totalAfterDiscount : 0;
-    const gratuityAmount = gratuity ? (gratuity.value / 100) * totalAfterDiscount : 0;
-    const finalTotal = totalAfterDiscount + taxAmount + gratuityAmount;
+    // Batasi totalDiscountAmount agar tidak melebihi initialFinalTotal
+    totalDiscountAmount = Math.min(totalDiscountAmount, initialFinalTotal);
+    const finalTotal = initialFinalTotal - totalDiscountAmount;
 
-    // Simpan Order ke database
     const newOrder = await prisma.order.create({
       data: {
         customerName: orderDetails.customerName,

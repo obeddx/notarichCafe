@@ -34,6 +34,18 @@ interface Discount {
   isActive: boolean;
 }
 
+interface Tax {
+  id: number;
+  value: number;
+  isActive: boolean;
+}
+
+interface Gratuity {
+  id: number;
+  value: number;
+  isActive: boolean;
+}
+
 interface Menu {
   id: number;
   name: string;
@@ -84,8 +96,10 @@ export default function MenuPage() {
   const [snapToken, setSnapToken] = useState<string>("");
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [discounts, setDiscounts] = useState<Discount[]>([]); // Daftar discount untuk scope TOTAL
-  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null); // Discount scope TOTAL yang dipilih
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
+  const [taxRate, setTaxRate] = useState<number>(0);
+  const [gratuityRate, setGratuityRate] = useState<number>(0);
 
   const searchParams = useSearchParams();
 
@@ -124,11 +138,10 @@ export default function MenuPage() {
     if (storedCart) setCart(JSON.parse(storedCart));
   }, [tableNumber]);
 
-  // Fetch menu data dan discount
   useEffect(() => {
-    const fetchMenuAndDiscounts = async () => {
+    const fetchMenuAndRates = async () => {
       try {
-        const menuResponse = await fetch("/api/getMenu"); // Pastikan rute sesuai
+        const menuResponse = await fetch("/api/getMenu");
         if (!menuResponse.ok) throw new Error(`HTTP error! Status: ${menuResponse.status}`);
         const menuData = await menuResponse.json();
         const transformedMenu: Menu[] = menuData.map((item: Partial<Menu>) => ({
@@ -141,14 +154,26 @@ export default function MenuPage() {
           category: item.category ?? "Uncategorized",
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
-          discounts: item.discounts ?? [], // Pastikan defaults ke array kosong
+          discounts: item.discounts ?? [],
         }));
         setMenus(transformedMenu);
-  
+
         const discountResponse = await fetch("/api/diskon");
         if (!discountResponse.ok) throw new Error(`HTTP error! Status: ${discountResponse.status}`);
         const discountData = await discountResponse.json();
         setDiscounts(discountData.filter((d: Discount) => d.scope === "TOTAL" && d.isActive));
+
+        const taxResponse = await fetch("/api/tax");
+        if (!taxResponse.ok) throw new Error(`HTTP error! Status: ${taxResponse.status}`);
+        const taxData = await taxResponse.json();
+        const activeTax = taxData.find((t: Tax) => t.isActive);
+        setTaxRate(activeTax ? activeTax.value / 100 : 0);
+
+        const gratuityResponse = await fetch("/api/gratuity");
+        if (!gratuityResponse.ok) throw new Error(`HTTP error! Status: ${gratuityResponse.status}`);
+        const gratuityData = await gratuityResponse.json();
+        const activeGratuity = gratuityData.find((g: Gratuity) => g.isActive);
+        setGratuityRate(activeGratuity ? activeGratuity.value / 100 : 0);
       } catch (err) {
         if (err instanceof Error) setError(`Failed to load data: ${err.message}`);
         else setError("Failed to load data.");
@@ -156,7 +181,7 @@ export default function MenuPage() {
         setLoading(false);
       }
     };
-    fetchMenuAndDiscounts();
+    fetchMenuAndRates();
   }, []);
 
   const addToCart = (menu: Menu) => {
@@ -215,7 +240,6 @@ export default function MenuPage() {
 
   const calculateItemPrice = (menu: Menu) => {
     let price = menu.price;
-    // Pengecekan apakah discounts ada dan merupakan array
     const activeDiscount = Array.isArray(menu.discounts)
       ? menu.discounts.find((d) => d.discount.isActive)
       : undefined;
@@ -225,36 +249,54 @@ export default function MenuPage() {
           ? (activeDiscount.discount.value / 100) * menu.price
           : activeDiscount.discount.value;
     }
-    return price > 0 ? price : 0; // Pastikan harga tidak negatif
+    return price > 0 ? price : 0;
   };
 
- const calculateCartTotals = () => {
-  let totalBeforeDiscount = 0;
-  let totalDiscountAmount = 0;
+  const calculateCartTotals = () => {
+    let totalBeforeDiscount = 0;
+    let totalMenuDiscountAmount = 0;
 
-  cart.forEach((item) => {
-    const originalPrice = item.menu.price * item.quantity;
-    const discountedPrice = calculateItemPrice(item.menu) * item.quantity;
-    totalBeforeDiscount += originalPrice;
-    totalDiscountAmount += originalPrice - discountedPrice;
-  });
+    // Hitung subtotal dan diskon scope MENU
+    cart.forEach((item) => {
+      const originalPrice = item.menu.price * item.quantity;
+      const discountedPrice = calculateItemPrice(item.menu) * item.quantity;
+      totalBeforeDiscount += originalPrice;
+      totalMenuDiscountAmount += originalPrice - discountedPrice;
+    });
 
-  if (selectedDiscountId) {
-    const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
-    if (selectedDiscount) {
-      totalDiscountAmount +=
-        selectedDiscount.type === "PERCENTAGE"
-          ? (selectedDiscount.value / 100) * totalBeforeDiscount
-          : selectedDiscount.value;
+    const totalAfterMenuDiscount = totalBeforeDiscount - totalMenuDiscountAmount;
+    const taxAmount = taxRate * totalAfterMenuDiscount;
+    const gratuityAmount = gratuityRate * totalAfterMenuDiscount;
+    const initialFinalTotal = totalAfterMenuDiscount + taxAmount + gratuityAmount;
+
+    // Terapkan diskon scope TOTAL pada initialFinalTotal
+    let totalDiscountAmount = totalMenuDiscountAmount;
+    if (selectedDiscountId) {
+      const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
+      if (selectedDiscount) {
+        const additionalDiscount =
+          selectedDiscount.type === "PERCENTAGE"
+            ? (selectedDiscount.value / 100) * initialFinalTotal
+            : selectedDiscount.value;
+        totalDiscountAmount += additionalDiscount;
+      }
     }
-  }
 
-  const totalAfterDiscount = totalBeforeDiscount - totalDiscountAmount;
-  return { totalBeforeDiscount, totalDiscountAmount, totalAfterDiscount };
-};
+    totalDiscountAmount = Math.min(totalDiscountAmount, initialFinalTotal);
+    const totalAfterDiscount = initialFinalTotal - totalDiscountAmount;
+
+    return {
+      totalBeforeDiscount,
+      totalMenuDiscountAmount,
+      taxAmount,
+      gratuityAmount,
+      totalDiscountAmount,
+      totalAfterDiscount,
+    };
+  };
 
   const createOrder = async () => {
-    const { totalBeforeDiscount } = calculateCartTotals();
+    const { totalBeforeDiscount, taxAmount, gratuityAmount, totalDiscountAmount, totalAfterDiscount } = calculateCartTotals();
     const orderDetails = {
       customerName,
       tableNumber,
@@ -265,6 +307,10 @@ export default function MenuPage() {
       })),
       total: totalBeforeDiscount,
       discountId: selectedDiscountId || undefined,
+      taxAmount,
+      gratuityAmount,
+      discountAmount: totalDiscountAmount,
+      finalTotal: totalAfterDiscount,
     };
     try {
       const response = await fetch("/api/placeOrder", {
@@ -335,7 +381,7 @@ export default function MenuPage() {
     yPosition += 4;
 
     let totalQty = 0;
-    const { totalBeforeDiscount, totalDiscountAmount, totalAfterDiscount } = calculateCartTotals();
+    const { totalBeforeDiscount, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterDiscount } = calculateCartTotals();
     cart.forEach((item) => {
       const itemTotal = calculateItemPrice(item.menu) * item.quantity;
       doc.text(item.menu.name, margin, yPosition, { maxWidth: 30 });
@@ -351,6 +397,10 @@ export default function MenuPage() {
     doc.text(`Subtotal: Rp${totalBeforeDiscount.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
     doc.text(`Diskon: Rp${totalDiscountAmount.toLocaleString()}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Pajak: Rp${taxAmount.toLocaleString()}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Gratuity: Rp${gratuityAmount.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
     doc.text(`Total: Rp${totalAfterDiscount.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
@@ -457,7 +507,7 @@ export default function MenuPage() {
   );
 
   const renderReceiptModal = () => {
-    const { totalBeforeDiscount, totalDiscountAmount, totalAfterDiscount } = calculateCartTotals();
+    const { totalBeforeDiscount, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterDiscount } = calculateCartTotals();
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white p-6 rounded-lg w-full max-w-md" id="receipt-content">
@@ -476,6 +526,8 @@ export default function MenuPage() {
           <div className="mt-4 border-t pt-4">
             <p className="text-lg text-black">Subtotal: Rp{totalBeforeDiscount.toLocaleString()}</p>
             <p className="text-lg text-black">Diskon: Rp{totalDiscountAmount.toLocaleString()}</p>
+            <p className="text-lg text-black">Pajak: Rp{taxAmount.toLocaleString()}</p>
+            <p className="text-lg text-black">Gratuity: Rp{gratuityAmount.toLocaleString()}</p>
             <p className="text-lg font-semibold text-black">
               Total: Rp{totalAfterDiscount.toLocaleString()}
             </p>
@@ -755,7 +807,21 @@ export default function MenuPage() {
                   required
                 />
               </div>
-             
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">Pilih Diskon (Opsional)</label>
+                <select
+                  value={selectedDiscountId || ""}
+                  onChange={(e) => setSelectedDiscountId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Tidak ada diskon</option>
+                  {discounts.map((discount) => (
+                    <option key={discount.id} value={discount.id}>
+                      {discount.name} ({discount.type === "PERCENTAGE" ? `${discount.value}%` : `Rp${discount.value}`})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
                 <h3 className="text-xl font-bold text-gray-900">Rincian Harga:</h3>
                 <p className="text-lg text-gray-900">
@@ -763,6 +829,12 @@ export default function MenuPage() {
                 </p>
                 <p className="text-lg text-gray-900">
                   Diskon: Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}
+                </p>
+                <p className="text-lg text-gray-900">
+                  Pajak: Rp{calculateCartTotals().taxAmount.toLocaleString()}
+                </p>
+                <p className="text-lg text-gray-900">
+                  Gratuity: Rp{calculateCartTotals().gratuityAmount.toLocaleString()}
                 </p>
                 <p className="text-2xl text-orange-600 font-semibold">
                   Total: Rp{calculateCartTotals().totalAfterDiscount.toLocaleString()}
