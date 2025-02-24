@@ -84,6 +84,46 @@ export default function IngredientsTable() {
   const [semiEditProducedQuantity, setSemiEditProducedQuantity] = useState<number>(0);
   const [semiEditComposition, setSemiEditComposition] = useState<SemiComposition[]>([]);
   const [editingSemi, setEditingSemi] = useState(false);
+  const [totalPrice, setTotalPrice] = useState(0);
+  const [totalPrice2, setTotalPrice2] = useState(0);
+
+   // Fungsi helper untuk menghitung total harga komposisi dari array komposisi yang diberikan
+   const calculateTotalCompositionPrice = (comp: SemiComposition[]) => {
+    return comp.reduce((total, row) => {
+      const raw = rawIngredientsList.find((r) => r.id === row.rawIngredientId);
+      if (raw && row.amount) {
+        return total + raw.price * Number(row.amount);
+      }
+      return total;
+    }, 0);
+  };
+  const calculateAndUpdateTotalPrice = async () => {
+    const response = await fetch('/api/bahanRaw');
+    const updatedRawIngredients = await response.json();
+    setRawIngredientsList(updatedRawIngredients);
+  
+    const total = calculateTotalCompositionPrice(semiEditComposition);
+    setTotalPrice(total);
+  };
+  
+  // Panggil fungsi ini saat diperlukan, misalnya saat komponen mount atau ada perubahan
+  useEffect(() => {
+    calculateAndUpdateTotalPrice();
+  }, [semiEditComposition]);
+
+  const calculateAndUpdateTotalPrice2 = async () => {
+    const response = await fetch('/api/bahanRaw');
+    const updatedRawIngredients = await response.json();
+    setRawIngredientsList(updatedRawIngredients);
+  
+    const total = calculateTotalCompositionPrice(composition);
+    setTotalPrice2(total);
+  };
+  
+  // Panggil fungsi ini saat diperlukan, misalnya saat komponen mount atau ada perubahan
+  useEffect(() => {
+    calculateAndUpdateTotalPrice2();
+  }, [composition]);
 
 
   // Daftar raw ingredient, diambil dari API /api/bahanRaw
@@ -240,6 +280,8 @@ export default function IngredientsTable() {
       const data = await res.json();
       if (res.ok) {
         toast.success("Ingredient berhasil diedit!");
+        fetchIngredients();
+        calculateAndUpdateTotalPrice();
         setIngredients(
           ingredients.map((ing) =>
             ing.id === selectedIngredient.id ? data.ingredient : ing
@@ -259,7 +301,7 @@ export default function IngredientsTable() {
   const handleSemiEditSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Buat payload serupa dengan payload tambah semi finished
-    const totalCompositionPrice = calculateTotalCompositionPrice(semiEditComposition);
+    const totalCompositionPrice = totalPrice;
     const payload = {
       id: selectedIngredient?.id,
       name: semiEditName,
@@ -350,16 +392,7 @@ export default function IngredientsTable() {
     setComposition(newComposition);
   };
 
-  // Fungsi helper untuk menghitung total harga komposisi dari array komposisi yang diberikan
-  const calculateTotalCompositionPrice = (comp: SemiComposition[]) => {
-    return comp.reduce((total, row) => {
-      const raw = rawIngredientsList.find((r) => r.id === row.rawIngredientId);
-      if (raw && row.amount) {
-        return total + raw.price * Number(row.amount);
-      }
-      return total;
-    }, 0);
-  };
+ 
 
   // Fungsi untuk submit form semi finished ingredient (untuk TAMBAH)
   const handleSemiSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -368,7 +401,7 @@ export default function IngredientsTable() {
       toast.error("Semua field wajib diisi untuk semi finished ingredient.");
       return;
     }
-    const totalCompositionPrice = calculateTotalCompositionPrice(composition);
+    const totalCompositionPrice = totalPrice2;
     const payload = {
       name: semiName,
       categoryId: parseInt(semiCategory), // Ubah ke categoryId
@@ -823,14 +856,14 @@ export default function IngredientsTable() {
         <div className="mt-4">
           <label className="block font-medium mb-1">Total Harga Komposisi:</label>
           <input
-            type="text"
-            value={calculateTotalCompositionPrice(semiEditComposition).toLocaleString("id-ID", {
-              style: "currency",
-              currency: "IDR",
-            })}
-            readOnly
-            className="w-full p-2 border border-gray-300 rounded bg-gray-100"
-          />
+  type="text"
+  value={totalPrice.toLocaleString("id-ID", {
+    style: "currency",
+    currency: "IDR",
+  })}
+  readOnly
+  className="w-full p-2 border border-gray-300 rounded bg-gray-100"
+/>
         </div>
         <div className="mt-4 flex justify-end space-x-4">
           <button

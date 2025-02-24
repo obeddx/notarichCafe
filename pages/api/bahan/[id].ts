@@ -71,6 +71,66 @@ export default async function handler(
         
       });
 
+      // Setelah logika update ingredient, sebelum return res.status(200).json({...})
+// Update harga untuk ingredient dengan type semi_finished berdasarkan ingredientComposition
+
+if (updatedIngredient.type === "SEMI_FINISHED") {
+  // Jika ingredient yang diupdate adalah semi_finished, update harga sendiri
+  const compositions = await prisma.ingredientComposition.findMany({
+    where: { semiIngredientId: updatedIngredient.id }
+  });
+
+  let calculatedPrice = 0;
+  for (const comp of compositions) {
+    const rawIngredient = await prisma.ingredient.findUnique({
+      where: { id: comp.rawIngredientId }
+    });
+    // Pastikan rawIngredient ditemukan sebelum mengakses price
+    if (rawIngredient) {
+      calculatedPrice += (rawIngredient.price * comp.amount);
+    }
+  }
+
+  // Update harga jika terdapat perbedaan
+  if (calculatedPrice !== updatedIngredient.price) {
+    await prisma.ingredient.update({
+      where: { id: updatedIngredient.id },
+      data: { price: calculatedPrice }
+    });
+  }
+} else {
+  // Jika ingredient yang diupdate adalah raw, periksa apakah ingredient tersebut dipakai oleh semi_finished
+  const affectedCompositions = await prisma.ingredientComposition.findMany({
+    where: { rawIngredientId: updatedIngredient.id }
+  });
+
+  // Dapatkan id semi_finished yang terpengaruh
+  const affectedSemiFinishedIds = Array.from(
+    new Set(affectedCompositions.map(comp => comp.semiIngredientId))
+  );
+
+  // Update harga untuk setiap semi_finished yang terpengaruh
+  for (const semiId of affectedSemiFinishedIds) {
+    const compositions = await prisma.ingredientComposition.findMany({
+      where: { semiIngredientId: semiId }
+    });
+    let calculatedPrice = 0;
+    for (const comp of compositions) {
+      const rawIngredient = await prisma.ingredient.findUnique({
+        where: { id: comp.rawIngredientId }
+      });
+      if (rawIngredient) {
+        calculatedPrice += (rawIngredient.price * comp.amount);
+      }
+    }
+    await prisma.ingredient.update({
+      where: { id: semiId },
+      data: { price: calculatedPrice }
+    });
+  }
+}
+
+
       // Jika ada perubahan pada stockIn, lakukan update pada tabel gudang
       let updatedGudang = null;
       if (stockIn !== undefined) {

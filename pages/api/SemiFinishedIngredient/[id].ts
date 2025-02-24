@@ -64,6 +64,7 @@ export default async function handler(
   try {
     // Update record ingredient dengan tipe SEMI_FINISHED.
     // Misalnya, untuk semi finished, kita set nilai awal stock = producedQuantity.
+    console.log(req.body);
     const updatedSemiIngredient = await prisma.ingredient.update({
       where: { id: ingredientId },
       data: {
@@ -80,6 +81,7 @@ export default async function handler(
         stockMin: 0, // Bisa disesuaikan jika diperlukan
         // Untuk semi finished, kita gunakan finishedUnit sebagai unit
         unit: finishedUnit,
+        batchYield: producedQuantity,
         isActive: true,
       },
     });
@@ -92,6 +94,8 @@ export default async function handler(
     // Buat ulang data komposisi baru sesuai payload
     for (const comp of composition) {
       if (!comp.rawIngredientId || comp.amount === undefined) continue;
+      
+      // Buat record komposisi baru
       await prisma.ingredientComposition.create({
         data: {
           semiIngredientId: updatedSemiIngredient.id,
@@ -99,6 +103,28 @@ export default async function handler(
           amount: comp.amount,
         },
       });
+      
+      // Update raw ingredient:
+      // usedBaru = usedLama + comp.amount
+      // stock = start + stockIn - used - wasted
+      const rawIngredient = await prisma.ingredient.findUnique({
+        where: { id: comp.rawIngredientId },
+      });
+      if (rawIngredient) {
+        const newUsed = rawIngredient.used + comp.amount;
+        const newStock =
+          rawIngredient.start +
+          rawIngredient.stockIn -
+          newUsed -
+          rawIngredient.wasted;
+        await prisma.ingredient.update({
+          where: { id: comp.rawIngredientId },
+          data: {
+            used: newUsed,
+            stock: newStock,
+          },
+        });
+      }
     }
 
     return res.status(200).json({
@@ -107,6 +133,8 @@ export default async function handler(
     });
   } catch (error) {
     console.error("Error updating semi finished ingredient:", error);
-    return res.status(500).json({ message: "Error updating semi finished ingredient" });
+    return res
+      .status(500)
+      .json({ message: "Error updating semi finished ingredient" });
   }
 }

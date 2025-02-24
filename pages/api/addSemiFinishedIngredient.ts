@@ -66,6 +66,7 @@ export default async function handler(
         stock: producedQuantity, // Stock awal sama dengan producedQuantity
         stockMin: 0, // Bisa disesuaikan jika diperlukan
         unit: finishedUnit,
+        batchYield: producedQuantity,
         isActive: true,
       },
     });
@@ -74,6 +75,7 @@ export default async function handler(
     for (const comp of composition) {
       // Pastikan rawIngredientId dan amount valid
       if (!comp.rawIngredientId || comp.amount === undefined) continue;
+
       await prisma.ingredientComposition.create({
         data: {
           semiIngredientId: newSemiIngredient.id,
@@ -81,6 +83,25 @@ export default async function handler(
           amount: comp.amount,
         },
       });
+
+      // Update raw ingredient:
+      // usedBaru = usedLama + comp.amount
+      // stock = start + stockIn - usedBaru - wasted
+      const rawIngredient = await prisma.ingredient.findUnique({
+        where: { id: comp.rawIngredientId },
+      });
+      if (rawIngredient) {
+        const newUsed = rawIngredient.used + comp.amount;
+        const newStock =
+          rawIngredient.start + rawIngredient.stockIn - newUsed - rawIngredient.wasted;
+        await prisma.ingredient.update({
+          where: { id: comp.rawIngredientId },
+          data: {
+            used: newUsed,
+            stock: newStock,
+          },
+        });
+      }
     }
 
     return res.status(200).json({
@@ -89,6 +110,8 @@ export default async function handler(
     });
   } catch (error) {
     console.error("Error creating semi finished ingredient:", error);
-    return res.status(500).json({ message: "Error creating semi finished ingredient" });
+    return res
+      .status(500)
+      .json({ message: "Error creating semi finished ingredient" });
   }
 }

@@ -25,8 +25,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const updatedMenus = await Promise.all(menus.map(async (menu) => {
       const totalCost = menu.ingredients.reduce((acc, item) => {
         const ingredient = item.ingredient;
-        // Harga per unit sudah ada di ingredient.price (misal: per 1 gram atau 1 butir)
-        const cost = item.amount * ingredient.price;
+        let cost = 0;
+        
+        // Jika ingredient ber-type SEMI_FINISHED, gunakan perhitungan khusus
+        if (ingredient.type === 'SEMI_FINISHED') {
+          // Menghitung totalCost: (item.amount / batchYield) * ingredient.price
+          cost = (item.amount / ingredient.batchYield) * ingredient.price;
+        } else {
+          // Perhitungan default
+          cost = item.amount * ingredient.price;
+        }
         return acc + cost;
       }, 0);
 

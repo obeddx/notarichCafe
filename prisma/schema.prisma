@@ -38,7 +38,8 @@ model Ingredient {
   isActive    Boolean                 @default(true) // Untuk soft delete
   category        String  @default("main")                  // Field kategori untuk ingredient
   categoryId  Int @default(3)                // foreign key ke kategori
-  categories    IngredientCategory  @relation(fields: [categoryId], references: [id])            
+  categories    IngredientCategory  @relation(fields: [categoryId], references: [id]) 
+  batchYield  Float  @default(0)         
  
   type            IngredientType           @default(RAW) // Tipe ingredient: RAW atau SEMI_FINISHED
   price       Float @default(0)
@@ -241,4 +242,28 @@ model IngredientComposition {
   rawIngredient  Ingredient @relation("RawIngredient", fields: [rawIngredientId], references: [id])
 
   @@unique([semiIngredientId, rawIngredientId])
+}
+
+enum DiscountType {
+  PERCENTAGE
+  NORMAL
+}
+
+enum DiscountScope {
+  MENU
+  TOTAL
+}
+
+model Discount {
+  id        Int           @id @default(autoincrement())
+  name      String     
+  type      DiscountType
+  scope     DiscountScope
+  value     Float         // Jika type = PERCENTAGE, value dianggap sebagai persen (misal: 10 untuk 10%), 
+                          // jika type = NORMAL, value adalah nominal diskon (misal: 5000 untuk Rp5.000)
+  // Jika scope diskon adalah MENU, maka akan ada relasi ke model Menu:
+
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 }
