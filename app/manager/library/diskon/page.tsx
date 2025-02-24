@@ -304,6 +304,16 @@ const GetDiscount: React.FC = () => {
     }
   };
 
+  const handleToggleStatus = async (id: number, newStatus: boolean) => {
+    try {
+      await axios.put(`/api/diskon/${id}`, { isActive: newStatus });
+      fetchDiscounts(); // Refresh data setelah update
+    } catch (error) {
+      console.error("Error toggling discount status:", error);
+    }
+  };
+  
+
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Discounts</h1>
@@ -355,13 +365,23 @@ const GetDiscount: React.FC = () => {
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => discount.id && handleDelete(discount.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-                    >
-                      Nonaktif
-                    </button>
+                    {discount.isActive ? (
+    <button
+      onClick={() => discount.id && handleToggleStatus(discount.id, false)}
+      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+    >
+      Nonaktif
+    </button>
+  ) : (
+    <button
+      onClick={() => discount.id && handleToggleStatus(discount.id, true)}
+      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+    >
+      Aktifkan
+    </button>
+  )}
                   </td>
+                 
                 </tr>
               ))}
             </tbody>
