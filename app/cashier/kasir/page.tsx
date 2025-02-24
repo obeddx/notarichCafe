@@ -72,6 +72,8 @@ export default function KasirPage() {
   const [tableNumberInput, setTableNumberInput] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
   // const [badgeVisible, setBadgeVisible] = useState(true);
 
   const unreadCount = notifications.filter((notif) => !notif.isRead).length;
@@ -405,6 +407,18 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Cari Menu</label>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full p-2 border rounded-md"
+          placeholder="Cari nama menu..."
+        />
+      </div>
+
       {/* Filter Kategori */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-1">Filter Kategori</label>
@@ -424,7 +438,14 @@ useEffect(() => {
       {/* Daftar Menu */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {menus
-          .filter((menu) => !selectedCategory || menu.category === selectedCategory)
+          .filter((menu) => {
+            // Filter berdasarkan kategori yang dipilih
+            if (selectedCategory && menu.category !== selectedCategory) return false;
+            // Filter berdasarkan pencarian nama menu
+            if (searchQuery && !menu.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
+          })
+          
           .map((menu) => (
             <div
               key={menu.id}
@@ -466,60 +487,60 @@ useEffect(() => {
         <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
         {selectedMenuItems.map((item) => (
           <div className="flex justify-between items-center mb-3 p-2 bg-gray-50 rounded">
-  <div className="flex-1">
-    <p className="font-medium">{item.menu.name}</p>
-    <input
-      type="text"
-      placeholder="Catatan..."
-      value={item.note}
-      onChange={(e) => {
-        setSelectedMenuItems((prev) =>
-          prev.map((prevItem) =>
-            prevItem.menu.id === item.menu.id
-              ? { ...prevItem, note: e.target.value }
-              : prevItem
-          )
-        );
-      }}
-      className="text-sm mt-1 p-1 border rounded w-full"
-    />
-  </div>
-  <div className="flex items-center gap-2">
-    <div className="flex items-center gap-2">
-      <button
-        onClick={() => {
-          setSelectedMenuItems((prev) =>
-            prev
-              .map((prevItem) =>
-                prevItem.menu.id === item.menu.id
-                  ? { ...prevItem, quantity: Math.max(0, prevItem.quantity - 1) }
-                  : prevItem
-              )
-              .filter((prevItem) => prevItem.quantity > 0) // Hapus item jika jumlah = 0
-          );
-        }}
-        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
-      >
-        -
-      </button>
-      <span>{item.quantity}</span>
-      <button
-        onClick={() => {
-          setSelectedMenuItems((prev) =>
-            prev.map((prevItem) =>
-              prevItem.menu.id === item.menu.id
-                ? { ...prevItem, quantity: prevItem.quantity + 1 }
-                : prevItem
-            )
-          );
-        }}
-        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
-      >
-        +
-      </button>
-    </div>
-  </div>
-</div>
+            <div className="flex-1">
+              <p className="font-medium">{item.menu.name}</p>
+              <input
+                type="text"
+                placeholder="Catatan..."
+                value={item.note}
+                onChange={(e) => {
+                  setSelectedMenuItems((prev) =>
+                    prev.map((prevItem) =>
+                      prevItem.menu.id === item.menu.id
+                        ? { ...prevItem, note: e.target.value }
+                        : prevItem
+                    )
+                  );
+                }}
+                className="text-sm mt-1 p-1 border rounded w-full"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedMenuItems((prev) =>
+                      prev
+                        .map((prevItem) =>
+                          prevItem.menu.id === item.menu.id
+                            ? { ...prevItem, quantity: Math.max(0, prevItem.quantity - 1) }
+                            : prevItem
+                        )
+                        .filter((prevItem) => prevItem.quantity > 0) // Hapus item jika jumlah = 0
+                    );
+                  }}
+                  className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+                >
+                  -
+                </button>
+                <span>{item.quantity}</span>
+                <button
+                  onClick={() => {
+                    setSelectedMenuItems((prev) =>
+                      prev.map((prevItem) =>
+                        prevItem.menu.id === item.menu.id
+                          ? { ...prevItem, quantity: prevItem.quantity + 1 }
+                          : prevItem
+                      )
+                    );
+                  }}
+                  className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
         ))}
 
         <div className="mt-4">
@@ -1020,20 +1041,7 @@ function OrderItemComponent({
           >
             ✅ Tandai Selesai
           </button>
-          <button
-            onClick={() =>
-              setConfirmation({
-                message: "Sudah yakin untuk membatalkan pesanan?",
-                onConfirm: () => {
-                  cancelOrder?.(Number(order.id));
-                  setConfirmation(null);
-                },
-              })
-            }
-            className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
-          >
-            ❌ Batal Pesanan
-          </button>
+          
         </div>
       )}
       {onSelectOrder && order.status === "pending" && (

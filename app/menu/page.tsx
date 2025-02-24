@@ -75,6 +75,7 @@ export default function MenuPage() {
   const [orderRecord, setOrderRecord] = useState<string>(""); // Dapat diganti tipe sesuai kebutuhan
   const [snapToken, setSnapToken] = useState<string>("");
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(""); // State untuk menyimpan query pencarian
 
   const searchParams = useSearchParams();
 
@@ -491,9 +492,12 @@ export default function MenuPage() {
 
   const filteredMenu =
     selectedCategory === "All Menu"
-      ? menus
+      ? menus.filter((item) =>
+          item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
       : menus.filter((item) =>
-          item.category.toLowerCase().includes(selectedCategory.toLowerCase())
+          item.category.toLowerCase().includes(selectedCategory.toLowerCase()) &&
+          item.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
   if (tableNumber === "Unknown") {
@@ -537,7 +541,17 @@ export default function MenuPage() {
           Our Popular Menu
         </h2>
         <h2 className="text-2xl text-white mb-4">Table Number: {tableNumber}</h2>
-
+ {/* Search Bar */}
+ <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Cari Menu</label>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full p-2 border rounded-md"
+          placeholder="Cari nama menu..."
+        />
+      </div>
         {/* Category Buttons */}
         <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
           {categories.map((category) => (
