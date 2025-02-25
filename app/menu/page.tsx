@@ -807,21 +807,7 @@ export default function MenuPage() {
                   required
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Pilih Diskon (Opsional)</label>
-                <select
-                  value={selectedDiscountId || ""}
-                  onChange={(e) => setSelectedDiscountId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full p-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">Tidak ada diskon</option>
-                  {discounts.map((discount) => (
-                    <option key={discount.id} value={discount.id}>
-                      {discount.name} ({discount.type === "PERCENTAGE" ? `${discount.value}%` : `Rp${discount.value}`})
-                    </option>
-                  ))}
-                </select>
-              </div>
+             
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
                 <h3 className="text-xl font-bold text-gray-900">Rincian Harga:</h3>
                 <p className="text-lg text-gray-900">
