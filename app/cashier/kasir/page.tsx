@@ -1168,6 +1168,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+
 function generatePDF(order: Order) {
   const margin = 5;
   const pageWidth = 58;
@@ -1178,16 +1179,35 @@ function generatePDF(order: Order) {
 
   let yPosition = margin;
 
+  // Header dengan Nama Cafe
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text("Cafe Kita", pageWidth / 2, yPosition, { align: "center" });
+  doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 6;
 
+  // Tambahkan alamat (dibungkus otomatis)
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
+  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+  addressLines.forEach((line: string) => {
+    doc.text(line, pageWidth / 2, yPosition, { align: "center" });
+    yPosition += 4;
+  });
+  yPosition += 2;
+
+  // Garis pemisah
   doc.setLineWidth(0.3);
   doc.setDrawColor(150);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 3;
 
+  // Definisikan posisi untuk label, tanda titik dua, dan nilai
+  const labelX = margin;
+  const colonX = margin + 22; // sesuaikan sesuai kebutuhan
+  const valueX = margin + 24;
+
+  // Informasi header
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   const now = new Date();
@@ -1195,20 +1215,45 @@ function generatePDF(order: Order) {
   const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
   const jam = now.toLocaleTimeString();
 
-  doc.text(`Tanggal : ${tanggal}`, margin, yPosition);
+  doc.text("Tanggal", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(tanggal, valueX, yPosition);
   yPosition += 5;
-  doc.text(`Hari    : ${hari}`, margin, yPosition);
+
+  doc.text("Hari", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(hari, valueX, yPosition);
   yPosition += 5;
-  doc.text(`Jam     : ${jam}`, margin, yPosition);
+
+  doc.text("Jam", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(jam, valueX, yPosition);
   yPosition += 5;
-  doc.text(`Kasir  : Kasir 1`, margin, yPosition);
+
+  doc.text("Kasir", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Kasir 1", valueX, yPosition);
   yPosition += 5;
-  doc.text(`Meja   : ${order.tableNumber}`, margin, yPosition);
+
+  doc.text("Meja", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.tableNumber), valueX, yPosition);
+  yPosition += 5;
+
+  doc.text("Order ID", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.id), valueX, yPosition);
+  yPosition += 5;
+
+  doc.text("Nama", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.customerName || "-", valueX, yPosition);
   yPosition += 7;
 
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 3;
 
+  // Header Pesanan
   doc.setFont("helvetica", "bold");
   doc.text("Pesanan", margin, yPosition);
   yPosition += 5;
@@ -1219,6 +1264,7 @@ function generatePDF(order: Order) {
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 3;
 
+  // Cetak tiap item pesanan
   const truncateMenuName = (name: string) => {
     const maxItemNameLength = 19;
     if (name.length > maxItemNameLength) {
@@ -1255,25 +1301,47 @@ function generatePDF(order: Order) {
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 5;
 
+  // Ringkasan Pesanan
   doc.setFont("helvetica", "bold");
   const totalQty = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
-  doc.text(`Total qty = ${totalQty}`, margin, yPosition);
+
+  doc.text("Total qty", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(totalQty), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Subtotal: Rp ${order.total.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Subtotal", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.total.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Diskon: Rp ${order.discountAmount.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Diskon", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.discountAmount.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Pajak: Rp ${order.taxAmount.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Pajak (10%)", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.taxAmount.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Gratuity: Rp ${order.gratuityAmount.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Gratuity (2%)", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.gratuityAmount.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Total Bayar: Rp ${order.finalTotal.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Total Bayar", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
   yPosition += 7;
 
   doc.setFont("helvetica", "normal");
-  doc.text(`Pembayaran: ${order.paymentMethod || "-"}`, margin, yPosition);
+  doc.text("Pembayaran", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.paymentMethod || "-", valueX, yPosition);
   yPosition += 7;
 
+  // Footer
   doc.setFont("helvetica", "italic");
   doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 5;
@@ -1281,6 +1349,7 @@ function generatePDF(order: Order) {
 
   doc.save(`struk_order_${order.id}.pdf`);
 }
+
 
 function generateCombinedPDF(order: Order) {
   const margin = 5;
@@ -1292,19 +1361,40 @@ function generateCombinedPDF(order: Order) {
 
   let yPosition = margin;
 
+  // Header dengan Nama Cafe
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text("Cafe Kita", pageWidth / 2, yPosition, { align: "center" });
+  doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 6;
+
+  // Tambahkan alamat (dibungkus otomatis)
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
+  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+  addressLines.forEach((line: string) => {
+    doc.text(line, pageWidth / 2, yPosition, { align: "center" });
+    yPosition += 4;
+  });
+  yPosition += 2;
+
+  // Subjudul untuk struk gabungan
   doc.setFontSize(9);
   doc.text("Struk Gabungan Pesanan", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 6;
 
+  // Garis pemisah
   doc.setLineWidth(0.3);
   doc.setDrawColor(150);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 3;
 
+  // Definisikan posisi untuk label, tanda titik dua, dan nilai
+  const labelX = margin;
+  const colonX = margin + 22;
+  const valueX = margin + 24;
+
+  // Informasi header
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   const now = new Date();
@@ -1312,20 +1402,45 @@ function generateCombinedPDF(order: Order) {
   const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
   const jam = now.toLocaleTimeString();
 
-  doc.text(`Tanggal : ${tanggal}`, margin, yPosition);
+  doc.text("Tanggal", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(tanggal, valueX, yPosition);
   yPosition += 5;
-  doc.text(`Hari    : ${hari}`, margin, yPosition);
+
+  doc.text("Hari", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(hari, valueX, yPosition);
   yPosition += 5;
-  doc.text(`Jam     : ${jam}`, margin, yPosition);
+
+  doc.text("Jam", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(jam, valueX, yPosition);
   yPosition += 5;
-  doc.text(`Kasir  : Kasir 1`, margin, yPosition);
+
+  doc.text("Kasir", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Kasir 1", valueX, yPosition);
   yPosition += 5;
-  doc.text(`Meja   : ${order.tableNumber}`, margin, yPosition);
+
+  doc.text("Meja", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.tableNumber), valueX, yPosition);
+  yPosition += 5;
+
+  doc.text("Order ID", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.id), valueX, yPosition);
+  yPosition += 5;
+
+  doc.text("Nama", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.customerName || "-", valueX, yPosition);
   yPosition += 7;
 
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 3;
 
+  // Header Pesanan
   doc.setFont("helvetica", "bold");
   doc.text("Pesanan", margin, yPosition);
   yPosition += 5;
@@ -1336,6 +1451,7 @@ function generateCombinedPDF(order: Order) {
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 3;
 
+  // Cetak tiap item pesanan
   const truncateMenuName = (name: string) => {
     const maxItemNameLength = 19;
     if (name.length > maxItemNameLength) {
@@ -1355,6 +1471,7 @@ function generateCombinedPDF(order: Order) {
       doc.text(secondLine, margin, yPosition);
     }
     yPosition += 5;
+
     const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
     doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
     const itemTotal = itemPriceAfterDiscount * item.quantity;
@@ -1370,25 +1487,47 @@ function generateCombinedPDF(order: Order) {
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 5;
 
+  // Ringkasan Pesanan
   doc.setFont("helvetica", "bold");
   const totalQty = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
-  doc.text(`Total qty = ${totalQty}`, margin, yPosition);
+
+  doc.text("Total qty", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(totalQty), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Subtotal: Rp ${order.total.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Subtotal", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.total.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Diskon: Rp ${order.discountAmount.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Diskon", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.discountAmount.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Pajak: Rp ${order.taxAmount.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Pajak (10%)", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.taxAmount.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Gratuity: Rp ${order.gratuityAmount.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Gratuity (2%)", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.gratuityAmount.toLocaleString(), valueX, yPosition);
   yPosition += 5;
-  doc.text(`Total Bayar: Rp ${order.finalTotal.toLocaleString()}`, margin, yPosition);
+
+  doc.text("Total Bayar", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
   yPosition += 7;
 
   doc.setFont("helvetica", "normal");
-  doc.text(`Pembayaran: ${order.paymentMethod || "-"}`, margin, yPosition);
+  doc.text("Pembayaran", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.paymentMethod || "-", valueX, yPosition);
   yPosition += 7;
 
+  // Footer
   doc.setFont("helvetica", "italic");
   doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 5;
