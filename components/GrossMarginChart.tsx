@@ -1,3 +1,4 @@
+// pages/manager/report/sales/gross-margin/GrossMarginChart.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {
@@ -15,7 +16,6 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 export default function GrossMarginChart() {
-  // Tambahkan "yearly" ke tipe period
   const [grossMarginData, setGrossMarginData] = useState<
     { date: string; grossMargin: number }[]
   >([]);
@@ -23,7 +23,6 @@ export default function GrossMarginChart() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // State untuk detail gross margin
   const [selectedDetail, setSelectedDetail] = useState<{
     date: string;
     summary: { netSales: number; totalHPP: number; grossMargin: number };
@@ -48,7 +47,6 @@ export default function GrossMarginChart() {
     fetchGrossMarginData();
   }, [period, startDate, endDate]);
 
-  // Format tanggal sesuai periode
   const formatDate = (dateString: string): string => {
     if (period === "daily") {
       const date = new Date(dateString);
@@ -62,10 +60,9 @@ export default function GrossMarginChart() {
     } else if (period === "yearly") {
       return dateString;
     }
-    return ""; // Default return jika kondisi tidak terpenuhi
+    return "";
   };
 
-  // Handler untuk klik pada bar guna memunculkan detail
   const handleBarClick = async (data: any) => {
     const clickedDate = data.date;
     setLoadingDetail(true);
@@ -214,7 +211,6 @@ export default function GrossMarginChart() {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Modal Detail */}
       {selectedDetail && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg w-2/3 max-h-screen overflow-auto">
@@ -226,14 +222,13 @@ export default function GrossMarginChart() {
                 onClick={() => setSelectedDetail(null)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
               >
-                &times;
+                ×
               </button>
             </div>
             {loadingDetail ? (
               <p>Loading...</p>
             ) : (
               <div className="mt-4">
-                {/* Ringkasan Gross Margin */}
                 <div className="mb-4 p-4 bg-gray-100 rounded">
                   <p>
                     <strong>Net Sales:</strong> Rp{" "}
@@ -248,7 +243,6 @@ export default function GrossMarginChart() {
                     {selectedDetail.summary.grossMargin.toFixed(2)}%
                   </p>
                 </div>
-                {/* Detail Menu */}
                 <h3 className="text-lg font-semibold mb-2">Detail Menu</h3>
                 {selectedDetail.details.length > 0 ? (
                   <table className="w-full text-left">

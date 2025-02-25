@@ -1,3 +1,4 @@
+// pages/api/grossMarginData.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
@@ -18,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const rawData: any[] = await prisma.$queryRaw`
           SELECT 
             DATE(co.createdAt) as date,
-            SUM(co.total) as netSales,
+            SUM(co.finalTotal) as netSales,
             SUM(m.hargaBakul * ci.quantity) as hpp
           FROM CompletedOrder co
           JOIN CompletedOrderItem ci ON co.id = ci.orderId
@@ -29,16 +30,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ORDER BY DATE(co.createdAt) ASC
         `;
         grossMarginData = rawData.map((item) => ({
-          date: item.date,
+          date: item.date.toISOString().split("T")[0],
           grossMargin:
-            (Number(item.netSales) - Number(item.hpp)) / Number(item.netSales) * 100,
+            Number(item.netSales) > 0
+              ? ((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales)) * 100
+              : 0,
         }));
       } else if (period === "weekly") {
         const rawData: any[] = await prisma.$queryRaw`
           SELECT 
             YEAR(co.createdAt) as year,
             WEEK(co.createdAt) as week,
-            SUM(co.total) as netSales,
+            SUM(co.finalTotal) as netSales,
             SUM(m.hargaBakul * ci.quantity) as hpp
           FROM CompletedOrder co
           JOIN CompletedOrderItem ci ON co.id = ci.orderId
@@ -51,14 +54,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         grossMarginData = rawData.map((item) => ({
           date: `${item.year}-W${String(item.week).padStart(2, "0")}`,
           grossMargin:
-            ((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales)) * 100,
+            Number(item.netSales) > 0
+              ? ((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales)) * 100
+              : 0,
         }));
       } else if (period === "monthly") {
         const rawData: any[] = await prisma.$queryRaw`
           SELECT 
             YEAR(co.createdAt) as year,
             MONTH(co.createdAt) as month,
-            SUM(co.total) as netSales,
+            SUM(co.finalTotal) as netSales,
             SUM(m.hargaBakul * ci.quantity) as hpp
           FROM CompletedOrder co
           JOIN CompletedOrderItem ci ON co.id = ci.orderId
@@ -70,15 +75,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
         grossMarginData = rawData.map((item) => ({
           date: `${item.year}-${String(item.month).padStart(2, "0")}`,
-          grossMargin: Number(
-            ((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales)) * 100
-          ),
+          grossMargin:
+            Number(item.netSales) > 0
+              ? ((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales)) * 100
+              : 0,
         }));
       } else if (period === "yearly") {
         const rawData: any[] = await prisma.$queryRaw`
           SELECT 
             YEAR(co.createdAt) as year,
-            SUM(co.total) as netSales,
+            SUM(co.finalTotal) as netSales,
             SUM(m.hargaBakul * ci.quantity) as hpp
           FROM CompletedOrder co
           JOIN CompletedOrderItem ci ON co.id = ci.orderId
@@ -91,7 +97,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         grossMarginData = rawData.map((item) => ({
           date: `${item.year}`,
           grossMargin:
-            (Number(item.netSales) - Number(item.hpp)) / Number(item.netSales) * 100,
+            Number(item.netSales) > 0
+              ? ((Number(item.netSales) - Number(item.hpp)) / Number(item.netSales)) * 100
+              : 0,
         }));
       } else {
         return res.status(400).json({ error: "Invalid period" });

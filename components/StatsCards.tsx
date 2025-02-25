@@ -5,11 +5,13 @@ import { useState, useEffect } from "react";
 
 // ======= TIPE DATA =======
 interface Metrics {
-  totalSales: number;
+  totalSales: number; // finalTotal
   transactions: number;
-  totalHPP: number;
-  grossProfit: number;
-  netProfit: number;
+  grossProfit: number; // Gross Sales
+  netProfit: number; // Net Sales
+  discounts: number;
+  tax: number;
+  gratuity: number;
 }
 
 interface StatCardProps {
@@ -24,6 +26,8 @@ interface StatCardProps {
 interface OrderItem {
   id: number;
   quantity: number;
+  price: number;
+  discountAmount: number;
   menu: {
     id: number;
     name: string;
@@ -36,18 +40,21 @@ interface Order {
   id: number;
   createdAt: string;
   total: number;
+  discountAmount: number;
+  taxAmount: number;
+  gratuityAmount: number;
+  finalTotal: number;
   orderItems: OrderItem[];
 }
 
-// Untuk modal, tambahkan properti metric agar modal tahu cara merender data
 interface ModalData {
   title: string;
-  metric: "sales" | "transactions" | "gross" | "net";
+  metric: "sales" | "transactions" | "gross" | "net" | "discounts" | "tax" | "gratuity";
   summary?: {
     explanation: string;
     [key: string]: any;
   };
-  data: any[]; // struktur data disesuaikan dengan metric
+  data: any[];
 }
 
 interface SalesDetailsModalProps {
@@ -56,7 +63,7 @@ interface SalesDetailsModalProps {
     explanation: string;
     [key: string]: any;
   };
-  metric: "sales" | "transactions" | "gross" | "net";
+  metric: "sales" | "transactions" | "gross" | "net" | "discounts" | "tax" | "gratuity";
   data: any[];
   onClose: () => void;
 }
@@ -91,94 +98,133 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
   data,
   onClose,
 }) => {
-  // Fungsi untuk merender header tabel sesuai metric
   const renderTableHeader = () => {
-    if (metric === "sales") {
-      return (
-        <tr>
-          <th className="border p-2">Tanggal</th>
-          <th className="border p-2">Total</th>
-          <th className="border p-2">Items</th>
-        </tr>
-      );
-    } else if (metric === "transactions") {
-      return (
-        <tr>
-          <th className="border p-2">Tanggal</th>
-          <th className="border p-2">Total</th>
-          <th className="border p-2">Jumlah Item</th>
-          <th className="border p-2">Menu</th>
-        </tr>
-      );
-    } else if (metric === "gross" || metric === "net") {
-      return (
-        <tr>
-          <th className="border p-2">Order ID</th>
-          <th className="border p-2">Tanggal</th>
-          <th className="border p-2">Menu</th>
-          <th className="border p-2">Harga Jual</th>
-          <th className="border p-2">Jumlah</th>
-          <th className="border p-2">Total Sales</th>
-          <th className="border p-2">HPP</th>
-          <th className="border p-2">Total HPP</th>
-        </tr>
-      );
+    switch (metric) {
+      case "sales":
+        return (
+          <tr>
+            <th className="border p-2">Tanggal</th>
+            <th className="border p-2">Total</th>
+            <th className="border p-2">Items</th>
+          </tr>
+        );
+      case "transactions":
+        return (
+          <tr>
+            <th className="border p-2">Tanggal</th>
+            <th className="border p-2">Total</th>
+            <th className="border p-2">Jumlah Item</th>
+            <th className="border p-2">Menu</th>
+          </tr>
+        );
+      case "gross":
+        return (
+          <tr>
+            <th className="border p-2">Order ID</th>
+            <th className="border p-2">Tanggal</th>
+            <th className="border p-2">Menu</th>
+            <th className="border p-2">Harga Jual</th>
+            <th className="border p-2">Jumlah</th>
+            <th className="border p-2">Total Sales</th>
+            <th className="border p-2">HPP</th>
+            <th className="border p-2">Total HPP</th>
+          </tr>
+        );
+      case "net":
+        return (
+          <tr>
+            <th className="border p-2">Order ID</th>
+            <th className="border p-2">Tanggal</th>
+            <th className="border p-2">Menu</th>
+            <th className="border p-2">Harga Jual</th>
+            <th className="border p-2">Diskon</th>
+            <th className="border p-2">Pajak</th>
+            <th className="border p-2">Gratuity</th>
+            <th className="border p-2">Jumlah</th>
+            <th className="border p-2">Total Net</th>
+          </tr>
+        );
+      case "discounts":
+      case "tax":
+      case "gratuity":
+        return (
+          <tr>
+            <th className="border p-2">Order ID</th>
+            <th className="border p-2">Tanggal</th>
+            <th className="border p-2">Nilai</th>
+          </tr>
+        );
+      default:
+        return null;
     }
   };
 
-  // Fungsi untuk merender baris tabel sesuai metric
   const renderTableRows = () => {
-    if (metric === "sales") {
-      // Data bertipe Order[]
-      return data.map((order: Order) => (
-        <tr key={order.id}>
-          <td className="border p-2">
-            {new Date(order.createdAt).toLocaleDateString()}
-          </td>
-          <td className="border p-2">Rp {Number(order.total).toLocaleString()}</td>
-          <td className="border p-2">
-            {order.orderItems.map((item: OrderItem) => (
-              <div key={item.id}>
-                {item.menu.name} x{item.quantity}
-              </div>
-            ))}
-          </td>
-        </tr>
-      ));
-    } else if (metric === "transactions") {
-      // Data berisi ringkasan transaksi: { id, createdAt, total, itemCount, menus }
-      return data.map(
-        (tx: { id: number; createdAt: string; total: number; itemCount: number; menus: string[] }) => (
+    switch (metric) {
+      case "sales":
+        return data.map((order: Order) => (
+          <tr key={order.id}>
+            <td className="border p-2">{new Date(order.createdAt).toLocaleDateString()}</td>
+            <td className="border p-2">Rp {Number(order.finalTotal).toLocaleString()}</td>
+            <td className="border p-2">
+              {order.orderItems.map((item: OrderItem) => (
+                <div key={item.id}>
+                  {item.menu.name} x{item.quantity}
+                </div>
+              ))}
+            </td>
+          </tr>
+        ));
+      case "transactions":
+        return data.map((tx: { id: number; createdAt: string; total: number; itemCount: number; menus: string[] }) => (
           <tr key={tx.id}>
             <td className="border p-2">{new Date(tx.createdAt).toLocaleDateString()}</td>
             <td className="border p-2">Rp {Number(tx.total).toLocaleString()}</td>
             <td className="border p-2">{tx.itemCount}</td>
             <td className="border p-2">{tx.menus.join(", ")}</td>
           </tr>
-        )
-      );
-    } else if (metric === "gross" || metric === "net") {
-      // Data berisi detail tiap item: { orderId, orderDate, menuName, sellingPrice, quantity, itemTotalSelling, hpp, itemTotalHPP }
-      return data.map((item: any, index: number) => (
-        <tr key={index}>
-          <td className="border p-2">{item.orderId}</td>
-          <td className="border p-2">
-            {new Date(item.orderDate).toLocaleDateString()}
-          </td>
-          <td className="border p-2">{item.menuName}</td>
-          <td className="border p-2">
-            Rp {Number(item.sellingPrice).toLocaleString()}
-          </td>
-          <td className="border p-2">{item.quantity}</td>
-          <td className="border p-2">
-            Rp {Number(item.itemTotalSelling).toLocaleString()}
-          </td>
-          <td className="border p-2">Rp {Number(item.hpp).toLocaleString()}</td>
-          <td className="border p-2">
-            Rp {Number(item.itemTotalHPP).toLocaleString()}
-          </td>
-        </tr>
-      ));
+        ));
+      case "gross":
+        return data.map((item: any) => (
+          <tr key={`${item.orderId}-${item.menuName}`}>
+            <td className="border p-2">{item.orderId}</td>
+            <td className="border p-2">{new Date(item.orderDate).toLocaleDateString()}</td>
+            <td className="border p-2">{item.menuName}</td>
+            <td className="border p-2">Rp {Number(item.sellingPrice).toLocaleString()}</td>
+            <td className="border p-2">{item.quantity}</td>
+            <td className="border p-2">Rp {Number(item.itemTotalSelling).toLocaleString()}</td>
+            <td className="border p-2">Rp {Number(item.hpp).toLocaleString()}</td>
+            <td className="border p-2">Rp {Number(item.itemTotalHPP).toLocaleString()}</td>
+          </tr>
+        ));
+      case "net":
+        return data.map((item: any) => (
+          <tr key={`${item.orderId}-${item.menuName}`}>
+            <td className="border p-2">{item.orderId}</td>
+            <td className="border p-2">{new Date(item.orderDate).toLocaleDateString()}</td>
+            <td className="border p-2">{item.menuName}</td>
+            <td className="border p-2">Rp {Number(item.sellingPrice).toLocaleString()}</td>
+            <td className="border p-2">Rp {Number(item.discount).toLocaleString()}</td>
+            <td className="border p-2">Rp {Number(item.tax).toLocaleString()}</td>
+            <td className="border p-2">Rp {Number(item.gratuity).toLocaleString()}</td>
+            <td className="border p-2">{item.quantity}</td>
+            <td className="border p-2">Rp {Number(item.itemNetProfit).toLocaleString()}</td>
+          </tr>
+        ));
+      case "discounts":
+      case "tax":
+      case "gratuity":
+        return data.map((order: Order) => (
+          <tr key={order.id}>
+            <td className="border p-2">{order.id}</td>
+            <td className="border p-2">{new Date(order.createdAt).toLocaleDateString()}</td>
+            <td className="border p-2">
+              Rp {Number(metric === "discounts" ? order.discountAmount : metric === "tax" ? order.taxAmount : order.gratuityAmount).toLocaleString()}
+            </td>
+          </tr>
+        ));
+      default:
+        return null;
     }
   };
 
@@ -187,26 +233,14 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
       <div className="bg-white p-6 rounded-lg w-11/12 max-h-screen overflow-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-          >
-            &times;
-          </button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
         </div>
-        {/* Tampilkan ringkasan jika ada */}
         {summary && (
           <div className="mb-4 p-4 bg-gray-100 rounded">
-            <p className="mb-2">
-              <strong>Info:</strong> {summary.explanation}
-            </p>
-            {Object.keys(summary)
-              .filter((key) => key !== "explanation")
-              .map((key) => (
-                <p key={key}>
-                  <strong>{key}:</strong> {summary[key]}
-                </p>
-              ))}
+            <p className="mb-2"><strong>Info:</strong> {summary.explanation}</p>
+            {Object.keys(summary).filter(key => key !== "explanation").map((key) => (
+              <p key={key}><strong>{key}:</strong> {summary[key]}</p>
+            ))}
           </div>
         )}
         <table className="w-full">
@@ -219,10 +253,7 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
 };
 
 // ======= HELPER: HITUNG TANGGAL SEBELUMNYA =======
-function getPreviousDate(
-  dateString: string,
-  period: "daily" | "weekly" | "monthly" | "yearly"
-): string {
+function getPreviousDate(dateString: string, period: string): string {
   const date = new Date(dateString);
   switch (period) {
     case "daily":
@@ -240,34 +271,22 @@ function getPreviousDate(
     default:
       break;
   }
-  return date.toISOString();
+  return date.toISOString().split("T")[0];
 }
 
 // ======= COMPONENT UTAMA: STATS CARDS =======
 export default function StatsCards() {
-  // State pilihan periode dan tanggal
-  const [selectedPeriod, setSelectedPeriod] = useState<
-    "daily" | "weekly" | "monthly" | "yearly"
-  >("daily");
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
-
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [currentMetrics, setCurrentMetrics] = useState<Metrics | null>(null);
   const [previousMetrics, setPreviousMetrics] = useState<Metrics | null>(null);
-
-  // State modal detail
   const [modalData, setModalData] = useState<ModalData | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // ======= FETCH METRICS PERIODE SAAT INI =======
   useEffect(() => {
     async function fetchCurrentMetrics() {
       try {
-        const res = await fetch(
-          `/api/sales-metrics?period=${selectedPeriod}&date=${selectedDate}`
-        );
+        const res = await fetch(`/api/sales-metrics?period=${selectedPeriod}&date=${selectedDate}`);
         const data = await res.json();
         setCurrentMetrics(data);
       } catch (error) {
@@ -277,14 +296,11 @@ export default function StatsCards() {
     fetchCurrentMetrics();
   }, [selectedPeriod, selectedDate]);
 
-  // ======= FETCH METRICS PERIODE SEBELUMNYA =======
   useEffect(() => {
     async function fetchPreviousMetrics() {
       try {
         const previousDate = getPreviousDate(selectedDate, selectedPeriod);
-        const res = await fetch(
-          `/api/sales-metrics?period=${selectedPeriod}&date=${previousDate}`
-        );
+        const res = await fetch(`/api/sales-metrics?period=${selectedPeriod}&date=${previousDate}`);
         const data = await res.json();
         setPreviousMetrics(data);
       } catch (error) {
@@ -294,41 +310,30 @@ export default function StatsCards() {
     fetchPreviousMetrics();
   }, [selectedPeriod, selectedDate]);
 
-  // Fungsi hitung persentase perubahan
   const getPercentageChange = (current: number, previous: number) => {
     if (previous === 0) return current > 0 ? "100.00%" : "0.00%";
     const change = ((current - previous) / previous) * 100;
     return `${change.toFixed(2)}%`;
   };
 
-  // Handler saat klik salah satu stat card
   const handleCardClick = async (type: string) => {
     try {
-      const res = await fetch(
-        `/api/sales-details?metric=${type}&period=${selectedPeriod}&date=${selectedDate}`
-      );
-      const response = await res.json(); // Response: { summary, details }
+      const res = await fetch(`/api/sales-details?metric=${type}&period=${selectedPeriod}&date=${selectedDate}`);
+      const response = await res.json();
       let title = "";
       switch (type) {
-        case "sales":
-          title = "Detail Total Penjualan";
-          break;
-        case "transactions":
-          title = "Detail Transaksi";
-          break;
-        case "gross":
-          title = "Detail Laba Kotor";
-          break;
-        case "net":
-          title = "Detail Laba Bersih";
-          break;
-        default:
-          title = "Detail Penjualan";
+        case "sales": title = "Detail Total Penjualan"; break;
+        case "transactions": title = "Detail Transaksi"; break;
+        case "gross": title = "Detail Laba Kotor"; break;
+        case "net": title = "Detail Laba Bersih"; break;
+        case "discounts": title = "Detail Diskon"; break;
+        case "tax": title = "Detail Pajak"; break;
+        case "gratuity": title = "Detail Gratuity"; break;
+        default: title = "Detail Penjualan";
       }
-      // Set modalData dengan properti metric agar modal tahu cara render data
       setModalData({
         title,
-        metric: type as "sales" | "transactions" | "gross" | "net",
+        metric: type as "sales" | "transactions" | "gross" | "net" | "discounts" | "tax" | "gratuity",
         summary: response.summary,
         data: response.details,
       });
@@ -340,7 +345,6 @@ export default function StatsCards() {
 
   return (
     <div>
-      {/* Pilihan periode dan tanggal */}
       <div className="mb-6 flex flex-wrap gap-4 items-center">
         <div>
           <label htmlFor="period" className="mr-2 text-[#212121] font-medium">
@@ -349,17 +353,17 @@ export default function StatsCards() {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) =>
-              setSelectedPeriod(
-                e.target.value as "daily" | "weekly" | "monthly" | "yearly"
-              )
-            }
+            onChange={(e) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
-            <option value="daily">Harian</option>
-            <option value="weekly">Mingguan</option>
-            <option value="monthly">Bulanan</option>
-            <option value="yearly">Tahunan</option>
+            <option value="daily">Hari Ini</option>
+            <option value="daily-prev">Hari Sebelumnya</option>
+            <option value="weekly">Minggu Ini</option>
+            <option value="weekly-prev">Minggu Lalu</option>
+            <option value="monthly">Bulan Ini</option>
+            <option value="monthly-prev">Bulan Lalu</option>
+            <option value="yearly">Tahun Ini</option>
+            <option value="yearly-prev">Tahun Lalu</option>
           </select>
         </div>
         <div className="flex gap-2 items-center">
@@ -376,17 +380,13 @@ export default function StatsCards() {
         </div>
       </div>
 
-      {/* Menampilkan stat cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {currentMetrics && previousMetrics && (
           <>
             <StatCard
               title="Total Penjualan"
               value={`Rp ${currentMetrics.totalSales.toLocaleString()}`}
-              percentage={getPercentageChange(
-                currentMetrics.totalSales,
-                previousMetrics.totalSales
-              )}
+              percentage={getPercentageChange(currentMetrics.totalSales, previousMetrics.totalSales)}
               icon="💰"
               color="text-green-500"
               onClick={() => handleCardClick("sales")}
@@ -394,10 +394,7 @@ export default function StatsCards() {
             <StatCard
               title="Transaksi"
               value={currentMetrics.transactions.toLocaleString()}
-              percentage={getPercentageChange(
-                currentMetrics.transactions,
-                previousMetrics.transactions
-              )}
+              percentage={getPercentageChange(currentMetrics.transactions, previousMetrics.transactions)}
               icon="📦"
               color="text-blue-500"
               onClick={() => handleCardClick("transactions")}
@@ -405,10 +402,7 @@ export default function StatsCards() {
             <StatCard
               title="Laba Kotor"
               value={`Rp ${currentMetrics.grossProfit.toLocaleString()}`}
-              percentage={getPercentageChange(
-                currentMetrics.grossProfit,
-                previousMetrics.grossProfit
-              )}
+              percentage={getPercentageChange(currentMetrics.grossProfit, previousMetrics.grossProfit)}
               icon="📈"
               color="text-purple-500"
               onClick={() => handleCardClick("gross")}
@@ -416,19 +410,39 @@ export default function StatsCards() {
             <StatCard
               title="Laba Bersih"
               value={`Rp ${currentMetrics.netProfit.toLocaleString()}`}
-              percentage={getPercentageChange(
-                currentMetrics.netProfit,
-                previousMetrics.netProfit
-              )}
+              percentage={getPercentageChange(currentMetrics.netProfit, previousMetrics.netProfit)}
               icon="💵"
               color="text-pink-500"
               onClick={() => handleCardClick("net")}
+            />
+            <StatCard
+              title="Diskon"
+              value={`Rp ${currentMetrics.discounts.toLocaleString()}`}
+              percentage={getPercentageChange(currentMetrics.discounts, previousMetrics.discounts)}
+              icon="🎁"
+              color="text-orange-500"
+              onClick={() => handleCardClick("discounts")}
+            />
+            <StatCard
+              title="Pajak"
+              value={`Rp ${currentMetrics.tax.toLocaleString()}`}
+              percentage={getPercentageChange(currentMetrics.tax, previousMetrics.tax)}
+              icon="🏦"
+              color="text-red-500"
+              onClick={() => handleCardClick("tax")}
+            />
+            <StatCard
+              title="Gratuity"
+              value={`Rp ${currentMetrics.gratuity.toLocaleString()}`}
+              percentage={getPercentageChange(currentMetrics.gratuity, previousMetrics.gratuity)}
+              icon="💳"
+              color="text-teal-500"
+              onClick={() => handleCardClick("gratuity")}
             />
           </>
         )}
       </div>
 
-      {/* Modal detail */}
       {modalVisible && modalData && (
         <SalesDetailsModal
           title={modalData.title}

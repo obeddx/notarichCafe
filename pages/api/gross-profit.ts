@@ -40,7 +40,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
   try {
-    // Gunakan custom range jika tersedia, atau period & date
     let startDate: Date, endDate: Date;
     if (req.query.startDate) {
       startDate = new Date(req.query.startDate as string);
@@ -57,7 +56,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
-    // Ambil order dari CompletedOrder beserta orderItems dan relasinya ke Menu
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
@@ -77,21 +75,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Hitung total penjualan (sebagai gross penjualan awal)
-    let totalSelling = 0;
-    // Hitung total HPP (COGS) berdasarkan hargaBakul dan quantity
-    let totalHPP = 0;
-    const itemDetails = [];
+    // Hitung Gross Sales: Total harga normal menu - HPP (tanpa diskon menu)
+    const grossSales = orders.reduce((acc, order) => {
+      return (
+        acc +
+        order.orderItems.reduce((itemAcc, item) => {
+          const normalPrice = Number(item.menu.price) * Number(item.quantity);
+          const hpp = Number(item.menu.hargaBakul) * Number(item.quantity);
+          return itemAcc + (normalPrice - hpp);
+        }, 0)
+      );
+    }, 0);
 
+    // Hitung Discounts: Total semua diskon (scope MENU dan TOTAL)
+    const discounts = orders.reduce((acc, order) => {
+      return acc + Number(order.discountAmount || 0);
+    }, 0);
+
+    // Refunds tetap 0
+    const refunds = 0;
+
+    // Hitung Net Sales: Gross Sales - Discounts - Refunds
+    const netSales = grossSales - discounts - refunds;
+
+    // Hitung COGS: Total HPP (hargaBakul * quantity)
+    const cogs = orders.reduce((acc, order) => {
+      return (
+        acc +
+        order.orderItems.reduce((itemAcc, item) => {
+          return itemAcc + Number(item.menu.hargaBakul) * Number(item.quantity);
+        }, 0)
+      );
+    }, 0);
+
+    // Siapkan detail item untuk referensi (meskipun tidak ditampilkan di tabel utama)
+    const itemDetails = [];
     for (const order of orders) {
       for (const item of order.orderItems) {
-        const sellingPrice = Number(item.menu.price) || 0;
-        const hpp = Number(item.menu.hargaBakul) || 0;
+        const sellingPrice = Number(item.menu.price);
+        const hpp = Number(item.menu.hargaBakul);
         const quantity = item.quantity;
         const itemTotalSelling = sellingPrice * quantity;
         const itemTotalHPP = hpp * quantity;
-        totalSelling += itemTotalSelling;
-        totalHPP += itemTotalHPP;
         itemDetails.push({
           orderId: order.id,
           orderDate: order.createdAt,
@@ -105,24 +130,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Untuk saat ini, Discounts dan Refunds = 0, sehingga:
-    const netSales = totalSelling; // Net Sales = Gross Sales (sementara)
-    // Gross Profit (yang ingin kita tampilkan sebagai Gross Sales) = Net Sales - COGS
-    const grossProfit = netSales - totalHPP;
-
-    // Karena nantinya Net Sales akan dihitung sebagai Gross Profit - Discounts - Refunds,
-    // untuk sekarang kita asumsikan Net Sales sama dengan Gross Profit (karena Discounts dan Refunds 0)
-    const netSalesFinal = grossProfit;
-
-    // Hitung persentase COGS terhadap Net Sales
-    const cogsPercentage = netSalesFinal > 0 ? ((totalHPP / netSalesFinal) * 100).toFixed(2) : "0.00";
-
-    // Buat summary dengan menggantikan Gross Sales dengan nilai Gross Profit
     const summary = {
-      explanation: "Gross Sales dihitung sebagai Gross Profit, yaitu Net Sales (total penjualan) dikurangi total HPP (COGS).",
-      grossSales: grossProfit, // Ini adalah nilai Gross Profit yang akan ditampilkan sebagai Gross Sales
-      cogs: totalHPP,
-      netSales: netSalesFinal,
+      explanation: "Gross Sales dihitung sebagai total penjualan normal dikurangi HPP (COGS). Net Sales dihitung sebagai Gross Sales dikurangi Discounts dan Refunds.",
+      grossSales,
+      discounts,
+      refunds,
+      netSales,
+      cogs,
     };
 
     return res.status(200).json({
@@ -131,10 +145,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ordersCount: orders.length,
       startDate,
       endDate,
-      netSales,
-      cogs: totalHPP,
-      grossProfit, // Meski tidak akan ditampilkan, kita kirimkan juga untuk referensi
-      cogsPercentage,
     });
   } catch (error) {
     console.error("Error calculating gross profit:", error);

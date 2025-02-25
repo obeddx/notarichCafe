@@ -50,17 +50,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       startDate = new Date(year, 0, 1);
       endDate = new Date(year + 1, 0, 1);
     } else {
-      // fallback daily
       startDate = new Date(date as string);
       endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     }
 
-    // Summary: total penjualan dan jumlah order
     const summaryRaw: any[] = await prisma.$queryRaw`
       SELECT 
         COUNT(*) as totalOrders,
-        SUM(total) as totalSales
+        SUM(finalTotal) as totalSales
       FROM CompletedOrder
       WHERE createdAt >= ${startDate} AND createdAt < ${endDate}
     `;
@@ -71,7 +69,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       : { totalSales: 0, totalOrders: 0 };
 
-    // Eager loading dengan select agar hanya field yang diperlukan diambil
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
@@ -82,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       select: {
         id: true,
         createdAt: true,
-        total: true,
+        finalTotal: true,
         orderItems: {
           select: {
             quantity: true,
@@ -99,17 +96,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       orderBy: { createdAt: "desc" },
     });
 
-    // Format orders sesuai kebutuhan tampilan
     const formattedOrders = orders.map((o) => ({
       orderId: o.id,
       createdAt: o.createdAt,
-      total: o.total,
+      total: o.finalTotal,
       items: o.orderItems.map((oi) => ({
         menuName: oi.menu.name,
         quantity: oi.quantity,
         price: oi.menu.price,
-        hpp: oi.menu.hargaBakul,
-        totalSales: oi.menu.price * oi.quantity,
       })),
     }));
 

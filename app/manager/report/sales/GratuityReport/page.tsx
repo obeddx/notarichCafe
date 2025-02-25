@@ -1,4 +1,4 @@
-// pages/manager/report/sales/gross-profit/page.tsx
+// pages/manager/report/sales/gratuity-report/GratuityReport.tsx
 "use client";
 import { useState, useEffect, ChangeEvent } from "react";
 import SalesLayout from "@/components/SalesLayout";
@@ -25,11 +25,11 @@ const getPreviousDate = (dateStr: string, period: string): string => {
   return date.toISOString().split("T")[0];
 };
 
-const GrossProfit = () => {
+const GratuityReport = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   const fetchData = async () => {
@@ -37,10 +37,8 @@ const GrossProfit = () => {
     try {
       let url = "";
       if (selectedPeriod === "custom") {
-        url = `/api/gross-profit?startDate=${startDate}`;
-        if (endDate) {
-          url += `&endDate=${endDate}`;
-        }
+        url = `/api/gratuity-report?startDate=${startDate}`;
+        if (endDate) url += `&endDate=${endDate}`;
       } else {
         let periodQuery = selectedPeriod;
         let queryDate = startDate;
@@ -49,17 +47,16 @@ const GrossProfit = () => {
           queryDate = getPreviousDate(startDate, basePeriod);
           periodQuery = basePeriod;
         }
-        url = `/api/gross-profit?period=${periodQuery}&date=${queryDate}`;
+        url = `/api/gratuity-report?period=${periodQuery}&date=${queryDate}`;
       }
+      
       const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error("Gagal mengambil data gross profit");
-      }
+      if (!res.ok) throw new Error("Gagal mengambil data gratuity report");
       const result = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
-      setData(null);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -69,37 +66,39 @@ const GrossProfit = () => {
     fetchData();
   }, [selectedPeriod, startDate, endDate]);
 
-  const formatCurrency = (num: number | undefined) => "Rp " + (num ?? 0).toLocaleString("id-ID");
+  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
 
-  const grossSales = data?.summary?.grossSales ?? 0;
-  const discounts = data?.summary?.discounts ?? 0;
-  const refunds = data?.summary?.refunds ?? 0;
-  const netSales = data?.summary?.netSales ?? 0;
-  const cogs = data?.summary?.cogs ?? 0;
-  const cogsPercentage = netSales > 0 ? ((cogs / netSales) * 100).toFixed(2) : "0.00";
+  // Hitung total
+  const totalGratuityCollected = data.reduce((acc, item) => acc + item.gratuityCollected, 0);
 
-  const tableData = data
-    ? [{
-        grossSales: data.summary.grossSales,
-        discounts: data.summary.discounts,
-        refunds: data.summary.refunds,
-        netSales: data.summary.netSales,
-        cogs: data.summary.cogs,
-      }]
-    : [];
-  const columns = [
-    { header: "Gross Sales", key: "grossSales" },
-    { header: "Discounts", key: "discounts" },
-    { header: "Refunds", key: "refunds" },
-    { header: "Net Sales", key: "netSales" },
-    { header: "COGS", key: "cogs" },
+  // Data untuk ekspor
+  const exportData = data.map(item => ({
+    "Name": item.name,
+    "Rate": item.rate,
+    "Gratuity Collected": item.gratuityCollected,
+  }));
+
+  exportData.push({
+    "Name": "Total",
+    "Rate": "",
+    "Gratuity Collected": totalGratuityCollected,
+  });
+
+  const exportColumns = [
+    { header: "Name", key: "Name" },
+    { header: "Rate", key: "Rate" },
+    { header: "Gratuity Collected", key: "Gratuity Collected" },
   ];
 
   return (
     <div className="w-full">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Gross Profit</h1>
-        <ExportButton data={tableData} columns={columns} fileName="GrossProfit_Report" />
+        <h1 className="text-2xl font-bold">Gratuity Report</h1>
+        <ExportButton
+          data={exportData}
+          columns={exportColumns}
+          fileName={`Gratuity-report-${selectedPeriod}-${startDate}`}
+        />
       </div>
 
       <div className="mb-6 flex flex-wrap gap-4 items-center">
@@ -158,43 +157,31 @@ const GrossProfit = () => {
         </button>
       </div>
 
-      {/* Kartu Informasi COGS */}
-      <div className="mb-6 p-4 bg-gradient-to-r from-[#FFFAF0] to-[#FFE4C4] rounded-lg shadow-md border-l-4 border-[#FF8A00]">
-        <h3 className="text-lg font-semibold text-[#212121] mb-2">Apa itu COGS?</h3>
-        <p className="text-[#212121] text-sm">
-          <strong>Cost of Goods Sold (COGS)</strong> adalah total biaya langsung untuk memproduksi barang yang dijual, dalam hal ini dihitung dari <strong>Harga Bakul (HPP)</strong> pada menu. COGS mencerminkan biaya bahan baku yang digunakan untuk setiap item yang terjual, memberikan gambaran efisiensi operasional dalam menghasilkan pendapatan.
-        </p>
-      </div>
-
-      {data ? (
-        <div className="bg-white shadow-lg rounded-lg p-6">
-          <div className="flex justify-between mb-2">
-            <span>Gross Sales</span>
-            <span>{formatCurrency(grossSales)}</span>
-          </div>
-          <div className="flex justify-between mb-2">
-            <span>Discounts</span>
-            <span>{formatCurrency(discounts)}</span>
-          </div>
-          <div className="flex justify-between mb-2">
-            <span>Refunds</span>
-            <span>{formatCurrency(refunds)}</span>
-          </div>
-          <hr className="my-2" />
-          <div className="flex justify-between font-bold mb-2">
-            <span>Net Sales</span>
-            <span>
-              {formatCurrency(netSales)}{" "}
-              <span className="text-green-500">(100%)</span>
-            </span>
-          </div>
-          <div className="flex justify-between mb-2">
-            <span>Cost of Goods Sold (COGS)</span>
-            <span>
-              {formatCurrency(cogs)}{" "}
-              <span className="text-red-500">({cogsPercentage}%)</span>
-            </span>
-          </div>
+      {data.length > 0 ? (
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Rate</th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Gratuity Collected</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {data.map((item, index) => (
+                <tr key={index}>
+                  <td className="px-6 py-4 text-sm text-gray-900">{item.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{item.rate}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.gratuityCollected)}</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-50 font-semibold">
+                <td className="px-6 py-4 text-sm text-gray-900">Total</td>
+                <td className="px-6 py-4 text-sm text-gray-900"></td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalGratuityCollected)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       ) : (
         <p className="text-center text-gray-600">Tidak ada data.</p>
@@ -203,10 +190,10 @@ const GrossProfit = () => {
   );
 };
 
-export default function GrossProfitPage() {
+export default function GratuityReportPage() {
   return (
     <SalesLayout>
-      <GrossProfit />
+      <GratuityReport />
     </SalesLayout>
   );
 }

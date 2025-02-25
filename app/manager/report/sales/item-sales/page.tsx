@@ -27,18 +27,10 @@ const getPreviousDate = (dateStr: string, period: string): string => {
 
 const CategorySales = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
-  const [startDate, setStartDate] = useState<string>(() =>
-    new Date().toISOString().split("T")[0]
-  );
+  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState<string>("");
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-    const [summary, setSummary] = useState<{
-    grossSales: number;
-    cogs: number;
-    netSales: number;
-  } | null>(null);
-
 
   const fetchData = async () => {
     setLoading(true);
@@ -61,7 +53,7 @@ const CategorySales = () => {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data");
       const result = await res.json();
-      setData(Array.isArray(result) ? result : []);
+      setData(result);
     } catch (error) {
       console.error(error);
       setData([]);
@@ -74,27 +66,31 @@ const CategorySales = () => {
     fetchData();
   }, [selectedPeriod, startDate, endDate]);
 
-  const formatCurrency = (num: number) =>
-    "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
 
   // Hitung total
   const totalSold = data.reduce((acc, item) => acc + item.quantity, 0);
-  const totalCollected = data.reduce((acc, item) => acc + item.total, 0);
+  const totalCollected = data.reduce((acc, item) => acc + item.totalCollected, 0);
+  const totalHPP = data.reduce((acc, item) => acc + item.hpp, 0);
+  const totalDiscount = data.reduce((acc, item) => acc + item.discount, 0);
 
   // Data untuk ekspor
   const exportData = data.map(item => ({
     "Nama Menu": item.menuName,
     "Category": item.category,
     "Item Sold": item.quantity,
-    "Total Collected": item.total,
+    "Total Collected": item.totalCollected,
+    "HPP": item.hpp,
+    "Discount": item.discount,
   }));
 
-  // Tambahkan total ke data ekspor
   exportData.push({
     "Nama Menu": "Total",
     "Category": "",
     "Item Sold": totalSold,
     "Total Collected": totalCollected,
+    "HPP": totalHPP,
+    "Discount": totalDiscount,
   });
 
   const exportColumns = [
@@ -102,6 +98,8 @@ const CategorySales = () => {
     { header: "Category", key: "Category" },
     { header: "Item Sold", key: "Item Sold" },
     { header: "Total Collected", key: "Total Collected" },
+    { header: "HPP", key: "HPP" },
+    { header: "Discount", key: "Discount" },
   ];
 
   return (
@@ -145,9 +143,7 @@ const CategorySales = () => {
             id="startDate"
             type="date"
             value={startDate}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setStartDate(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           />
         </div>
@@ -160,9 +156,7 @@ const CategorySales = () => {
               id="endDate"
               type="date"
               value={endDate}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setEndDate(e.target.value)
-              }
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
               className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
             />
           </div>
@@ -180,46 +174,32 @@ const CategorySales = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Nama Menu
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
-                  Item Sold
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
-                  Total Collected
-                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Nama Menu</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Category</th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Item Sold</th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Total Collected</th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">HPP</th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Discount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {data.map((item, index) => (
                 <tr key={index}>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {item.menuName}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {item.category}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                    {item.quantity}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                    {formatCurrency(item.total)}
-                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{item.menuName}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{item.category}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{item.quantity}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.totalCollected)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.hpp)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.discount)}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold">
                 <td className="px-6 py-4 text-sm text-gray-900">Total</td>
                 <td className="px-6 py-4 text-sm text-gray-900"></td>
-                <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                  {totalSold}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                  {formatCurrency(totalCollected)}
-                </td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{totalSold}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalCollected)}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalHPP)}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalDiscount)}</td>
               </tr>
             </tbody>
           </table>

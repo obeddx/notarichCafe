@@ -1,3 +1,4 @@
+// pages/api/sales-metrics.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
@@ -9,12 +10,13 @@ function getStartAndEndDates(period: string, dateString: string) {
 
   switch (period) {
     case "daily":
+    case "daily-prev":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 1);
       break;
     case "weekly":
-      // Asumsikan minggu dimulai dari Senin
+    case "weekly-prev":
       const day = date.getDay();
       const diff = date.getDate() - (day === 0 ? 6 : day - 1);
       startDate = new Date(date.setDate(diff));
@@ -22,17 +24,18 @@ function getStartAndEndDates(period: string, dateString: string) {
       endDate.setDate(startDate.getDate() + 7);
       break;
     case "monthly":
+    case "monthly-prev":
       startDate = new Date(date.getFullYear(), date.getMonth(), 1);
       endDate = new Date(date.getFullYear(), date.getMonth() + 1, 1);
       break;
     case "yearly":
+    case "yearly-prev":
       startDate = new Date(date.getFullYear(), 0, 1);
       endDate = new Date(date.getFullYear() + 1, 0, 1);
       break;
     default:
       throw new Error("Invalid period");
   }
-
   return { startDate, endDate };
 }
 
@@ -40,48 +43,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "GET") {
     try {
       const { period = "daily", date = new Date().toISOString() } = req.query;
-
       const { startDate, endDate } = getStartAndEndDates(period as string, date as string);
 
-      const result = await prisma.$queryRaw<
-        {
-          totalSales: number | null;
-          transactions: number | null;
-          totalHPP: number | null;
-        }[]
-      >`
-        SELECT 
-          SUM(total) as totalSales,
-          COUNT(id) as transactions,
-          SUM(hpp) as totalHPP
-        FROM (
-          SELECT 
-            co.id,
-            co.total,
-            SUM(m.hargaBakul * ci.quantity) as hpp
-          FROM CompletedOrder co
-          JOIN CompletedOrderItem ci ON co.id = ci.orderId
-          JOIN Menu m ON ci.menuId = m.id
-          WHERE co.createdAt >= ${startDate} AND co.createdAt < ${endDate}
-          GROUP BY co.id
-        ) as subquery
-      `;
+      const orders = await prisma.completedOrder.findMany({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+        include: {
+          orderItems: {
+            include: {
+              menu: true,
+            },
+          },
+        },
+      });
 
-      // Jika tidak ada data, set default 0
-      const metricsRaw = result[0] || { totalSales: 0, transactions: 0, totalHPP: 0 };
+      // Total Sales: menggunakan finalTotal
+      const totalSales = orders.reduce((acc, order) => acc + Number(order.finalTotal), 0);
 
-      const metrics = {
-        totalSales: Number(metricsRaw.totalSales) || 0,
-        transactions: Number(metricsRaw.transactions) || 0,
-        totalHPP: Number(metricsRaw.totalHPP) || 0,
-      };
+      // Transactions: jumlah order
+      const transactions = orders.length;
 
-      const grossProfit = metrics.totalSales - metrics.totalHPP;
+      // Gross Profit (Gross Sales): (Menu.price - Menu.hargaBakul) * quantity
+      const grossProfit = orders.reduce((acc, order) => {
+        return (
+          acc +
+          order.orderItems.reduce((itemAcc, item) => {
+            const sellingPrice = Number(item.menu.price);
+            const hpp = Number(item.menu.hargaBakul);
+            return itemAcc + (sellingPrice - hpp) * item.quantity;
+          }, 0)
+        );
+      }, 0);
+
+      // Discounts: total discountAmount
+      const discounts = orders.reduce((acc, order) => acc + Number(order.discountAmount || 0), 0);
+
+      // Tax: total taxAmount
+      const tax = orders.reduce((acc, order) => acc + Number(order.taxAmount || 0), 0);
+
+      // Gratuity: total gratuityAmount
+      const gratuity = orders.reduce((acc, order) => acc + Number(order.gratuityAmount || 0), 0);
+
+      // Net Profit (Net Sales): Gross Sales - Discounts - Refunds (Refunds = 0)
+      const netProfit = grossProfit - discounts;
 
       res.status(200).json({
-        ...metrics,
+        totalSales,
+        transactions,
         grossProfit,
-        netProfit: grossProfit, // Asumsi tidak ada biaya lain
+        netProfit,
+        discounts,
+        tax,
+        gratuity,
       });
     } catch (error) {
       console.error("Error fetching sales metrics:", error);

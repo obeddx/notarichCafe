@@ -4,7 +4,6 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// Fungsi helper untuk menentukan start dan end date berdasarkan periode
 function getStartAndEndDates(period: string, dateString: string): { startDate: Date; endDate: Date } {
   const date = new Date(dateString);
   let startDate: Date, endDate: Date;
@@ -15,7 +14,6 @@ function getStartAndEndDates(period: string, dateString: string): { startDate: D
       endDate.setDate(startDate.getDate() + 1);
       break;
     case "weekly": {
-      // Misal minggu dimulai dari Senin
       const day = date.getDay();
       const diff = date.getDate() - (day === 0 ? 6 : day - 1);
       startDate = new Date(date.getFullYear(), date.getMonth(), diff);
@@ -43,26 +41,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   try {
     let startDate: Date, endDate: Date;
-    // Jika ada query startDate (custom range)
     if (req.query.startDate) {
       startDate = new Date(req.query.startDate as string);
       if (req.query.endDate) {
         endDate = new Date(req.query.endDate as string);
-        // Jika ingin menyertakan tanggal endDate secara penuh, bisa tambahkan 1 hari.
         endDate.setDate(endDate.getDate() + 1);
       } else {
-        // Jika hanya A saja, asumsikan 1 hari
         endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 1);
       }
     } else {
-      // Gunakan parameter period & date (default: daily)
       const period = (req.query.period as string) || "daily";
       const dateString = (req.query.date as string) || new Date().toISOString();
       ({ startDate, endDate } = getStartAndEndDates(period, dateString));
     }
 
-    // Ambil order dari tabel CompletedOrder sesuai rentang tanggal
+    // Ambil order dari tabel CompletedOrder beserta orderItems dan menu
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
@@ -70,20 +64,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lt: endDate,
         },
       },
+      include: {
+        orderItems: {
+          include: {
+            menu: true,
+          },
+        },
+      },
     });
 
-    // Perhitungan
-    const grossSales = orders.reduce((acc, order) => acc + Number(order.total), 0);
-    const discounts = 0; // hardcode
-    const refunds = 0;   // hardcode
-    const netSales = grossSales - discounts - refunds;
-    const gratuity = 0;  // belum ada
-    const tax = 0;       // belum ada
+    // Hitung Gross Sales: total harga normal menu - HPP (tanpa diskon menu)
+    const grossSales = orders.reduce((acc, order) => {
+      return (
+        acc +
+        order.orderItems.reduce((itemAcc, item) => {
+          const normalPrice = Number(item.menu.price) * Number(item.quantity);
+          const hpp = Number(item.menu.hargaBakul) * Number(item.quantity);
+          return itemAcc + (normalPrice - hpp);
+        }, 0)
+      );
+    }, 0);
 
-    // Hitung rounding sehingga 2 digit terakhir menjadi 0
+    // Hitung Discounts: total semua diskon (scope MENU dan TOTAL)
+    const discounts = orders.reduce((acc, order) => {
+      return acc + Number(order.discountAmount || 0);
+    }, 0);
+
+    // Refunds tetap 0 karena belum ada
+    const refunds = 0;
+
+    // Hitung Net Sales: Gross Sales - Discounts - Refunds
+    const netSales = grossSales - discounts - refunds;
+
+    // Hitung Tax dan Gratuity dari CompletedOrder
+    const tax = orders.reduce((acc, order) => acc + Number(order.taxAmount || 0), 0);
+    const gratuity = orders.reduce((acc, order) => acc + Number(order.gratuityAmount || 0), 0);
+
+    // Hitung Rounding: membulatkan dua digit terakhir ke 0
     const remainder = netSales % 100;
     const rounding = remainder === 0 ? 0 : 100 - remainder;
-    const totalCompleted = netSales + rounding;
+
+    // Hitung Total Collected: Net Sales + Gratuity + Tax + Rounding
+    const totalCollected = netSales + gratuity + tax + rounding;
 
     return res.status(200).json({
       grossSales,
@@ -93,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       gratuity,
       tax,
       rounding,
-      totalCompleted,
+      totalCollected,
       ordersCount: orders.length,
       startDate,
       endDate,

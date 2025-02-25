@@ -1,3 +1,4 @@
+// pages/manager/report/sales/transaction/SalesTransactionChart.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {
@@ -18,12 +19,10 @@ export default function SalesTransactionChart() {
   const [salesData, setSalesData] = useState<
     { date: string; salesPerTransaction: number }[]
   >([]);
-  // Tambahkan "yearly" ke tipe period
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // State untuk detail sales per transaction
   const [selectedDetail, setSelectedDetail] = useState<{
     date: string;
     summary: {
@@ -57,14 +56,10 @@ export default function SalesTransactionChart() {
     fetchSalesData();
   }, [period, startDate, endDate]);
 
-  // Pastikan fungsi selalu mengembalikan string
   const formatDate = (dateString: string): string => {
     if (period === "daily") {
       const date = new Date(dateString);
-      return date.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "short",
-      });
+      return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
     } else if (period === "weekly") {
       const weekNumber = dateString.split("-W")[1];
       return `Minggu ke-${weekNumber}`;
@@ -73,13 +68,11 @@ export default function SalesTransactionChart() {
       const date = new Date(Number(year), Number(month) - 1);
       return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
     } else if (period === "yearly") {
-      // Untuk periode tahunan, kita asumsikan dateString berupa "YYYY"
       return dateString;
     }
     return "";
   };
 
-  // Handler untuk klik pada bar grafik
   const handleBarClick = async (data: any) => {
     const clickedDate = data.date;
     setLoadingDetail(true);
@@ -230,7 +223,6 @@ export default function SalesTransactionChart() {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Modal Detail */}
       {selectedDetail && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg w-2/3 max-h-screen overflow-auto">
@@ -245,14 +237,13 @@ export default function SalesTransactionChart() {
                 onClick={() => setSelectedDetail(null)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
               >
-                &times;
+                ×
               </button>
             </div>
             {loadingDetail ? (
               <p>Loading...</p>
             ) : (
               <div className="mt-4">
-                {/* Ringkasan Summary */}
                 <div className="mb-4 p-4 bg-gray-100 rounded">
                   <p>
                     <strong>Net Sales:</strong> Rp{" "}
@@ -267,7 +258,6 @@ export default function SalesTransactionChart() {
                     {selectedDetail.summary.salesPerTransaction.toFixed(2)}
                   </p>
                 </div>
-                {/* Tabel Detail Menu */}
                 <h3 className="text-lg font-semibold mb-2">Detail Menu</h3>
                 {selectedDetail.details.length > 0 ? (
                   <table className="w-full text-left">

@@ -2,9 +2,8 @@
 "use client";
 import { useState, useEffect, ChangeEvent } from "react";
 import SalesLayout from "@/components/SalesLayout";
-import { ExportButton } from "@/components/ExportButton"; // Import komponen ExportButton
+import { ExportButton } from "@/components/ExportButton";
 
-// Helper: menghitung tanggal sebelumnya sesuai periode
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
   switch (period) {
@@ -31,7 +30,7 @@ const SalesSummary = () => {
   const [startDate, setStartDate] = useState<string>(() =>
     new Date().toISOString().split("T")[0]
   );
-  const [endDate, setEndDate] = useState<string>(""); // hanya untuk opsi custom
+  const [endDate, setEndDate] = useState<string>("");
   const [salesSummary, setSalesSummary] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -75,7 +74,6 @@ const SalesSummary = () => {
   const formatCurrency = (num: number) =>
     "Rp " + num.toLocaleString("id-ID");
 
-  // Data untuk ekspor
   const exportData = salesSummary
     ? [
         {
@@ -84,29 +82,28 @@ const SalesSummary = () => {
           refunds: salesSummary.refunds,
           netSales: salesSummary.netSales,
           gratuity: salesSummary.gratuity,
+          tax: salesSummary.tax,
           rounding: salesSummary.rounding,
-          totalCompleted: salesSummary.totalCompleted,
+          totalCollected: salesSummary.totalCollected,
         },
       ]
     : [];
 
-  // Kolom untuk ekspor
   const exportColumns = [
     { header: "Gross Sales", key: "grossSales" },
     { header: "Discounts", key: "discounts" },
     { header: "Refunds", key: "refunds" },
     { header: "Net Sales", key: "netSales" },
     { header: "Gratuity", key: "gratuity" },
+    { header: "Tax", key: "tax" },
     { header: "Rounding", key: "rounding" },
-    { header: "Total Completed", key: "totalCompleted" },
+    { header: "Total Collected", key: "totalCollected" },
   ];
 
   return (
     <div className="w-full">
-      {/* Bagian Header dengan judul dan tombol Export */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Sales Summary</h1>
-        {/* Tombol Export */}
         <ExportButton
           data={exportData}
           columns={exportColumns}
@@ -114,7 +111,6 @@ const SalesSummary = () => {
         />
       </div>
 
-      {/* Konten utama */}
       <div className="mb-6 flex flex-wrap gap-4 items-center">
         <div>
           <label htmlFor="period" className="mr-2 text-[#212121] font-medium">
@@ -198,13 +194,17 @@ const SalesSummary = () => {
             <span>{formatCurrency(salesSummary.gratuity)}</span>
           </div>
           <div className="flex justify-between mb-2">
+            <span>Tax</span>
+            <span>{formatCurrency(salesSummary.tax)}</span>
+          </div>
+          <div className="flex justify-between mb-2">
             <span>Rounding</span>
             <span>{formatCurrency(salesSummary.rounding)}</span>
           </div>
           <hr className="my-2" />
           <div className="flex justify-between font-bold">
-            <span>Total Completed</span>
-            <span>{formatCurrency(salesSummary.totalCompleted)}</span>
+            <span>Total Collected</span>
+            <span>{formatCurrency(salesSummary.totalCollected)}</span>
           </div>
         </div>
       ) : (

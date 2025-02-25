@@ -1,22 +1,20 @@
-// pages/api/item-sales.ts
+// pages/api/discount-report.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedItem {
-  menuName: string;
-  category: string;
-  quantity: number;
-  totalCollected: number;
-  hpp: number;
-  discount: number;
+interface AggregatedDiscount {
+  name: string;
+  discount: string;
+  count: number;
+  grossDiscount: number;
+  netDiscount: number;
 }
 
-function getStartAndEndDates(period: string, dateString?: string) {
+function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
   let startDate: Date, endDate: Date;
-
   switch (period.toLowerCase()) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -25,8 +23,8 @@ function getStartAndEndDates(period: string, dateString?: string) {
       break;
     case "weekly": {
       const day = date.getDay();
-      const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-      startDate = new Date(date.setDate(diff));
+      const diff = date.getDate() - (day === 0 ? 6 : day - 1);
+      startDate = new Date(date.getFullYear(), date.getMonth(), diff);
       endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 7);
       break;
@@ -65,14 +63,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ({ startDate, endDate } = getStartAndEndDates(period, date));
     }
 
+    // Ambil semua order dengan diskon dalam periode tertentu
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
           gte: startDate,
           lt: endDate,
         },
+        discountId: { not: null }, // Hanya ambil order yang memiliki diskon
       },
       include: {
+        discount: true,
         orderItems: {
           include: {
             menu: true,
@@ -81,44 +82,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Agregasi data per item
-    const aggregatedData: Record<number, AggregatedItem> = {};
+    // Agregasi data per diskon
+    const aggregatedData: Record<number, AggregatedDiscount> = {};
 
     for (const order of orders) {
-      const orderTotal = Number(order.finalTotal);
-      const orderDiscount = Number(order.discountAmount || 0);
-      const totalItems = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
-      const discountPerItem = totalItems > 0 ? orderDiscount / totalItems : 0;
-
-      for (const item of order.orderItems) {
-        const menuId = item.menuId;
-        if (!aggregatedData[menuId]) {
-          aggregatedData[menuId] = {
-            menuName: item.menu.name,
-            category: item.menu.category,
-            quantity: 0,
-            totalCollected: 0,
-            hpp: 0,
-            discount: 0,
-          };
-        }
-
-        const quantity = item.quantity;
-        const itemSellingPrice = Number(item.menu.price);
-        const itemHPP = Number(item.menu.hargaBakul);
-        const itemTotal = itemSellingPrice * quantity;
-        const itemCollected = (itemTotal - discountPerItem * quantity); // Proporsional berdasarkan finalTotal
-        const itemHPPValue = itemHPP * quantity;
-
-        aggregatedData[menuId].quantity += quantity;
-        aggregatedData[menuId].totalCollected += itemCollected;
-        aggregatedData[menuId].hpp += itemHPPValue;
-        aggregatedData[menuId].discount += discountPerItem * quantity;
+      const discountId = order.discountId!;
+      if (!aggregatedData[discountId]) {
+        aggregatedData[discountId] = {
+          name: order.discount!.name,
+          discount: order.discount!.type === "PERCENTAGE" ? `${order.discount!.value}%` : `Rp ${order.discount!.value}`,
+          count: 0,
+          grossDiscount: 0,
+          netDiscount: 0,
+        };
       }
+
+      aggregatedData[discountId].count += 1;
+
+      // Gross Discount: Total diskon sebelum penyesuaian (berdasarkan nilai diskon)
+      const discountValue = order.discount!.type === "PERCENTAGE"
+        ? (order.discount!.value / 100) * order.orderItems.reduce((acc, item) => acc + Number(item.menu.price) * item.quantity, 0)
+        : order.discount!.value;
+      aggregatedData[discountId].grossDiscount += discountValue;
+
+      // Net Discount: Total diskon aktual dari order (discountAmount)
+      aggregatedData[discountId].netDiscount += Number(order.discountAmount || 0);
     }
 
-    // Konversi ke array dan urutkan berdasarkan totalCollected
-    const result = Object.values(aggregatedData).sort((a, b) => b.totalCollected - a.totalCollected);
+    // Konversi ke array dan urutkan berdasarkan netDiscount
+    const result = Object.values(aggregatedData).sort((a, b) => b.netDiscount - a.netDiscount);
 
     res.status(200).json(result);
   } catch (error) {

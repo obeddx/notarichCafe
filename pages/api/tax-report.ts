@@ -1,22 +1,19 @@
-// pages/api/item-sales.ts
+// pages/api/tax-report.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedItem {
-  menuName: string;
-  category: string;
-  quantity: number;
-  totalCollected: number;
-  hpp: number;
-  discount: number;
+interface AggregatedTax {
+  name: string;
+  taxRate: string;
+  taxableAmount: number;
+  taxCollected: number;
 }
 
-function getStartAndEndDates(period: string, dateString?: string) {
+function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
   let startDate: Date, endDate: Date;
-
   switch (period.toLowerCase()) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -25,8 +22,8 @@ function getStartAndEndDates(period: string, dateString?: string) {
       break;
     case "weekly": {
       const day = date.getDay();
-      const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-      startDate = new Date(date.setDate(diff));
+      const diff = date.getDate() - (day === 0 ? 6 : day - 1);
+      startDate = new Date(date.getFullYear(), date.getMonth(), diff);
       endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 7);
       break;
@@ -65,12 +62,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ({ startDate, endDate } = getStartAndEndDates(period, date));
     }
 
+    // Ambil semua pajak aktif untuk referensi
+    const taxes = await prisma.tax.findMany({
+      where: { isActive: true },
+    });
+
+    // Ambil semua order dalam periode tertentu
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
           gte: startDate,
           lt: endDate,
         },
+        taxAmount: { gt: 0 }, // Hanya ambil order yang memiliki pajak
       },
       include: {
         orderItems: {
@@ -81,44 +85,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Agregasi data per item
-    const aggregatedData: Record<number, AggregatedItem> = {};
+    // Agregasi data per pajak
+    const aggregatedData: Record<number, AggregatedTax> = {};
 
     for (const order of orders) {
-      const orderTotal = Number(order.finalTotal);
-      const orderDiscount = Number(order.discountAmount || 0);
-      const totalItems = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
-      const discountPerItem = totalItems > 0 ? orderDiscount / totalItems : 0;
+      // Asumsikan hanya satu pajak aktif per periode untuk simplifikasi
+      const activeTax = taxes.find(t => t.isActive); // Ambil pajak aktif pertama
+      if (!activeTax) continue;
 
-      for (const item of order.orderItems) {
-        const menuId = item.menuId;
-        if (!aggregatedData[menuId]) {
-          aggregatedData[menuId] = {
-            menuName: item.menu.name,
-            category: item.menu.category,
-            quantity: 0,
-            totalCollected: 0,
-            hpp: 0,
-            discount: 0,
-          };
-        }
-
-        const quantity = item.quantity;
-        const itemSellingPrice = Number(item.menu.price);
-        const itemHPP = Number(item.menu.hargaBakul);
-        const itemTotal = itemSellingPrice * quantity;
-        const itemCollected = (itemTotal - discountPerItem * quantity); // Proporsional berdasarkan finalTotal
-        const itemHPPValue = itemHPP * quantity;
-
-        aggregatedData[menuId].quantity += quantity;
-        aggregatedData[menuId].totalCollected += itemCollected;
-        aggregatedData[menuId].hpp += itemHPPValue;
-        aggregatedData[menuId].discount += discountPerItem * quantity;
+      const taxId = activeTax.id;
+      if (!aggregatedData[taxId]) {
+        aggregatedData[taxId] = {
+          name: activeTax.name,
+          taxRate: `${activeTax.value}%`,
+          taxableAmount: 0,
+          taxCollected: 0,
+        };
       }
+
+      // Taxable Amount: Total harga normal dikurangi diskon
+      const taxableAmount = order.orderItems.reduce((acc, item) => {
+        return acc + Number(item.menu.price) * item.quantity;
+      }, 0) - Number(order.discountAmount || 0);
+
+      aggregatedData[taxId].taxableAmount += taxableAmount;
+      aggregatedData[taxId].taxCollected += Number(order.taxAmount || 0);
     }
 
-    // Konversi ke array dan urutkan berdasarkan totalCollected
-    const result = Object.values(aggregatedData).sort((a, b) => b.totalCollected - a.totalCollected);
+    // Konversi ke array dan urutkan berdasarkan taxCollected
+    const result = Object.values(aggregatedData).sort((a, b) => b.taxCollected - a.taxCollected);
 
     res.status(200).json(result);
   } catch (error) {

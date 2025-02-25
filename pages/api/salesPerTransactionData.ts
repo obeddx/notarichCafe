@@ -1,3 +1,4 @@
+// pages/api/salesPerTransactionData.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
@@ -5,10 +6,7 @@ const prisma = new PrismaClient();
 
 type SalesPerTransactionData = { date: string; salesPerTransaction: number };
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     const { period, start, end } = req.query;
 
@@ -22,7 +20,7 @@ export default async function handler(
           SELECT 
             DATE(createdAt) as date,
             COUNT(*) as transactionCount,
-            SUM(total) as netSales
+            SUM(finalTotal) as netSales
           FROM CompletedOrder
           WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
             AND (${endDate} IS NULL OR createdAt <= ${endDate})
@@ -30,7 +28,7 @@ export default async function handler(
           ORDER BY DATE(createdAt) ASC
         `;
         salesData = rawData.map((item) => ({
-          date: item.date,
+          date: item.date.toISOString().split("T")[0],
           salesPerTransaction:
             Number(item.netSales) / Number(item.transactionCount),
         }));
@@ -40,7 +38,7 @@ export default async function handler(
             YEAR(createdAt) as year,
             WEEK(createdAt) as week,
             COUNT(*) as transactionCount,
-            SUM(total) as netSales
+            SUM(finalTotal) as netSales
           FROM CompletedOrder
           WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
             AND (${endDate} IS NULL OR createdAt <= ${endDate})
@@ -58,7 +56,7 @@ export default async function handler(
             YEAR(createdAt) as year,
             MONTH(createdAt) as month,
             COUNT(*) as transactionCount,
-            SUM(total) as netSales
+            SUM(finalTotal) as netSales
           FROM CompletedOrder
           WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
             AND (${endDate} IS NULL OR createdAt <= ${endDate})
@@ -75,7 +73,7 @@ export default async function handler(
           SELECT 
             YEAR(createdAt) as year,
             COUNT(*) as transactionCount,
-            SUM(total) as netSales
+            SUM(finalTotal) as netSales
           FROM CompletedOrder
           WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
             AND (${endDate} IS NULL OR createdAt <= ${endDate})

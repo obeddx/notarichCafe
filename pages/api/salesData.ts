@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
-  
+
   const { period, start, end } = req.query;
 
   try {
@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (period === "daily") {
       const rawData: any[] = await prisma.$queryRaw`
-        SELECT DATE(createdAt) as date, SUM(total) as total
+        SELECT DATE(createdAt) as date, SUM(finalTotal) as total
         FROM CompletedOrder
         WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
           AND (${endDate} IS NULL OR createdAt <= ${endDate})
@@ -28,12 +28,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ORDER BY DATE(createdAt) ASC
       `;
       salesData = rawData.map((item) => ({
-        date: item.date,
+        date: item.date.toISOString().split("T")[0],
         total: Number(item.total),
       }));
     } else if (period === "weekly") {
       const rawData: any[] = await prisma.$queryRaw`
-        SELECT YEAR(createdAt) as year, WEEK(createdAt) as week, SUM(total) as total
+        SELECT YEAR(createdAt) as year, WEEK(createdAt) as week, SUM(finalTotal) as total
         FROM CompletedOrder
         WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
           AND (${endDate} IS NULL OR createdAt <= ${endDate})
@@ -46,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }));
     } else if (period === "monthly") {
       const rawData: any[] = await prisma.$queryRaw`
-        SELECT YEAR(createdAt) as year, MONTH(createdAt) as month, SUM(total) as total
+        SELECT YEAR(createdAt) as year, MONTH(createdAt) as month, SUM(finalTotal) as total
         FROM CompletedOrder
         WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
           AND (${endDate} IS NULL OR createdAt <= ${endDate})
@@ -59,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }));
     } else if (period === "yearly") {
       const rawData: any[] = await prisma.$queryRaw`
-        SELECT YEAR(createdAt) as year, SUM(total) as total
+        SELECT YEAR(createdAt) as year, SUM(finalTotal) as total
         FROM CompletedOrder
         WHERE (${startDate} IS NULL OR createdAt >= ${startDate})
           AND (${endDate} IS NULL OR createdAt <= ${endDate})

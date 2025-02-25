@@ -1,9 +1,9 @@
+// pages/api/salesTransactionDetail.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// Fungsi untuk mengonversi ISO week (misal "2023-W12") ke tanggal awal minggu (Senin)
 function getStartOfISOWeek(isoWeek: string): Date {
   const [yearStr, weekStr] = isoWeek.split("-W");
   const year = Number(yearStr);
@@ -46,14 +46,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       startDate = new Date(year, 0, 1);
       endDate = new Date(year + 1, 0, 1);
     } else {
-      // Default (daily)
       startDate = new Date(date as string);
       endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     }
 
     try {
-      // Dapatkan semua order dalam rentang waktu dengan half-open interval
       const orders = await prisma.completedOrder.findMany({
         where: {
           createdAt: {
@@ -73,12 +71,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const transactionCount = orders.length;
       let netSales = 0;
       orders.forEach((order) => {
-        netSales += order.total;
+        netSales += Number(order.finalTotal);
       });
       const salesPerTransaction =
         transactionCount > 0 ? netSales / transactionCount : 0;
 
-      // Kelompokkan detail per menu
       const detailsMap = new Map<
         number,
         { menuName: string; sellingPrice: number; quantity: number; totalSales: number }
