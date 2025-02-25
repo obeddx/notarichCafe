@@ -9,7 +9,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const isManagerPage = pathname?.startsWith("/manager") ?? false;
   const isCashierHiddenPage = pathname === "/cashier/layoutCafe" || pathname === "/cashier/history" || pathname === "/cashier/kasir"|| pathname === "/reservasi/layoutCafe" 
-  || pathname === "/cashier/reservasi"  || pathname === "/portal"  || pathname === "/login" || pathname === "/register"; // Cek apakah di halaman yang perlu menghilangkan Navbar dan Footer
+  || pathname === "/cashier/reservasi"  || pathname === "/portal"  || pathname === "/login" || pathname === "/register" || pathname === "/cashier/visitor"; // Cek apakah di halaman yang perlu menghilangkan Navbar dan Footer
 
   return isManagerPage ? (
     <div className="flex">
