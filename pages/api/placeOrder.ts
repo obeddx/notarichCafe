@@ -114,7 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         taxAmount,
         gratuityAmount,
         finalTotal,
-        status: orderDetails.isCashierOrder ? "Sedang Diproses" : "pending",
+        status: "pending", // Selalu set status ke pending saat order dibuat
         reservasiId: orderDetails.reservasiId || null,
         orderItems: {
           create: orderItemsData,
