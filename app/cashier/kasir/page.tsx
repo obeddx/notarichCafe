@@ -891,7 +891,7 @@ function OrderItemComponent({
   onSelectOrder?: (orderId: number, isChecked: boolean) => void;
   isSelected?: boolean;
   discounts: Discount[];
-}) {
+})  {
   const [paymentMethod, setPaymentMethod] = useState<string>("tunai");
   const [paymentId, setPaymentId] = useState<string>("");
   const [cashGiven, setCashGiven] = useState<string>("");
@@ -1106,6 +1106,18 @@ function OrderItemComponent({
           </button>
         </div>
       )}
+
+      {order.status === "Selesai" && (
+        <div className="space-y-2">
+          <button
+            onClick={() => generatePDF(order)}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md transition"
+          >
+            🖨️ Cetak Struk
+          </button>
+        </div>
+      )}
+
       {onSelectOrder && order.status === "pending" && (
         <div className="mt-2">
           <input
