@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    return res.status(201).json({ message: "Registrasi berhasil", user });
+    return res.status(201).json({ message: "Registrasi berhasil", user, role:role, });
   } catch (error) {
     console.error("Error during registration:", error);
     return res.status(500).json({ message: "Terjadi kesalahan, coba lagi nanti" });

@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Set cookie dengan ID pengguna
     res.setHeader(
       "Set-Cookie",
-      `${roleCookie}=${user.token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400` // 1 hari
+      `${roleCookie}=${encodeURIComponent(user.token)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400` // 1 hari
     );
 
     // Respons sukses

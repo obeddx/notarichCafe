@@ -62,16 +62,16 @@ export default function RegisterPage() {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        toast.success("Registrasi berhasil, silakan login!");
-        if (data.token) {
-          toast.info(`Token Anda: ${data.token}`);
-        }
-        setTimeout(() => router.push("/portal"), 1500);
-      } else {
-        setErrorMessage(data.message || "Registrasi gagal");
-        toast.error(data.message || "Registrasi gagal");
-      }
+if (res.ok) {
+  toast.success("Registrasi berhasil, silakan login!");
+  if (data.token) {
+    toast.info(`Token Anda: ${data.token}`);
+  }
+  setTimeout(() => router.push(`/login?role=${data.role}`), 1500);
+} else {
+  setErrorMessage(data.message || "Registrasi gagal");
+  toast.error(data.message || "Registrasi gagal");
+}
     } catch (error) {
       toast.error("Terjadi kesalahan, coba lagi nanti");
     } finally {
