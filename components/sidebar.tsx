@@ -57,6 +57,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
         </li>
         <li>
           <SidebarDropdown
+            label="Reports"
+            isOpen={isOpen}
+            items={[
+              { href: "/manager/report/sales", label: "Sales" },
+              { href: "/manager/report/transactions", label: "Transactions" },
+            ]}
+            border
+          />
+        </li>
+        <li>
+          <SidebarDropdown
             label="Menu Notarich"
             isOpen={isOpen}
             items={[{ href: "/manager/getMenu", label: "Daftar Menu" }]}
@@ -102,17 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             border
           />
         </li>
-        <li>
-          <SidebarDropdown
-            label="Reports"
-            isOpen={isOpen}
-            items={[
-              { href: "/manager/report/sales", label: "Sales" },
-              { href: "/manager/report/transactions", label: "Transactions" },
-            ]}
-            border
-          />
-        </li>
+        
       </ul>
     </div>
   );
