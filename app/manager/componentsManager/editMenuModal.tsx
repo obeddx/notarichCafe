@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect, FormEvent } from "react";
 
 interface IngredientOption {
@@ -11,6 +12,19 @@ interface IngredientRow {
   amount: number;
 }
 
+interface Discount {
+  id: number;
+  name: string;
+  type: string;
+  scope: string;
+  value: number;
+  isActive: boolean;
+}
+
+interface DiscountInfo {
+  discount: Discount;
+}
+
 interface EditMenuModalProps {
   menuId: number;
   onClose: () => void;
@@ -22,13 +36,18 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null); // State untuk menyimpan URL gambar
+  const [imageUrl, setImageUrl] = useState<string | null>(null); // URL gambar yang ada
   const [status, setStatus] = useState("tersedia");
   const [category, setCategory] = useState("makanan");
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [availableIngredients, setAvailableIngredients] = useState<IngredientOption[]>([]);
 
-  // Ambil daftar ingredient yang tersedia dari API
+  // State untuk diskon
+  const [applyDiscount, setApplyDiscount] = useState<boolean>(false);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<string>("");
+  const [availableDiscounts, setAvailableDiscounts] = useState<Discount[]>([]);
+
+  // Ambil daftar ingredient yang tersedia
   useEffect(() => {
     const fetchIngredients = async () => {
       try {
@@ -42,6 +61,22 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
     fetchIngredients();
   }, []);
 
+  // Ambil daftar diskon dengan scope MENU
+  useEffect(() => {
+    const fetchDiscounts = async () => {
+      try {
+        const res = await fetch("/api/diskon");
+        const data = await res.json();
+        // Filter diskon dengan scope MENU dan aktif
+        const menuDiscounts = data.filter((d: any) => d.scope === "MENU" && d.isActive);
+        setAvailableDiscounts(menuDiscounts);
+      } catch (error) {
+        console.error("Error fetching discounts:", error);
+      }
+    };
+    fetchDiscounts();
+  }, []);
+
   // Ambil data menu berdasarkan menuId dan prefill form
   useEffect(() => {
     const fetchMenuData = async () => {
@@ -51,21 +86,33 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
         setName(data.name);
         setDescription(data.description || "");
         setPrice(data.price.toString());
-        setStatus(data.status);
+        setStatus(data.status || "tersedia");
         setCategory(data.category);
 
-        // Set image URL jika ada
+        // Set URL gambar jika ada
         if (data.image) {
-          setImageUrl(data.image); // Set URL gambar yang ada
+          setImageUrl(data.image);
         }
 
-        // Asumsikan data.ingredients adalah array dengan format:
-        // [{ id, amount, ingredient: { id, name, unit } }, ... ]
-        const rows = data.ingredients.map((item: any) => ({
-          ingredientId: item.ingredient.id,
-          amount: item.amount,
-        }));
-        setIngredientRows(rows);
+        // Prefill ingredient rows (diasumsikan data.ingredients berbentuk array)
+        if (data.ingredients && Array.isArray(data.ingredients)) {
+          const rows = data.ingredients.map((item: any) => ({
+            ingredientId: item.ingredient.id,
+            amount: item.amount,
+          }));
+          setIngredientRows(rows);
+        }
+
+        // Jika menu sudah memiliki diskon, prefill state diskon
+        // Diasumsikan data.discounts berbentuk array dari { discount: { ... } }
+        if (data.discounts && data.discounts.length > 0) {
+          setApplyDiscount(true);
+          // Ambil diskon pertama sebagai default
+          setSelectedDiscountId(data.discounts[0].discount.id.toString());
+        } else {
+          setApplyDiscount(false);
+          setSelectedDiscountId("");
+        }
       } catch (error) {
         console.error("Error fetching menu data:", error);
       }
@@ -110,6 +157,14 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
     formData.append("category", category);
     formData.append("ingredients", JSON.stringify(ingredientRows));
 
+    // Sertakan data diskon jika applyDiscount aktif
+    if (applyDiscount && selectedDiscountId) {
+      formData.append("discountId", selectedDiscountId);
+    } else {
+      // Jika tidak ada diskon, kirim string kosong atau biarkan field tidak ada sesuai kebutuhan API
+      formData.append("discountId", "");
+    }
+
     try {
       // Misalnya, endpoint edit menggunakan metode PUT dengan URL: /api/editMenu/:id
       const res = await fetch(`/api/editMenu/${menuId}`, {
@@ -139,11 +194,22 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block font-semibold mb-2">Nama Menu:</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1" />
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full p-2 border border-gray-300 rounded mt-1"
+              />
             </div>
             <div>
               <label className="block font-semibold mb-2">Status:</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1">
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                required
+                className="w-full p-2 border border-gray-300 rounded mt-1"
+              >
                 <option value="tersedia">Tersedia</option>
                 <option value="habis">Habis</option>
               </select>
@@ -153,81 +219,135 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block font-semibold mb-2">Price:</label>
-              <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1" />
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                required
+                className="w-full p-2 border border-gray-300 rounded mt-1"
+              />
             </div>
             <div>
               <label className="block font-semibold mb-2">Category:</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} required className="w-full p-2 border border-gray-300 rounded mt-1">
-              <option value="Coffee">Coffee</option>
-                  <option value="Tea">Tea</option>
-                  <option value="Frappe">Frappe</option>
-                  <option value="Juice">Juice</option>
-                  <option value="Milk Base">Milk Base</option>
-                  <option value="Refresher">Refresher</option>
-                  <option value="Cocorich">Cocorich</option>
-                  <option value="Mocktail">Mocktail</option>
-                  <option value="Snack">Snack</option>
-                  <option value="Main Course">Main Course</option>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+                className="w-full p-2 border border-gray-300 rounded mt-1"
+              >
+                <option value="Coffee">Coffee</option>
+                <option value="Tea">Tea</option>
+                <option value="Frappe">Frappe</option>
+                <option value="Juice">Juice</option>
+                <option value="Milk Base">Milk Base</option>
+                <option value="Refresher">Refresher</option>
+                <option value="Cocorich">Cocorich</option>
+                <option value="Mocktail">Mocktail</option>
+                <option value="Snack">Snack</option>
+                <option value="Main Course">Main Course</option>
               </select>
             </div>
             <div>
               <h2 className="text-xl font-semibold mb-2">Ingredients</h2>
               {ingredientRows.map((row, index) => {
-  const selectedIngredient = availableIngredients.find(ing => ing.id === row.ingredientId);
-  return (
-    <div key={index} className="flex gap-2 items-center mb-2">
-      <select
-        value={row.ingredientId}
-        onChange={(e) =>
-          updateIngredientRow(index, "ingredientId", parseInt(e.target.value))
-        }
-        required
-        className="flex-1 p-2 border border-gray-300 rounded"
-      >
-        <option value={0}>Pilih Ingredient</option>
-        {availableIngredients.map((ing) => (
-          <option key={ing.id} value={ing.id}>
-            {ing.name}
-          </option>
-        ))}
-      </select>
-      <div className="flex items-center">
-        <input
-          type="number"
-          placeholder="Amount"
-          value={row.amount}
-          onChange={(e) =>
-            updateIngredientRow(index, "amount", parseFloat(e.target.value))
-          }
-          required
-          className="p-2 border border-gray-300 rounded"
-        />
-        {/* Tampilkan satuan jika tersedia */}
-        {selectedIngredient?.unit && (
-          <span className="ml-2">{selectedIngredient.unit}</span>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={() => removeIngredientRow(index)}
-        className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
-      >
-        Remove
-      </button>
-    </div>
-  );
-})}
-
-              <button type="button" onClick={addIngredientRow} className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
+                const selectedIngredient = availableIngredients.find(
+                  (ing) => ing.id === row.ingredientId
+                );
+                return (
+                  <div key={index} className="flex gap-2 items-center mb-2">
+                    <select
+                      value={row.ingredientId}
+                      onChange={(e) =>
+                        updateIngredientRow(index, "ingredientId", parseInt(e.target.value))
+                      }
+                      required
+                      className="flex-1 p-2 border border-gray-300 rounded"
+                    >
+                      <option value={0}>Pilih Ingredient</option>
+                      {availableIngredients.map((ing) => (
+                        <option key={ing.id} value={ing.id}>
+                          {ing.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        placeholder="Amount"
+                        value={row.amount}
+                        onChange={(e) =>
+                          updateIngredientRow(index, "amount", parseFloat(e.target.value))
+                        }
+                        required
+                        className="p-2 border border-gray-300 rounded"
+                      />
+                      {selectedIngredient?.unit && (
+                        <span className="ml-2">{selectedIngredient.unit}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeIngredientRow(index)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={addIngredientRow}
+                className="mt-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+              >
                 Add Ingredient
               </button>
             </div>
           </div>
 
+          {/* Section Diskon */}
+          <div className="mb-4 border-t pt-4">
+            <h2 className="text-xl font-semibold mb-2">Diskon</h2>
+            <label className="flex items-center mb-2">
+              <input
+                type="checkbox"
+                checked={applyDiscount}
+                onChange={(e) => setApplyDiscount(e.target.checked)}
+                className="mr-2"
+              />
+              Terapkan Diskon untuk Menu ini
+            </label>
+            {applyDiscount && (
+              <div>
+                <label className="block font-semibold mb-2">
+                  Pilih Diskon:
+                  <select
+                    value={selectedDiscountId}
+                    onChange={(e) => setSelectedDiscountId(e.target.value)}
+                    required={applyDiscount}
+                    className="w-full p-2 border border-gray-300 rounded mt-1"
+                  >
+                    <option value="">Pilih Diskon</option>
+                    {availableDiscounts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.value}
+                        {d.type === "PERCENTAGE" ? "%" : ""})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 gap-4 mb-4">
             <div>
               <label className="block font-semibold mb-2">Deskripsi:</label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-2 border border-gray-300 rounded mt-1 min-h-[80px] resize-y" />
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded mt-1 min-h-[80px] resize-y"
+              />
             </div>
             <div>
               <label className="block font-semibold mb-2">Gambar:</label>
@@ -241,12 +361,18 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
                 }}
                 className="w-full mt-1"
               />
-              {imageUrl && !image && <img src={imageUrl} alt="current menu" className="mt-2 max-h-40 object-cover" />}
+              {imageUrl && !image && (
+                <img src={imageUrl} alt="current menu" className="mt-2 max-h-40 object-cover" />
+              )}
             </div>
           </div>
 
           <div className="flex justify-end gap-4">
-            <button type="button" onClick={onClose} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+            >
               Cancel
             </button>
             <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">

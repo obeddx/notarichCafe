@@ -1,60 +1,88 @@
-// pages/api/ingredients/[id].ts
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   try {
-    // Ambil semua menu beserta ingredient-nya
+    // Ambil semua menu beserta ingredient dan diskon aktifnya
     const menus = await prisma.menu.findMany({
       include: {
         ingredients: {
           include: {
-            ingredient: true, // Tidak perlu lagi include prices
-          }
-        }
-      }
+            ingredient: true, // Detail ingredient (termasuk batchYield, price, dan type)
+          },
+        },
+        discounts: {
+          include: {
+            discount: true, // Detail diskon
+          },
+          where: {
+            discount: {
+              isActive: true, // Hanya ambil diskon yang aktif
+            },
+          },
+        },
+      },
     });
 
-    // Hitung harga bakul setiap menu dan update ke database
-    const updatedMenus = await Promise.all(menus.map(async (menu) => {
-      const totalCost = menu.ingredients.reduce((acc, item) => {
-        const ingredient = item.ingredient;
-        let cost = 0;
-        
-        // Jika ingredient ber-type SEMI_FINISHED, gunakan perhitungan khusus
-        if (ingredient.type === 'SEMI_FINISHED') {
-          // Menghitung totalCost: (item.amount / batchYield) * ingredient.price
-          cost = (item.amount / ingredient.batchYield) * ingredient.price;
-        } else {
-          // Perhitungan default
-          cost = item.amount * ingredient.price;
-        }
-        return acc + cost;
-      }, 0);
+    // Hitung hargaBakul setiap menu dan update ke database
+    const updatedMenus = await Promise.all(
+      menus.map(async (menu) => {
+        const totalCost = menu.ingredients.reduce((acc, item) => {
+          const ingredient = item.ingredient;
+          // Konversi nilai agar perhitungan berjalan dengan benar
+          const amount = Number(item.amount) || 0;
+          const price = Number(ingredient.price) || 0;
+          const batchYield = Number(ingredient.batchYield) || 0;
+          let cost = 0;
 
-      // Update hargaBakul di database
-      await prisma.menu.update({
-        where: { id: menu.id },
-        data: { hargaBakul: totalCost }
-      });
+          // Perbandingan tipe menggunakan toUpperCase()
+          if (ingredient.type.toUpperCase() === "SEMI_FINISHED" && batchYield > 0) {
+            cost = (amount / batchYield) * price;
+          } else {
+            cost = amount * price;
+          }
+          return acc + cost;
+        }, 0);
 
-      // Kembalikan objek menu dengan properti hargaBakul yang telah diperbarui
-      return {
-        ...menu,
-        hargaBakul: totalCost
-      };
-    }));
+        // Update hargaBakul untuk menu ini
+        await prisma.menu.update({
+          where: { id: menu.id },
+          data: { hargaBakul: totalCost },
+        });
+
+        // Transformasi data diskon agar sesuai dengan format yang diinginkan frontend
+        const transformedDiscounts = menu.discounts.map((md) => ({
+          discount: {
+            id: md.discount.id,
+            name: md.discount.name,
+            type: md.discount.type,
+            scope: md.discount.scope,
+            value: md.discount.value,
+            isActive: md.discount.isActive,
+          },
+        }));
+
+        return {
+          ...menu,
+          hargaBakul: totalCost,
+          discounts: transformedDiscounts,
+        };
+      })
+    );
 
     res.status(200).json(updatedMenus);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Server error" });
   } finally {
     await prisma.$disconnect();
   }

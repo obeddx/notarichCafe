@@ -60,7 +60,15 @@ export default async function handler(
     // Jalankan middleware multer untuk menangani upload
     await runMiddleware(req, res, upload.single("image"));
 
-    const { name, description, price, ingredients, category, Status } = req.body;
+    const {
+      name,
+      description,
+      price,
+      ingredients,
+      category,
+      Status,
+      discountId, // Field tambahan untuk diskon
+    } = req.body;
     const imagePath = req.file ? `/uploads/${req.file.filename}` : "";
 
     if (!name || !price) {
@@ -132,10 +140,8 @@ export default async function handler(
     }
 
     // --- Recalculate maxBeli untuk semua menu yang menggunakan bahan yang sama ---
-    // Ambil semua ingredientId yang terdapat pada parsedIngredients
     const affectedIngredientIds = parsedIngredients.map((ing: any) => ing.ingredientId);
     if (affectedIngredientIds.length > 0) {
-      // Cari semua menu yang menggunakan salah satu ingredient tersebut
       const menusToRecalculate = await prisma.menu.findMany({
         where: {
           ingredients: {
@@ -153,7 +159,6 @@ export default async function handler(
         let newMaxBeli = Infinity;
         for (const mi of menu.ingredients) {
           if (mi.amount > 0) {
-            // Gunakan stok dari data ingredient yang sudah ada di relasi
             const possible = Math.floor(mi.ingredient.stock / mi.amount);
             newMaxBeli = Math.min(newMaxBeli, possible);
           } else {
@@ -169,6 +174,17 @@ export default async function handler(
           data: { maxBeli: newMaxBeli },
         });
       }
+    }
+
+    // Jika field discountId ada dan tidak kosong, buat record pada MenuDiscount
+    if (discountId && discountId.toString().trim() !== "") {
+      const parsedDiscountId = parseInt(discountId.toString());
+      await prisma.menuDiscount.create({
+        data: {
+          menuId: newMenu.id,
+          discountId: parsedDiscountId,
+        },
+      });
     }
 
     return res

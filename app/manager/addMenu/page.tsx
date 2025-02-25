@@ -6,12 +6,21 @@ import { useRouter } from "next/navigation";
 interface IngredientOption {
   id: number;
   name: string;
-  unit: string; // tambahkan properti unit
+  unit: string; // properti unit
 }
 
 interface IngredientRow {
   ingredientId: number;
   amount: number;
+}
+
+interface Discount {
+  id: number;
+  name: string;
+  scope: string;
+  value: number;
+  type: string;
+  // properti lainnya jika diperlukan
 }
 
 export default function AddMenu() {
@@ -25,6 +34,11 @@ export default function AddMenu() {
   const [availableIngredients, setAvailableIngredients] = useState<IngredientOption[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
+
+  // State untuk diskon
+  const [applyDiscount, setApplyDiscount] = useState<boolean>(false);
+  const [availableDiscounts, setAvailableDiscounts] = useState<Discount[]>([]);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<string>("");
 
   const router = useRouter();
 
@@ -40,6 +54,22 @@ export default function AddMenu() {
       }
     };
     fetchIngredients();
+  }, []);
+
+  // Ambil daftar diskon dari API dan filter hanya diskon dengan scope MENU
+  useEffect(() => {
+    const fetchDiscounts = async () => {
+      try {
+        const res = await fetch("/api/diskon");
+        const data = await res.json();
+        // Filter diskon dengan scope "MENU"
+        const menuDiscounts = data.filter((d: Discount) => d.scope === "MENU");
+        setAvailableDiscounts(menuDiscounts);
+      } catch (error) {
+        console.error("Error fetching discounts:", error);
+      }
+    };
+    fetchDiscounts();
   }, []);
 
   // Tambah baris ingredient baru
@@ -87,6 +117,11 @@ export default function AddMenu() {
     formData.append("category", category);
     formData.append("ingredients", JSON.stringify(ingredientRows));
 
+    // Jika applyDiscount aktif dan discount dipilih, sertakan discountId
+    if (applyDiscount && selectedDiscountId) {
+      formData.append("discountId", selectedDiscountId);
+    }
+
     try {
       const res = await fetch("/api/addMenu", {
         method: "POST",
@@ -105,7 +140,10 @@ export default function AddMenu() {
         setStatus("tersedia");
         setCategory("Coffee");
         setIngredientRows([]);
-        // Tampilkan pop up sukses
+        // Reset discount jika ada
+        setApplyDiscount(false);
+        setSelectedDiscountId("");
+        // Tampilkan pop up sukses dan redirect
         setShowSuccessPopup(true);
         router.push("/manager/getMenu");
       } else {
@@ -264,7 +302,7 @@ export default function AddMenu() {
                       required
                       className="p-2 border border-gray-300 rounded"
                     />
-                    {/* Tampilkan satuan ingredient sebagai informasi saja */}
+                    {/* Tampilkan satuan ingredient sebagai informasi */}
                     {selectedIngredient?.unit && (
                       <span>{selectedIngredient.unit}</span>
                     )}
@@ -286,6 +324,42 @@ export default function AddMenu() {
             >
               Add Ingredient
             </button>
+          </div>
+
+          {/* Discount Section */}
+          <div className="mt-6 border-t pt-4">
+            <h2 className="text-xl font-semibold mb-4">Discount (Optional)</h2>
+            <label className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                checked={applyDiscount}
+                onChange={(e) => setApplyDiscount(e.target.checked)}
+                className="mr-2"
+              />
+              Terapkan Diskon untuk Menu ini
+            </label>
+            {applyDiscount && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block font-semibold mb-2">
+                    Pilih Diskon:
+                    <select
+                      value={selectedDiscountId}
+                      onChange={(e) => setSelectedDiscountId(e.target.value)}
+                      required={applyDiscount}
+                      className="w-full p-2 border border-gray-300 rounded mt-1"
+                    >
+                      <option value="">Pilih Diskon</option>
+                      {availableDiscounts.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} - {d.value} {d.type}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}

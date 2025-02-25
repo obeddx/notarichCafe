@@ -5,7 +5,18 @@ import EditMenuModal from "../componentsManager/editMenuModal";
 import Sidebar from "@/components/sidebar";
 import { FiSearch } from "react-icons/fi";
 
-// Update interface dengan properti image, status, dan category
+// Interface untuk discount yang di-embed pada menu (hasil transformasi dari relasi MenuDiscount)
+interface DiscountInfo {
+  discount: {
+    id: number;
+    name: string;
+    type: string;
+    scope: string;
+    value: number;
+    isActive: boolean;
+  };
+}
+
 interface Ingredient {
   id: number;
   name: string;
@@ -29,18 +40,20 @@ interface Menu {
   maxBeli: number;
   category: string;
   ingredients: MenuIngredient[];
+  discounts: DiscountInfo[]; // relasi diskon
 }
 
 export default function ManagerMenusPage() {
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [editMenuId, setEditMenuId] = useState<number | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredMenus, setFilteredMenus] = useState<Menu[]>([]);
 
   const fetchMenus = async () => {
     try {
+      // Pastikan endpoint ini sudah mengembalikan data diskon
       const res = await fetch("/api/hitungCost");
       const data = await res.json();
       setMenus(data);
@@ -56,8 +69,8 @@ export default function ManagerMenusPage() {
     fetchMenus();
   }, []);
 
-   // Filter menu berdasarkan searchQuery secara realtime
-   useEffect(() => {
+  // Filter menu berdasarkan searchQuery secara realtime
+  useEffect(() => {
     const filtered = menus.filter((menu) =>
       menu.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (menu.description &&
@@ -97,7 +110,7 @@ export default function ManagerMenusPage() {
 
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
-      <h1 className="text-2xl font-bold mb-4">Daftar Menu </h1>
+      <h1 className="text-2xl font-bold mb-4">Daftar Menu</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       <Link href="/manager/addMenu">
         <p className="text-blue-500 hover:underline pb-4">+ Tambah Menu Baru</p>
@@ -131,6 +144,7 @@ export default function ManagerMenusPage() {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Jual</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Bakul</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diskon</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingredients</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
           </tr>
@@ -139,7 +153,13 @@ export default function ManagerMenusPage() {
           {filteredMenus.map((menu) => (
             <tr key={menu.id}>
               <td className="px-6 py-4 whitespace-nowrap">{menu.id}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{menu.image ? <img src={menu.image} alt={menu.name} className="w-16 h-16 object-cover rounded" /> : "No Image"}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                {menu.image ? (
+                  <img src={menu.image} alt={menu.name} className="w-16 h-16 object-cover rounded" />
+                ) : (
+                  "No Image"
+                )}
+              </td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.name}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.description}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.maxBeli}</td>
@@ -147,11 +167,24 @@ export default function ManagerMenusPage() {
               <td className="px-6 py-4 whitespace-nowrap">{menu.category}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.price}</td>
               <td className="px-6 py-4 whitespace-nowrap">{menu.hargaBakul}</td>
-              
+              <td className="px-6 py-4 whitespace-nowrap">
+                {menu.discounts && menu.discounts.length > 0 ? (
+                  menu.discounts.map((d, index) => (
+                    <span key={d.discount.id}>
+                      {d.discount.name} ({d.discount.value}
+                      {d.discount.type === "PERCENTAGE" ? "%" : ""})
+                      {index < menu.discounts.length - 1 && ", "}
+                    </span>
+                  ))
+                ) : (
+                  "Tidak ada diskon"
+                )}
+              </td>
               <td className="px-6 py-4">
                 {menu.ingredients.map((item, index) => (
                   <span key={item.id}>
-                    {item.ingredient.name} ({item.amount} {item.ingredient.unit}){index < menu.ingredients.length - 1 && ", "}
+                    {item.ingredient.name} ({item.amount} {item.ingredient.unit})
+                    {index < menu.ingredients.length - 1 && ", "}
                   </span>
                 ))}
               </td>
@@ -167,7 +200,7 @@ export default function ManagerMenusPage() {
           ))}
           {filteredMenus.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-6 py-4 text-center">
+              <td colSpan={12} className="px-6 py-4 text-center">
                 Tidak ada data menu.
               </td>
             </tr>
@@ -175,7 +208,13 @@ export default function ManagerMenusPage() {
         </tbody>
       </table>
       <br />
-      {editMenuId !== null && <EditMenuModal menuId={editMenuId} onClose={() => setEditMenuId(null)} onMenuUpdated={fetchMenus} />}
+      {editMenuId !== null && (
+        <EditMenuModal 
+          menuId={editMenuId} 
+          onClose={() => setEditMenuId(null)} 
+          onMenuUpdated={fetchMenus} 
+        />
+      )}
     </div>
   );
 }

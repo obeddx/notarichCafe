@@ -1,4 +1,3 @@
-// /pages/api/editMenu/[id].ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import multer from "multer";
 import { PrismaClient } from "@prisma/client";
@@ -69,13 +68,14 @@ export default async function handler(
     await runMiddleware(req, res, upload.single("image"));
 
     // Ambil data yang dikirim melalui form-data
-    const { name, description, price, Status, category, ingredients } = req.body;
+    // Perhatikan penambahan field discountId
+    const { name, description, price, Status, category, ingredients, discountId } = req.body;
     if (!name || !price) {
       return res.status(400).json({ message: "Name dan Price wajib diisi" });
     }
 
     const menuPrice = parseFloat(price);
-    let parsedIngredients = [];
+    let parsedIngredients: any[] = [];
     if (ingredients) {
       try {
         parsedIngredients = JSON.parse(ingredients);
@@ -106,8 +106,7 @@ export default async function handler(
       data: updateData,
     });
 
-    // Jika terdapat data ingredients, lakukan update:
-    // Untuk kesederhanaan, kita hapus data ingredients lama dan buat yang baru.
+    // Update data ingredients (hapus data lama dan buat yang baru)
     if (parsedIngredients.length > 0) {
       await prisma.menuIngredient.deleteMany({
         where: { menuId },
@@ -122,6 +121,23 @@ export default async function handler(
       await prisma.menuIngredient.createMany({
         data: menuIngredientsData,
       });
+    }
+
+    // Update relasi diskon:
+    // Hapus data diskon lama, lalu jika discountId tidak kosong, buat relasi baru
+    if (typeof discountId !== "undefined") {
+      await prisma.menuDiscount.deleteMany({
+        where: { menuId },
+      });
+      if (discountId.toString().trim() !== "") {
+        const parsedDiscountId = parseInt(discountId.toString());
+        await prisma.menuDiscount.create({
+          data: {
+            menuId,
+            discountId: parsedDiscountId,
+          },
+        });
+      }
     }
 
     return res
