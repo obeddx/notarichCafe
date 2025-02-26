@@ -5,7 +5,6 @@ import EditMenuModal from "../componentsManager/editMenuModal";
 import Sidebar from "@/components/sidebar";
 import { FiSearch } from "react-icons/fi";
 
-// Interface untuk discount yang di-embed pada menu (hasil transformasi dari relasi MenuDiscount)
 interface DiscountInfo {
   discount: {
     id: number;
@@ -20,13 +19,20 @@ interface DiscountInfo {
 interface Ingredient {
   id: number;
   name: string;
-  unit: string; // unit disimpan di dalam objek ingredient
+  unit: string;
 }
 
 interface MenuIngredient {
   id: number;
-  amount: number; // jumlah ingredient
+  amount: number;
   ingredient: Ingredient;
+}
+
+interface Modifier {
+  modifier: {
+    id: number;
+    name: string;
+  };
 }
 
 interface Menu {
@@ -40,7 +46,8 @@ interface Menu {
   maxBeli: number;
   category: string;
   ingredients: MenuIngredient[];
-  discounts: DiscountInfo[]; // relasi diskon
+  discounts: DiscountInfo[];
+  modifiers: Modifier[];
 }
 
 export default function ManagerMenusPage() {
@@ -53,7 +60,6 @@ export default function ManagerMenusPage() {
 
   const fetchMenus = async () => {
     try {
-      // Pastikan endpoint ini sudah mengembalikan data diskon
       const res = await fetch("/api/hitungCost");
       const data = await res.json();
       setMenus(data);
@@ -69,12 +75,12 @@ export default function ManagerMenusPage() {
     fetchMenus();
   }, []);
 
-  // Filter menu berdasarkan searchQuery secara realtime
   useEffect(() => {
-    const filtered = menus.filter((menu) =>
-      menu.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (menu.description &&
-        menu.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    const filtered = menus.filter(
+      (menu) =>
+        menu.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (menu.description &&
+          menu.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
     setFilteredMenus(filtered);
   }, [searchQuery, menus]);
@@ -100,6 +106,14 @@ export default function ManagerMenusPage() {
     setEditMenuId(menuId);
   };
 
+  const handleCloseModal = () => {
+    setEditMenuId(null);
+  };
+
+  const handleMenuUpdated = () => {
+    fetchMenus();
+  };
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -109,7 +123,7 @@ export default function ManagerMenusPage() {
   }
 
   return (
-    <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? '256px' : '80px' }}>
+    <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Daftar Menu</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       <Link href="/manager/addMenu">
@@ -136,16 +150,17 @@ export default function ManagerMenusPage() {
         <thead className="bg-gray-50">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar Menu</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Menu</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi Menu</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Menu</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Jual</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Bakul</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diskon</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingredients</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modifiers</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
           </tr>
         </thead>
@@ -188,11 +203,29 @@ export default function ManagerMenusPage() {
                   </span>
                 ))}
               </td>
+              <td className="px-6 py-4">
+                {menu.modifiers && menu.modifiers.length > 0 ? (
+                  menu.modifiers.map((mod, index) => (
+                    <span key={mod.modifier.id}>
+                      {mod.modifier.name}
+                      {index < menu.modifiers.length - 1 && ", "}
+                    </span>
+                  ))
+                ) : (
+                  "Tidak ada modifier"
+                )}
+              </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <button onClick={() => handleEdit(menu.id)} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mr-2">
+                <button
+                  onClick={() => handleEdit(menu.id)}
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mr-2"
+                >
                   Edit
                 </button>
-                <button onClick={() => handleDelete(menu.id)} className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
+                <button
+                  onClick={() => handleDelete(menu.id)}
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded"
+                >
                   Delete
                 </button>
               </td>
@@ -200,7 +233,7 @@ export default function ManagerMenusPage() {
           ))}
           {filteredMenus.length === 0 && (
             <tr>
-              <td colSpan={12} className="px-6 py-4 text-center">
+              <td colSpan={13} className="px-6 py-4 text-center">
                 Tidak ada data menu.
               </td>
             </tr>
@@ -209,10 +242,10 @@ export default function ManagerMenusPage() {
       </table>
       <br />
       {editMenuId !== null && (
-        <EditMenuModal 
-          menuId={editMenuId} 
-          onClose={() => setEditMenuId(null)} 
-          onMenuUpdated={fetchMenus} 
+        <EditMenuModal
+          menuId={editMenuId}
+          onCloseAction={handleCloseModal} // Ubah nama prop
+          onMenuUpdatedAction={handleMenuUpdated} // Ubah nama prop
         />
       )}
     </div>

@@ -7,32 +7,39 @@ const prisma = new PrismaClient();
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     try {
-      // Ambil semua menu beserta detail ingredient dan discount
       const menus = await prisma.menu.findMany({
         where: {
           Status: { in: ["Tersedia", "tersedia"] },
-          isActive: true, // Opsional: Hanya ambil menu yang aktif
+          isActive: true,
         },
         include: {
           ingredients: {
             include: {
-              ingredient: true, // Menyertakan detail ingredient
+              ingredient: true,
             },
           },
           discounts: {
             include: {
-              discount: true, // Menyertakan detail discount
+              discount: true,
             },
             where: {
               discount: {
-                isActive: true, // Hanya ambil discount yang aktif
+                isActive: true,
+              },
+            },
+          },
+          modifiers: {
+            include: {
+              modifier: {
+                include: {
+                  category: true,
+                },
               },
             },
           },
         },
       });
 
-      // Transformasi data untuk memastikan format sesuai kebutuhan frontend
       const transformedMenus = menus.map((menu) => ({
         ...menu,
         discounts: menu.discounts.map((md) => ({
@@ -45,12 +52,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             isActive: md.discount.isActive,
           },
         })),
+        modifiers: menu.modifiers.map((mm) => ({
+          modifier: {
+            id: mm.modifier.id,
+            name: mm.modifier.name,
+            price: mm.modifier.price, // Sertakan harga modifier
+            category: {
+              id: mm.modifier.category.id,
+              name: mm.modifier.category.name,
+            },
+          },
+        })),
       }));
 
       res.status(200).json(transformedMenus);
     } catch (error) {
       console.error("Error fetching menus:", error);
       res.status(500).json({ message: "Internal server error" });
+    } finally {
+      await prisma.$disconnect();
     }
   } else {
     res.status(405).json({ message: "Method not allowed" });

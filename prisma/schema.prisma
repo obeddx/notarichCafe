@@ -21,7 +21,8 @@ model Menu {
   orderItems   OrderItem[]
   ingredients  MenuIngredient[]
   completedOrderItems CompletedOrderItem[]
-  discounts    MenuDiscount[]    // Relasi ke discount bertipe MENU
+  discounts    MenuDiscount[]
+  modifiers    MenuModifier[]  // Relasi balik ke MenuModifier
 }
 
 model Ingredient {
@@ -48,6 +49,7 @@ model Ingredient {
   semiCompositions IngredientComposition[] @relation("SemiIngredient")
   rawCompositions  IngredientComposition[] @relation("RawIngredient")
   purchaseOrders  PurchaseOrder[]          // Relasi ke purchase order
+modifierIngredients ModifierIngredient[] // Relasi balik ke ModifierIngredient
 }
 
 model IngredientCategory {
@@ -156,17 +158,6 @@ model Order {
   discount      Discount?       @relation(fields: [discountId], references: [id])
 }
 
-model OrderItem {
-  id        Int    @id @default(autoincrement())
-  orderId   Int
-  menuId    Int
-  quantity  Int
-  note      String?
-  price     Float           @default(0.0)// Harga per item sebelum discount
-  discountAmount Float     @default(0.0) // Diskon per item (jika ada discount MENU)
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menu      Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
-}
 
 model CompletedOrder {
   id             Int         @id @default(autoincrement())
@@ -186,16 +177,80 @@ model CompletedOrder {
   discount       Discount?   @relation(fields: [discountId], references: [id])
 }
 
+model Modifier {
+  id           Int              @id @default(autoincrement())
+  name         String           // Nama modifier, misalnya "Mushroom Sauce"
+  categoryId   Int              // Foreign key ke ModifierCategory
+  price        Float            @default(0.0) // Harga modifier dalam satuan mata uang
+  category     ModifierCategory @relation(fields: [categoryId], references: [id])
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  menus        MenuModifier[]   // Relasi ke menu yang mendukung modifier ini
+  ingredients  ModifierIngredient[] // Relasi ke ingredient yang membentuk modifier ini
+  orderItems   OrderItemModifier[]
+  completedOrderItems CompletedOrderItemModifier[]
+}
+
+model MenuModifier {
+  id          Int      @id @default(autoincrement())
+  menuId      Int
+  modifierId  Int
+  menu        Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  modifier    Modifier @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  @@unique([menuId, modifierId])
+}
+
+model ModifierIngredient {
+  id           Int         @id @default(autoincrement())
+  modifierId   Int
+  ingredientId Int
+  amount       Float       // Jumlah ingredient dalam modifier (misalnya, 0.1 kg Mushroom)
+  modifier     Modifier    @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  @@unique([modifierId, ingredientId])
+}
+
+model OrderItem {
+  id            Int            @id @default(autoincrement())
+  orderId       Int
+  menuId        Int
+  quantity      Int
+  note          String?
+  price         Float          @default(0.0)
+  discountAmount Float         @default(0.0)
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menu          Menu           @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  modifiers     OrderItemModifier[]
+}
+
+model OrderItemModifier {
+  id          Int        @id @default(autoincrement())
+  orderItemId Int
+  modifierId  Int
+  orderItem   OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  modifier    Modifier   @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  @@unique([orderItemId, modifierId])
+}
 model CompletedOrderItem {
-  id        Int    @id @default(autoincrement())
-  orderId   Int
-  menuId    Int
-  quantity  Int
-  note      String?
-  price     Float           @default(0.0)// Harga per item sebelum discount
-  discountAmount Float     @default(0.0) // Diskon per item
-  order     CompletedOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menu      Menu           @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  id            Int                 @id @default(autoincrement())
+  orderId       Int
+  menuId        Int
+  quantity      Int
+  note          String?
+  price         Float               @default(0.0)
+  discountAmount Float              @default(0.0)
+  order         CompletedOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menu          Menu                @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  modifiers     CompletedOrderItemModifier[]
+}
+
+model CompletedOrderItemModifier {
+  id              Int              @id @default(autoincrement())
+  completedOrderItemId Int
+  modifierId      Int
+  completedOrderItem CompletedOrderItem @relation(fields: [completedOrderItemId], references: [id], onDelete: Cascade)
+  modifier        Modifier         @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  @@unique([completedOrderItemId, modifierId])
 }
 
 model DataMeja {
@@ -302,4 +357,13 @@ model PurchaseOrder {
   updatedAt    DateTime   @updatedAt
   gudangId     Int?
   gudang       Gudang?    @relation(fields: [gudangId], references: [id])
+}
+
+model ModifierCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    // Nama kategori, misalnya "Sauce", "Kentang", "Salad"
+  description String?   // Deskripsi opsional
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  modifiers   Modifier[] // Relasi ke Modifier
 }

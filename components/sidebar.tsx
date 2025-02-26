@@ -1,4 +1,3 @@
-// components/Sidebar.tsx
 "use client";
 import Image from "next/image";
 import Link from "next/link";
@@ -53,12 +52,24 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
         </li>
         <li>
           <SidebarDropdown
-            label="library"
+            label="Library"
             isOpen={isOpen}
             items={[
-              { href: "/manager/library/taxes", label: "taxes" },
-              { href: "/manager/library/gratuity", label: "gratuity" },
-              { href: "/manager/library/diskon", label: "discount" },
+              { href: "/manager/library/taxes", label: "Taxes" },
+              { href: "/manager/library/gratuity", label: "Gratuity" },
+              { href: "/manager/library/diskon", label: "Discount" },
+            ]}
+            border
+          />
+        </li>
+          {/* Tambahan Label Modifier */}
+          <li>
+          <SidebarDropdown
+            label="Modifier"
+            isOpen={isOpen}
+            items={[
+              { href: "/manager/modifier", label: "Modifier" },
+              { href: "/manager/modifierCategory", label: "Category" },
             ]}
             border
           />
@@ -82,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             items={[
               { href: "/manager/getGudang", label: "Summary" },
               { href: "/manager/inventory/suppliers", label: "Supplier" },
-              { href: "/manager/inventory/purchaseOrder", label: "Purchase oder (PO)" },
+              { href: "/manager/inventory/purchaseOrder", label: "Purchase Order (PO)" },
             ]}
             border
           />
@@ -99,7 +110,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             border
           />
         </li>
-        {/* Tombol Logout  */}
+    
+        {/* Tombol Logout */}
         <li className="mt-4 mx-4">
           <LogoutButton />
         </li>

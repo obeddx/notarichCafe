@@ -3,16 +3,13 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   try {
-    // Ambil semua menu beserta ingredient dan diskon aktifnya
+    // Ambil semua menu beserta ingredient, diskon aktif, dan modifier
     const menus = await prisma.menu.findMany({
       include: {
         ingredients: {
@@ -30,6 +27,11 @@ export default async function handler(
             },
           },
         },
+        modifiers: {
+          include: {
+            modifier: true, // Detail modifier
+          },
+        }, // Tambahkan relasi modifiers
       },
     });
 
@@ -38,13 +40,11 @@ export default async function handler(
       menus.map(async (menu) => {
         const totalCost = menu.ingredients.reduce((acc, item) => {
           const ingredient = item.ingredient;
-          // Konversi nilai agar perhitungan berjalan dengan benar
           const amount = Number(item.amount) || 0;
           const price = Number(ingredient.price) || 0;
           const batchYield = Number(ingredient.batchYield) || 0;
           let cost = 0;
 
-          // Perbandingan tipe menggunakan toUpperCase()
           if (ingredient.type.toUpperCase() === "SEMI_FINISHED" && batchYield > 0) {
             cost = (amount / batchYield) * price;
           } else {
@@ -75,6 +75,7 @@ export default async function handler(
           ...menu,
           hargaBakul: totalCost,
           discounts: transformedDiscounts,
+          modifiers: menu.modifiers, // Sertakan data modifiers
         };
       })
     );

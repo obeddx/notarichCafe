@@ -12,6 +12,11 @@ interface IngredientRow {
   amount: number;
 }
 
+interface ModifierOption {
+  id: number;
+  name: string;
+}
+
 interface Discount {
   id: number;
   name: string;
@@ -25,27 +30,34 @@ interface DiscountInfo {
   discount: Discount;
 }
 
-interface EditMenuModalProps {
-  menuId: number;
-  onClose: () => void;
-  onMenuUpdated: () => void;
+interface Modifier {
+  modifier: {
+    id: number;
+    name: string;
+  };
 }
 
-export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMenuModalProps) {
+interface EditMenuModalProps {
+  menuId: number;
+  onCloseAction: () => void; // Ubah nama prop
+  onMenuUpdatedAction: () => void; // Ubah nama prop
+}
+
+export default function EditMenuModal({ menuId, onCloseAction, onMenuUpdatedAction }: EditMenuModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null); // URL gambar yang ada
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [status, setStatus] = useState("tersedia");
   const [category, setCategory] = useState("makanan");
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [availableIngredients, setAvailableIngredients] = useState<IngredientOption[]>([]);
-
-  // State untuk diskon
   const [applyDiscount, setApplyDiscount] = useState<boolean>(false);
   const [selectedDiscountId, setSelectedDiscountId] = useState<string>("");
   const [availableDiscounts, setAvailableDiscounts] = useState<Discount[]>([]);
+  const [availableModifiers, setAvailableModifiers] = useState<ModifierOption[]>([]);
+  const [selectedModifierIds, setSelectedModifierIds] = useState<number[]>([]);
 
   // Ambil daftar ingredient yang tersedia
   useEffect(() => {
@@ -67,7 +79,6 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
       try {
         const res = await fetch("/api/diskon");
         const data = await res.json();
-        // Filter diskon dengan scope MENU dan aktif
         const menuDiscounts = data.filter((d: any) => d.scope === "MENU" && d.isActive);
         setAvailableDiscounts(menuDiscounts);
       } catch (error) {
@@ -77,41 +88,53 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
     fetchDiscounts();
   }, []);
 
+  // Ambil daftar modifier yang tersedia
+  useEffect(() => {
+    const fetchModifiers = async () => {
+      try {
+        const res = await fetch("/api/modifier");
+        const data = await res.json();
+        setAvailableModifiers(data);
+      } catch (error) {
+        console.error("Error fetching modifiers:", error);
+      }
+    };
+    fetchModifiers();
+  }, []);
+
   // Ambil data menu berdasarkan menuId dan prefill form
   useEffect(() => {
     const fetchMenuData = async () => {
       try {
-        const res = await fetch(`/api/getMenu/${menuId}`);
+        const res = await fetch(`/api/getMenuOne?id=${menuId}`);
         const data = await res.json();
-        setName(data.name);
-        setDescription(data.description || "");
-        setPrice(data.price.toString());
-        setStatus(data.status || "tersedia");
-        setCategory(data.category);
-
-        // Set URL gambar jika ada
-        if (data.image) {
-          setImageUrl(data.image);
-        }
-
-        // Prefill ingredient rows (diasumsikan data.ingredients berbentuk array)
-        if (data.ingredients && Array.isArray(data.ingredients)) {
-          const rows = data.ingredients.map((item: any) => ({
-            ingredientId: item.ingredient.id,
-            amount: item.amount,
-          }));
-          setIngredientRows(rows);
-        }
-
-        // Jika menu sudah memiliki diskon, prefill state diskon
-        // Diasumsikan data.discounts berbentuk array dari { discount: { ... } }
-        if (data.discounts && data.discounts.length > 0) {
-          setApplyDiscount(true);
-          // Ambil diskon pertama sebagai default
-          setSelectedDiscountId(data.discounts[0].discount.id.toString());
-        } else {
-          setApplyDiscount(false);
-          setSelectedDiscountId("");
+        if (res.ok && data.menu) {
+          setName(data.menu.name);
+          setDescription(data.menu.description || "");
+          setPrice(data.menu.price.toString());
+          setStatus(data.menu.Status || "tersedia");
+          setCategory(data.menu.category);
+          if (data.menu.image) {
+            setImageUrl(data.menu.image);
+          }
+          if (data.menu.ingredients && Array.isArray(data.menu.ingredients)) {
+            const rows = data.menu.ingredients.map((item: any) => ({
+              ingredientId: item.ingredientId || item.ingredient.id,
+              amount: item.amount,
+            }));
+            setIngredientRows(rows);
+          }
+          if (data.menu.modifiers && Array.isArray(data.menu.modifiers)) {
+            const modifierIds = data.menu.modifiers.map((mod: any) => mod.modifier.id);
+            setSelectedModifierIds(modifierIds);
+          }
+          if (data.menu.discounts && data.menu.discounts.length > 0) {
+            setApplyDiscount(true);
+            setSelectedDiscountId(data.menu.discounts[0].discountId.toString());
+          } else {
+            setApplyDiscount(false);
+            setSelectedDiscountId("");
+          }
         }
       } catch (error) {
         console.error("Error fetching menu data:", error);
@@ -136,6 +159,17 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
     setIngredientRows(newRows);
   };
 
+  // Fungsi untuk mengelola modifier
+  const addModifier = (modifierId: number) => {
+    if (!selectedModifierIds.includes(modifierId) && modifierId !== 0) {
+      setSelectedModifierIds([...selectedModifierIds, modifierId]);
+    }
+  };
+
+  const removeModifier = (modifierId: number) => {
+    setSelectedModifierIds(selectedModifierIds.filter((id) => id !== modifierId));
+  };
+
   // Handler untuk submit form edit
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -145,29 +179,26 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
       return;
     }
 
-    // Buat FormData untuk mengirim data (termasuk file jika ada) dan ingredient (dalam bentuk JSON string)
     const formData = new FormData();
+    formData.append("id", menuId.toString());
     formData.append("name", name);
     formData.append("description", description);
     formData.append("price", price);
     if (image) {
       formData.append("image", image);
     }
-    formData.append("status", status);
+    formData.append("Status", status);
     formData.append("category", category);
     formData.append("ingredients", JSON.stringify(ingredientRows));
-
-    // Sertakan data diskon jika applyDiscount aktif
+    formData.append("modifierIds", JSON.stringify(selectedModifierIds));
     if (applyDiscount && selectedDiscountId) {
       formData.append("discountId", selectedDiscountId);
     } else {
-      // Jika tidak ada diskon, kirim string kosong atau biarkan field tidak ada sesuai kebutuhan API
       formData.append("discountId", "");
     }
 
     try {
-      // Misalnya, endpoint edit menggunakan metode PUT dengan URL: /api/editMenu/:id
-      const res = await fetch(`/api/editMenu/${menuId}`, {
+      const res = await fetch("/api/addMenu", {
         method: "PUT",
         body: formData,
       });
@@ -175,10 +206,10 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
 
       if (res.ok) {
         alert("Menu berhasil diupdate!");
-        onMenuUpdated(); // Memperbarui daftar menu di halaman utama
-        onClose(); // Menutup modal
+        onMenuUpdatedAction();
+        onCloseAction();
       } else {
-        alert("Gagal mengupdate menu: " + data.message);
+        alert("Gagal mengupdate menu: " + (data.message || "Unknown error"));
       }
     } catch (error) {
       console.error("Error updating menu:", error);
@@ -305,6 +336,50 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
             </div>
           </div>
 
+          {/* Section Modifier */}
+          <div className="mb-4 border-t pt-4">
+            <h2 className="text-xl font-semibold mb-2">Modifiers</h2>
+            <label className="block font-semibold mb-2">
+              Pilih Modifier:
+              <select
+                onChange={(e) => addModifier(parseInt(e.target.value))}
+                value={0}
+                className="w-full p-2 border border-gray-300 rounded mt-1"
+              >
+                <option value={0}>Pilih Modifier</option>
+                {availableModifiers
+                  .filter((mod) => !selectedModifierIds.includes(mod.id))
+                  .map((mod) => (
+                    <option key={mod.id} value={mod.id}>
+                      {mod.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            {selectedModifierIds.length > 0 && (
+              <div className="mt-4">
+                <h3 className="font-semibold">Modifier yang Dipilih:</h3>
+                <ul className="list-disc pl-5">
+                  {selectedModifierIds.map((modId) => {
+                    const modifier = availableModifiers.find((m) => m.id === modId);
+                    return (
+                      <li key={modId} className="flex items-center justify-between py-1">
+                        <span>{modifier?.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeModifier(modId)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+
           {/* Section Diskon */}
           <div className="mb-4 border-t pt-4">
             <h2 className="text-xl font-semibold mb-2">Diskon</h2>
@@ -370,12 +445,15 @@ export default function EditMenuModal({ menuId, onClose, onMenuUpdated }: EditMe
           <div className="flex justify-end gap-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={onCloseAction}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
             >
               Cancel
             </button>
-            <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+            <button
+              type="submit"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            >
               Update Menu
             </button>
           </div>

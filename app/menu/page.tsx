@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import Image from "next/image";
 import { ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
@@ -46,6 +46,20 @@ interface Gratuity {
   isActive: boolean;
 }
 
+interface ModifierCategory {
+  id: number;
+  name: string;
+}
+
+interface Modifier {
+  modifier: {
+    id: number;
+    name: string;
+    price: number; // Tambahkan harga modifier
+    category: ModifierCategory;
+  };
+}
+
 interface Menu {
   id: number;
   name: string;
@@ -57,12 +71,14 @@ interface Menu {
   rating: number;
   stock: boolean;
   discounts: { discount: Discount }[];
+  modifiers: Modifier[];
 }
 
 interface CartItem {
   menu: Menu;
   quantity: number;
   note: string;
+  modifierIds: { [categoryId: number]: number | null }; // Modifier per kategori
 }
 
 const categories = [
@@ -155,6 +171,7 @@ export default function MenuPage() {
           rating: item.rating !== undefined ? item.rating : 4.5,
           stock: item.stock !== undefined ? item.stock : true,
           discounts: item.discounts ?? [],
+          modifiers: item.modifiers ?? [],
         }));
         setMenus(transformedMenu);
 
@@ -186,14 +203,14 @@ export default function MenuPage() {
 
   const addToCart = (menu: Menu) => {
     setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex((item) => item.menu.id === menu.id);
+      const existingItemIndex = prevCart.findIndex((item) => item.menu.id === menu.id && JSON.stringify(item.modifierIds) === JSON.stringify({}));
       let updatedCart;
       if (existingItemIndex !== -1) {
         updatedCart = prevCart.map((item, index) =>
           index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
         );
       } else {
-        updatedCart = [...prevCart, { menu, quantity: 1, note: "" }];
+        updatedCart = [...prevCart, { menu, quantity: 1, note: "", modifierIds: {} }];
       }
       setNoteVisibility((prev) => ({ ...prev, [menu.id]: false }));
       sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
@@ -202,11 +219,11 @@ export default function MenuPage() {
     toast.success(`${menu.name} added to cart!`);
   };
 
-  const removeFromCart = (menuId: number) => {
+  const removeFromCart = (menuId: number, modifierIds: { [categoryId: number]: number | null }) => {
     setCart((prevCart) => {
       const updatedCart = prevCart
         .map((item) => {
-          if (item.menu.id === menuId) {
+          if (item.menu.id === menuId && JSON.stringify(item.modifierIds) === JSON.stringify(modifierIds)) {
             if (item.quantity > 1) return { ...item, quantity: item.quantity - 1 };
             return null;
           }
@@ -224,10 +241,26 @@ export default function MenuPage() {
     toast.error("Item removed from cart!");
   };
 
-  const updateCartItemNote = (menuId: number, note: string) => {
+  const updateCartItemModifier = (menuId: number, categoryId: number, modifierId: number | null) => {
+    setCart((prevCart) => {
+      const updatedCart = prevCart.map((item) => {
+        if (item.menu.id === menuId) {
+          const newModifierIds = { ...item.modifierIds, [categoryId]: modifierId };
+          return { ...item, modifierIds: newModifierIds };
+        }
+        return item;
+      });
+      sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
+      return updatedCart;
+    });
+  };
+
+  const updateCartItemNote = (menuId: number, modifierIds: { [categoryId: number]: number | null }, note: string) => {
     setCart((prevCart) => {
       const updatedCart = prevCart.map((item) =>
-        item.menu.id === menuId ? { ...item, note } : item
+        item.menu.id === menuId && JSON.stringify(item.modifierIds) === JSON.stringify(modifierIds)
+          ? { ...item, note }
+          : item
       );
       sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
@@ -238,7 +271,7 @@ export default function MenuPage() {
     setNoteVisibility((prev) => ({ ...prev, [menuId]: !prev[menuId] }));
   };
 
-  const calculateItemPrice = (menu: Menu) => {
+  const calculateItemPrice = (menu: Menu, modifierIds: { [categoryId: number]: number | null }) => {
     let price = menu.price;
     const activeDiscount = Array.isArray(menu.discounts)
       ? menu.discounts.find((d) => d.discount.isActive)
@@ -249,6 +282,17 @@ export default function MenuPage() {
           ? (activeDiscount.discount.value / 100) * menu.price
           : activeDiscount.discount.value;
     }
+
+    // Tambahkan harga modifier
+    Object.entries(modifierIds).forEach(([categoryId, modifierId]) => {
+      if (modifierId) {
+        const modifier = menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+        if (modifier) {
+          price += modifier.price;
+        }
+      }
+    });
+
     return price > 0 ? price : 0;
   };
 
@@ -256,12 +300,11 @@ export default function MenuPage() {
     let totalBeforeDiscount = 0;
     let totalMenuDiscountAmount = 0;
 
-    // Hitung subtotal dan diskon scope MENU
     cart.forEach((item) => {
-      const originalPrice = item.menu.price * item.quantity;
-      const discountedPrice = calculateItemPrice(item.menu) * item.quantity;
-      totalBeforeDiscount += originalPrice;
-      totalMenuDiscountAmount += originalPrice - discountedPrice;
+      const originalPrice = item.menu.price;
+      const discountedPrice = calculateItemPrice(item.menu, item.modifierIds);
+      totalBeforeDiscount += originalPrice * item.quantity;
+      totalMenuDiscountAmount += (originalPrice - discountedPrice) * item.quantity;
     });
 
     const totalAfterMenuDiscount = totalBeforeDiscount - totalMenuDiscountAmount;
@@ -269,7 +312,6 @@ export default function MenuPage() {
     const gratuityAmount = gratuityRate * totalAfterMenuDiscount;
     const initialFinalTotal = totalAfterMenuDiscount + taxAmount + gratuityAmount;
 
-    // Terapkan diskon scope TOTAL pada initialFinalTotal
     let totalDiscountAmount = totalMenuDiscountAmount;
     if (selectedDiscountId) {
       const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
@@ -304,6 +346,7 @@ export default function MenuPage() {
         menuId: item.menu.id,
         quantity: item.quantity,
         note: item.note,
+        modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
       })),
       total: totalBeforeDiscount,
       discountId: selectedDiscountId || undefined,
@@ -383,12 +426,19 @@ export default function MenuPage() {
     let totalQty = 0;
     const { totalBeforeDiscount, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterDiscount } = calculateCartTotals();
     cart.forEach((item) => {
-      const itemTotal = calculateItemPrice(item.menu) * item.quantity;
-      doc.text(item.menu.name, margin, yPosition, { maxWidth: 30 });
-      doc.text(`${item.quantity} x ${calculateItemPrice(item.menu).toLocaleString()}`, margin, yPosition + 4, { maxWidth: 30 });
+      const itemTotal = calculateItemPrice(item.menu, item.modifierIds) * item.quantity;
+      const modifierNames = Object.entries(item.modifierIds)
+        .map(([categoryId, modifierId]) => 
+          modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
+        )
+        .filter(Boolean)
+        .join(", ");
+      const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
+      doc.text(itemNameWithModifiers, margin, yPosition, { maxWidth: 30 });
+      doc.text(`${item.quantity} x ${calculateItemPrice(item.menu, item.modifierIds).toLocaleString()}`, margin, yPosition + 4, { maxWidth: 30 });
       doc.text(`Rp${itemTotal.toLocaleString()}`, rightMargin, yPosition, { align: "right" });
       totalQty += item.quantity;
-      yPosition += 10;
+      yPosition += modifierNames ? 12 : 10;
     });
 
     yPosition += 2;
@@ -450,7 +500,7 @@ export default function MenuPage() {
               customerPhone: "",
               item_details: cart.map((item) => ({
                 id: item.menu.id.toString(),
-                price: item.menu.price,
+                price: calculateItemPrice(item.menu, item.modifierIds), // Sertakan harga dengan modifier
                 quantity: item.quantity,
                 name: item.menu.name,
               })),
@@ -514,14 +564,22 @@ export default function MenuPage() {
           <h2 className="text-2xl font-bold text-orange-600 mb-4">Order Receipt</h2>
           <h3 className="text-xl text-black mb-4">Table Number: {tableNumber}</h3>
           <ul className="space-y-2">
-            {cart.map((item) => (
-              <li key={item.menu.id} className="flex justify-between text-black">
-                <span>
-                  {item.quantity}x {item.menu.name}
-                </span>
-                <span>Rp{(calculateItemPrice(item.menu) * item.quantity).toLocaleString()}</span>
-              </li>
-            ))}
+            {cart.map((item) => {
+              const itemTotal = calculateItemPrice(item.menu, item.modifierIds) * item.quantity;
+              const modifierNames = Object.entries(item.modifierIds)
+                .map(([categoryId, modifierId]) => 
+                  modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
+                )
+                .filter(Boolean)
+                .join(", ");
+              const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
+              return (
+                <li key={`${item.menu.id}-${JSON.stringify(item.modifierIds)}`} className="flex justify-between text-black">
+                  <span>{item.quantity}x {itemNameWithModifiers}</span>
+                  <span>Rp{itemTotal.toLocaleString()}</span>
+                </li>
+              );
+            })}
           </ul>
           <div className="mt-4 border-t pt-4">
             <p className="text-lg text-black">Subtotal: Rp{totalBeforeDiscount.toLocaleString()}</p>
@@ -625,7 +683,7 @@ export default function MenuPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMenu.map((item) => {
-              const discountedPrice = calculateItemPrice(item);
+              const discountedPrice = calculateItemPrice(item, {});
               return (
                 <div
                   key={item.id}
@@ -658,6 +716,9 @@ export default function MenuPage() {
                           <p className="text-lg font-semibold text-orange-600">
                             Rp{item.price.toLocaleString()}
                           </p>
+                        )}
+                        {item.modifiers.length > 0 && (
+                          <p className="text-sm text-gray-600">+ Modifier mulai dari Rp0</p>
                         )}
                       </div>
                       <button
@@ -695,6 +756,9 @@ export default function MenuPage() {
                         <p className="text-md font-semibold text-orange-600">
                           Rp{item.price.toLocaleString()}
                         </p>
+                      )}
+                      {item.modifiers.length > 0 && (
+                        <p className="text-xs text-gray-600">+ Modifier mulai dari Rp0</p>
                       )}
                     </div>
                     <button
@@ -745,14 +809,31 @@ export default function MenuPage() {
               <div className="flex-grow overflow-y-auto">
                 <ul className="space-y-4">
                   {cart.map((item) => {
-                    const itemTotalPrice = calculateItemPrice(item.menu) * item.quantity;
+                    const itemPrice = calculateItemPrice(item.menu, item.modifierIds);
+                    const itemTotalPrice = itemPrice * item.quantity;
                     const isNoteOpen = noteVisibility[item.menu.id] || false;
+                    const modifierNames = Object.entries(item.modifierIds)
+                      .map(([categoryId, modifierId]) => 
+                        modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
+                      )
+                      .filter(Boolean)
+                      .join(", ");
+                    const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
+                    const modifierGroups = item.menu.modifiers.reduce((acc, mod) => {
+                      const categoryId = mod.modifier.category.id;
+                      if (!acc[categoryId]) {
+                        acc[categoryId] = { category: mod.modifier.category, modifiers: [] };
+                      }
+                      acc[categoryId].modifiers.push(mod);
+                      return acc;
+                    }, {} as { [key: number]: { category: ModifierCategory; modifiers: Modifier[] } });
+
                     return (
-                      <li key={item.menu.id} className="flex flex-col border-b pb-4">
+                      <li key={`${item.menu.id}-${JSON.stringify(item.modifierIds)}`} className="flex flex-col border-b pb-4">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-semibold text-gray-900">{item.menu.name}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">{itemNameWithModifiers}</h3>
                           <p className="text-orange-600 font-semibold">
-                            Rp{calculateItemPrice(item.menu).toLocaleString()} x {item.quantity}
+                            Rp{itemPrice.toLocaleString()} x {item.quantity}
                           </p>
                         </div>
                         <p className="text-right text-gray-700 font-semibold">
@@ -761,7 +842,7 @@ export default function MenuPage() {
                         <div className="flex justify-between items-center mt-2">
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => removeFromCart(item.menu.id)}
+                              onClick={() => removeFromCart(item.menu.id, item.modifierIds)}
                               className="px-4 py-2 bg-red-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-red-700 transition"
                             >
                               −
@@ -777,12 +858,31 @@ export default function MenuPage() {
                             </button>
                           </div>
                         </div>
+                        <div className="mt-2">
+                          {Object.entries(modifierGroups).map(([categoryId, group]) => (
+                            <div key={categoryId} className="mb-2">
+                              <label className="block text-sm font-medium">{group.category.name}:</label>
+                              <select
+                                value={item.modifierIds[parseInt(categoryId)] || 0}
+                                onChange={(e) => updateCartItemModifier(item.menu.id, parseInt(categoryId), e.target.value === "0" ? null : parseInt(e.target.value))}
+                                className="w-full p-2 border rounded-md"
+                              >
+                                <option value={0}>Tanpa {group.category.name} (Rp0)</option>
+                                {group.modifiers.map((mod) => (
+                                  <option key={mod.modifier.id} value={mod.modifier.id}>
+                                    {mod.modifier.name} (Rp{mod.modifier.price.toLocaleString()})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
                         {isNoteOpen ? (
                           <textarea
                             className="mt-2 p-2 border rounded-lg w-full"
                             placeholder="Add note (e.g., no sugar, extra spicy)"
                             value={item.note}
-                            onChange={(e) => updateCartItemNote(item.menu.id, e.target.value)}
+                            onChange={(e) => updateCartItemNote(item.menu.id, item.modifierIds, e.target.value)}
                           />
                         ) : (
                           <button
@@ -807,7 +907,6 @@ export default function MenuPage() {
                   required
                 />
               </div>
-             
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
                 <h3 className="text-xl font-bold text-gray-900">Rincian Harga:</h3>
                 <p className="text-lg text-gray-900">
