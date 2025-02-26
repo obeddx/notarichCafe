@@ -20,8 +20,9 @@ export default function RegisterPage() {
   const router = useRouter();
 
   const generateManualToken = () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
-    let token = '';
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+    let token = "";
     for (let i = 0; i < 50; i++) {
       token += characters.charAt(Math.floor(Math.random() * characters.length));
     }
@@ -62,16 +63,16 @@ export default function RegisterPage() {
       });
 
       const data = await res.json();
-if (res.ok) {
-  toast.success("Registrasi berhasil, silakan login!");
-  if (data.token) {
-    toast.info(`Token Anda: ${data.token}`);
-  }
-  setTimeout(() => router.push(`/login?role=${data.role}`), 1500);
-} else {
-  setErrorMessage(data.message || "Registrasi gagal");
-  toast.error(data.message || "Registrasi gagal");
-}
+      if (res.ok) {
+        toast.success("Registrasi berhasil, silakan login!");
+        if (data.token) {
+          toast.info(`Token Anda: ${data.token}`);
+        }
+        setTimeout(() => router.push(`/login?role=${data.role}`), 1500);
+      } else {
+        setErrorMessage(data.message || "Registrasi gagal");
+        toast.error(data.message || "Registrasi gagal");
+      }
     } catch (error) {
       toast.error("Terjadi kesalahan, coba lagi nanti");
     } finally {
