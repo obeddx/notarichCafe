@@ -19,17 +19,17 @@ export default function CustomerOrderDisplay() {
   const fetchCartItems = async () => {
     try {
       const response = await fetch("/api/cart");
-      if (!response.ok) throw new Error("Failed to fetch cart items");
+      if (!response.ok) throw new Error("Gagal mengambil data keranjang");
       const data = await response.json();
       setCartItems(data.cartItems || []);
     } catch (error) {
-      console.error("Error fetching cart items:", error);
+      console.error("Error:", error);
     }
   };
 
   useEffect(() => {
     fetchCartItems();
-    const interval = setInterval(fetchCartItems, 2000);
+    const interval = setInterval(fetchCartItems, 2000); // Ambil data setiap 2 detik
     return () => clearInterval(interval);
   }, []);
 

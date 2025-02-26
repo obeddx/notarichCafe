@@ -1367,7 +1367,13 @@ function generatePDF(order: Order) {
   doc.text("Total qty", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text(String(totalQty), valueX, yPosition);
-  yPosition += 5;
+  yPosition += 3;
+
+  // Garis pemisah
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(150);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 7;
 
   doc.text("Subtotal", labelX, yPosition);
   doc.text(":", colonX, yPosition);
@@ -1389,16 +1395,34 @@ function generatePDF(order: Order) {
   doc.text("Rp " + order.gratuityAmount.toLocaleString(), valueX, yPosition);
   yPosition += 5;
 
+  // Garis pemisah
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(150);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 7;
+
   doc.text("Total Bayar", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
   yPosition += 7;
 
+  // Garis pemisah
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(150);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
+
   doc.setFont("helvetica", "normal");
   doc.text("Pembayaran", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text(order.paymentMethod || "-", valueX, yPosition);
-  yPosition += 7;
+  yPosition += 5;
+
+  // Garis pemisah
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(150);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
 
 doc.text("Uang Diberikan", labelX, yPosition);
 doc.text(":", colonX, yPosition);
@@ -1572,7 +1596,12 @@ function generateCombinedPDF(order: Order) {
   doc.text("Total qty", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text(String(totalQty), valueX, yPosition);
-  yPosition += 5;
+  yPosition += 2;
+// Garis pemisah
+doc.setLineWidth(0.3);
+doc.setDrawColor(150);
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 3;
 
   doc.text("Subtotal", labelX, yPosition);
   doc.text(":", colonX, yPosition);
@@ -1597,7 +1626,13 @@ function generateCombinedPDF(order: Order) {
   doc.text("Total Bayar", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
-  yPosition += 7;
+  yPosition += 5;
+
+  // Garis pemisah
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(150);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 3;
 
   doc.setFont("helvetica", "normal");
   doc.text("Pembayaran", labelX, yPosition);

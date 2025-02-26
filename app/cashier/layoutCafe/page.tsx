@@ -57,6 +57,16 @@ const Bookinge = () => {
 const [selectedCategory, setSelectedCategory] = useState<string>("");
 const [menus, setMenus] = useState<Menu[]>([]);
 
+useEffect(() => {
+  if (isOrderModalOpen) {
+    fetch("/api/cart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cartItems: selectedMenuItems }),
+    });
+  }
+}, [selectedMenuItems, isOrderModalOpen]);
+
 interface CartItem {
   menu: Menu;
   quantity: number;
@@ -1324,9 +1334,18 @@ useEffect(() => {
     <div className="bg-white p-6 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Buat Pesanan Baru - Meja {selectedTableNumberForOrder}</h2>
-        <button onClick={() => setIsOrderModalOpen(false)}>
-          <X className="w-6 h-6 text-gray-600 hover:text-red-500" />
-        </button>
+        <button
+  onClick={async () => {
+    await fetch("/api/cart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cartItems: [] }),
+    });
+    setIsOrderModalOpen(false);
+  }}
+>
+  <X className="w-6 h-6 text-gray-600 hover:text-red-500" />
+</button>
       </div>
 
       {/* Form Input Pelanggan */}
