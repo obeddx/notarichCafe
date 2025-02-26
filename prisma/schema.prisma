@@ -47,6 +47,7 @@ model Ingredient {
   gudang      Gudang?
   semiCompositions IngredientComposition[] @relation("SemiIngredient")
   rawCompositions  IngredientComposition[] @relation("RawIngredient")
+  purchaseOrders  PurchaseOrder[]          // Relasi ke purchase order
 }
 
 model IngredientCategory {
@@ -97,6 +98,7 @@ model Gudang {
   unit         String
   isActive     Boolean   @default(true)
   dailyStocks  DailyGudangStock[]
+  purchaseOrders PurchaseOrder[]  // Relasi untuk mengakses purchase order terkait
 }
 
 model DailyGudangStock {
@@ -288,4 +290,16 @@ model Gratuity {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PurchaseOrder {
+  id           Int        @id @default(autoincrement())
+  ingredientId Int
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  quantity     Float       // Jumlah bahan yang di-purchase
+  totalPrice   Float      // Harga total pembelian
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  gudangId     Int?
+  gudang       Gudang?    @relation(fields: [gudangId], references: [id])
 }

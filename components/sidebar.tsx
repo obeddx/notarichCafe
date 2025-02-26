@@ -70,13 +70,22 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             items={[
               { href: "/manager/getBahan", label: "Ingredients Library" },
               { href: "/manager/ingridientCategory", label: "Ingredient Category" },
-              { href: "/manager/rekapPenjualan", label: "Recipes" },
+              { href: "/manager/Ingredient/recipes", label: "Recipes" },
             ]}
             border
           />
         </li>
         <li>
-          <SidebarItem href="/manager/getGudang" label="Gudang" isOpen={isOpen} border />
+          <SidebarDropdown
+            label="Inventory"
+            isOpen={isOpen}
+            items={[
+              { href: "/manager/getGudang", label: "Summary" },
+              { href: "/manager/inventory/suppliers", label: "Supplier" },
+              { href: "/manager/inventory/purchaseOrder", label: "Purchase oder (PO)" },
+            ]}
+            border
+          />
         </li>
         <li>
           <SidebarDropdown
