@@ -27,10 +27,16 @@ const getPreviousDate = (dateStr: string, period: string): string => {
 
 const CategorySales = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
-  const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState<string>(() =>
+    new Date().toISOString().split("T")[0]
+  );
   const [endDate, setEndDate] = useState<string>("");
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [sortColumn, setSortColumn] = useState<
+    "menuName" | "category" | "quantity" | "totalCollected" | "hpp" | "discount" | null
+  >(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const fetchData = async () => {
     setLoading(true);
@@ -68,14 +74,44 @@ const CategorySales = () => {
 
   const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
 
-  // Hitung total
   const totalSold = data.reduce((acc, item) => acc + item.quantity, 0);
   const totalCollected = data.reduce((acc, item) => acc + item.totalCollected, 0);
   const totalHPP = data.reduce((acc, item) => acc + item.hpp, 0);
   const totalDiscount = data.reduce((acc, item) => acc + item.discount, 0);
 
-  // Data untuk ekspor
-  const exportData = data.map(item => ({
+  const handleSort = (
+    column: "menuName" | "category" | "quantity" | "totalCollected" | "hpp" | "discount"
+  ) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedData = [...data].sort((a, b) => {
+    if (!sortColumn) return 0;
+    const direction = sortDirection === "asc" ? 1 : -1;
+    switch (sortColumn) {
+      case "menuName":
+        return direction * a.menuName.localeCompare(b.menuName);
+      case "category":
+        return direction * a.category.localeCompare(b.category);
+      case "quantity":
+        return direction * (a.quantity - b.quantity);
+      case "totalCollected":
+        return direction * (a.totalCollected - b.totalCollected);
+      case "hpp":
+        return direction * (a.hpp - b.hpp);
+      case "discount":
+        return direction * (a.discount - b.discount);
+      default:
+        return 0;
+    }
+  });
+
+  const exportData = sortedData.map(item => ({
     "Nama Menu": item.menuName,
     "Category": item.category,
     "Item Sold": item.quantity,
@@ -174,16 +210,124 @@ const CategorySales = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Nama Menu</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Category</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Item Sold</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Total Collected</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">HPP</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Discount</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                  <div className="flex items-center">
+                    Nama Menu
+                    <div className="ml-2 flex flex-col">
+                      <button
+                        onClick={() => handleSort("menuName")}
+                        className={`text-gray-500 ${sortColumn === "menuName" && sortDirection === "asc" ? "text-blue-500" : ""}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleSort("menuName")}
+                        className={`text-gray-500 ${sortColumn === "menuName" && sortDirection === "desc" ? "text-blue-500" : ""}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                  <div className="flex items-center">
+                    Category
+                    <div className="ml-2 flex flex-col">
+                      <button
+                        onClick={() => handleSort("category")}
+                        className={`text-gray-500 ${sortColumn === "category" && sortDirection === "asc" ? "text-blue-500" : ""}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleSort("category")}
+                        className={`text-gray-500 ${sortColumn === "category" && sortDirection === "desc" ? "text-blue-500" : ""}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
+                  <div className="flex items-center justify-end">
+                    Item Sold
+                    <div className="ml-2 flex flex-col">
+                      <button
+                        onClick={() => handleSort("quantity")}
+                        className={`text-gray-500 ${sortColumn === "quantity" && sortDirection === "asc" ? "text-blue-500" : ""}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleSort("quantity")}
+                        className={`text-gray-500 ${sortColumn === "quantity" && sortDirection === "desc" ? "text-blue-500" : ""}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
+                  <div className="flex items-center justify-end">
+                    Total Collected
+                    <div className="ml-2 flex flex-col">
+                      <button
+                        onClick={() => handleSort("totalCollected")}
+                        className={`text-gray-500 ${sortColumn === "totalCollected" && sortDirection === "asc" ? "text-blue-500" : ""}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleSort("totalCollected")}
+                        className={`text-gray-500 ${sortColumn === "totalCollected" && sortDirection === "desc" ? "text-blue-500" : ""}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
+                  <div className="flex items-center justify-end">
+                    HPP
+                    <div className="ml-2 flex flex-col">
+                      <button
+                        onClick={() => handleSort("hpp")}
+                        className={`text-gray-500 ${sortColumn === "hpp" && sortDirection === "asc" ? "text-blue-500" : ""}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleSort("hpp")}
+                        className={`text-gray-500 ${sortColumn === "hpp" && sortDirection === "desc" ? "text-blue-500" : ""}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
+                  <div className="flex items-center justify-end">
+                    Discount
+                    <div className="ml-2 flex flex-col">
+                      <button
+                        onClick={() => handleSort("discount")}
+                        className={`text-gray-500 ${sortColumn === "discount" && sortDirection === "asc" ? "text-blue-500" : ""}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleSort("discount")}
+                        className={`text-gray-500 ${sortColumn === "discount" && sortDirection === "desc" ? "text-blue-500" : ""}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {data.map((item, index) => (
+              {sortedData.map((item, index) => (
                 <tr key={index}>
                   <td className="px-6 py-4 text-sm text-gray-900">{item.menuName}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{item.category}</td>
