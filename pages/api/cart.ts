@@ -1,16 +1,22 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-// Temporary in-memory store (note: this resets on server restart)
-let cartItems: any[] = [];
+let cartData: {
+  cartItems: any[];
+  cashGiven: number;
+  change: number;
+} = { cartItems: [], cashGiven: 0, change: 0 };
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "POST") {
-    // Update cart items from cashier
-    cartItems = req.body.cartItems || [];
-    res.status(200).json({ message: "Cart updated", cartItems });
+    const { cartItems, cashGiven, change } = req.body;
+    cartData = {
+      cartItems: cartItems || cartData.cartItems,
+      cashGiven: cashGiven !== undefined ? Number(cashGiven) : cartData.cashGiven,
+      change: change !== undefined ? Number(change) : cartData.change,
+    };
+    res.status(200).json({ message: "Cart updated", ...cartData });
   } else if (req.method === "GET") {
-    // Return current cart items
-    res.status(200).json({ cartItems });
+    res.status(200).json(cartData);
   } else {
     res.status(405).json({ message: "Method not allowed" });
   }
