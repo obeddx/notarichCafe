@@ -1344,35 +1344,57 @@ function generatePDF(order: Order) {
  
 
   // Cetak tiap item pesanan
-  const truncateMenuName = (name: string) => {
-    const maxItemNameLength = 19;
-    if (name.length > maxItemNameLength) {
-      const firstLine = name.substring(0, maxItemNameLength);
-      const secondLine = name.substring(maxItemNameLength);
-      return [firstLine, secondLine];
-    } else {
-      return [name];
-    }
-  };
+const truncateMenuName = (name: string) => {
+  const maxItemNameLength = 19;
+  if (name.length > maxItemNameLength) {
+    const firstLine = name.substring(0, maxItemNameLength);
+    const secondLine = name.substring(maxItemNameLength);
+    return [firstLine, secondLine];
+  } else {
+    return [name];
+  }
+};
 
-  order.orderItems.forEach((item) => {
-    const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+order.orderItems.forEach((item) => {
+  const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+  
+  // Pastikan font bold untuk nama menu
+  checkPage();
+  doc.setFont("helvetica", "bold");
+  doc.text(firstLine, margin, yPosition);
+  yPosition += 5;
+  
+  if (secondLine) {
     checkPage();
-    doc.text(firstLine, margin, yPosition);
+    doc.setFont("helvetica", "bold");
+    doc.text(secondLine, margin, yPosition);
     yPosition += 5;
-    if (secondLine) {
-      checkPage();
-      doc.text(secondLine, margin, yPosition);
-      yPosition += 5;
-    }
+  }
 
-    const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+  const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+  
+  // Pastikan font bold untuk harga dan jumlah item
+  checkPage();
+  doc.setFont("helvetica", "bold");
+  doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
+  
+  const itemTotal = itemPriceAfterDiscount * item.quantity;
+  doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+  yPosition += 5;
+
+  // Tambahkan catatan jika ada (tetap italic)
+  if (item.note) {
     checkPage();
-    doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
-    const itemTotal = itemPriceAfterDiscount * item.quantity;
-    doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.text(`Catatan: ${item.note}`, margin, yPosition);
     yPosition += 5;
-  });
+    // Kembalikan ke font normal (atau bisa diubah lagi ke bold di iterasi berikutnya jika diperlukan)
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+  }
+});
+
 
   checkPage();
   yPosition += 3;
@@ -1595,35 +1617,88 @@ function generateCombinedPDF(order: Order) {
   
 
   // Cetak tiap item pesanan
-  const truncateMenuName = (name: string) => {
-    const maxItemNameLength = 19;
-    if (name.length > maxItemNameLength) {
-      const firstLine = name.substring(0, maxItemNameLength);
-      const secondLine = name.substring(maxItemNameLength);
-      return [firstLine, secondLine];
-    } else {
-      return [name];
-    }
-  };
+// Cetak tiap item pesanan
+const truncateMenuName = (name: string) => {
+  const maxItemNameLength = 19;
+  if (name.length > maxItemNameLength) {
+    const firstLine = name.substring(0, maxItemNameLength);
+    const secondLine = name.substring(maxItemNameLength);
+    return [firstLine, secondLine];
+  } else {
+    return [name];
+  }
+};
 
-  order.orderItems.forEach((item) => {
-    const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+order.orderItems.forEach((item) => {
+  const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+  
+  // Pastikan font bold untuk nama menu
+  checkPage();
+  doc.setFont("helvetica", "bold");
+  doc.text(firstLine, margin, yPosition);
+  yPosition += 5;
+  
+  if (secondLine) {
     checkPage();
-    doc.text(firstLine, margin, yPosition);
+    doc.setFont("helvetica", "bold");
+    doc.text(secondLine, margin, yPosition);
     yPosition += 5;
-    if (secondLine) {
-      checkPage();
-      doc.text(secondLine, margin, yPosition);
-      yPosition += 5;
-    }
+  }
 
-    const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+  const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+  
+  // Pastikan font bold untuk harga dan jumlah item
+  checkPage();
+  doc.setFont("helvetica", "bold");
+  doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
+  
+  const itemTotal = itemPriceAfterDiscount * item.quantity;
+  doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+  yPosition += 5;
+
+  // Tambahkan catatan jika ada (tetap italic)
+  if (item.note) {
     checkPage();
-    doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
-    const itemTotal = itemPriceAfterDiscount * item.quantity;
-    doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.text(`Catatan: ${item.note}`, margin, yPosition);
     yPosition += 5;
-  });
+    // Kembalikan ke font normal (atau bisa diubah lagi ke bold di iterasi berikutnya jika diperlukan)
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+  }
+});
+
+
+order.orderItems.forEach((item) => {
+  const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+  checkPage();
+  doc.text(firstLine, margin, yPosition);
+  yPosition += 5;
+  if (secondLine) {
+    checkPage();
+    doc.text(secondLine, margin, yPosition);
+    yPosition += 5;
+  }
+
+  const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+  checkPage();
+  doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
+  const itemTotal = itemPriceAfterDiscount * item.quantity;
+  doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+  yPosition += 5;
+
+  // Tambahkan catatan jika ada
+  if (item.note) {
+    checkPage();
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.text(`Catatan: ${item.note}`, margin, yPosition);
+    yPosition += 5;
+    doc.setFont("helvetica", "normal"); // Kembalikan ke font normal
+    doc.setFontSize(8);
+  }
+});
 
   checkPage();
   yPosition += 3;
@@ -1684,11 +1759,11 @@ function generateCombinedPDF(order: Order) {
   doc.text(":", colonX, yPosition);
   doc.text(order.paymentMethod || "-", valueX, yPosition);
   yPosition += 5;
-
+  
   checkPage();
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 5;
-  
+
   checkPage();
   doc.text("Uang Diberikan", labelX, yPosition);
   doc.text(":", colonX, yPosition);
