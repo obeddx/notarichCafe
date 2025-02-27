@@ -28,6 +28,19 @@ interface OrderItem {
   quantity: number;
   note?: string;
   menu: Menu;
+  modifiers: {
+    id: number;
+    modifierId: number;
+    modifier: {
+      id: number;
+      name: string;
+      price: number;
+      category: {
+        id: number;
+        name: string;
+      };
+    };
+  }[];
 }
 
 interface Menu {
@@ -308,7 +321,7 @@ const Bookinge = () => {
   // Komponen OrderCard
   const OrderCard = ({
     order,
-
+    
   }: {
     order: Order;
     isCompleted?: boolean;
@@ -360,14 +373,21 @@ const Bookinge = () => {
                   {item.quantity} x Rp {item.menu.price.toLocaleString()}
                 </p>
                 {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
+                {/* Tampilkan modifier jika ada */}
+                {item.modifiers && item.modifiers.length > 0 && (
+                  <div className="text-sm text-gray-500">
+                    Modifier:
+                    {item.modifiers.map((modifier) => (
+                      <p key={modifier.id}>- {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})</p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       </div>
-      <div className="border-t pt-3 mt-3 flex justify-between items-center">
-        <p className="text-lg font-bold">Total: Rp {order.total.toLocaleString()}</p>
-      </div>
+      
     </div>
   );
 
@@ -1201,22 +1221,22 @@ const Bookinge = () => {
                 </h2>
               </div>
               <div className="p-6 space-y-8">
-                {selectedTableOrders.length > 0 && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Pesanan Aktif</h3>
-                    {selectedTableOrders.map((order) => (
-                      <OrderCard key={order.id} order={order} onComplete={() => markOrderAsCompleted(order.id)} />
-                    ))}
-                  </div>
-                )}
-                {selectedCompletedOrders.length > 0 && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">Pesanan Selesai</h3>
-                    {selectedCompletedOrders.map((order) => (
-                      <OrderCard key={order.id} order={order} isCompleted />
-                    ))}
-                  </div>
-                )}
+              {selectedTableOrders.length > 0 && (
+  <div>
+    <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Pesanan Aktif</h3>
+    {selectedTableOrders.map((order) => (
+      <OrderCard key={order.id} order={order} onComplete={() => markOrderAsCompleted(order.id)} />
+    ))}
+  </div>
+)}
+{selectedCompletedOrders.length > 0 && (
+  <div>
+    <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">Pesanan Selesai</h3>
+    {selectedCompletedOrders.map((order) => (
+      <OrderCard key={order.id} order={order} isCompleted />
+    ))}
+  </div>
+)}
                 {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
                   <div className="text-center py-8">
                     {selectedTableNumber !== "sementara" && (
@@ -1484,7 +1504,7 @@ const Bookinge = () => {
                               const modifier = item.menu.modifiers.find(
                                 (m) => m.modifier.id === modifierId
                               )?.modifier;
-                              return acc + (modifier?.price || 0);
+                              return  (modifier?.price || 0);
                             }
                             return acc;
                           },
@@ -1526,7 +1546,7 @@ const Bookinge = () => {
                                     const modifier = item.menu.modifiers.find(
                                       (m) => m.modifier.id === modifierId
                                     )?.modifier;
-                                    return acc + (modifier?.price || 0);
+                                    return  (modifier?.price || 0);
                                   }
                                   return acc;
                                 },
