@@ -139,6 +139,24 @@ model User {
   updatedAt  DateTime @updatedAt
 }
 
+model Employee {
+  id             Int      @id @default(autoincrement())
+  employerName   String
+  roleId         Int
+  expiredDate    DateTime
+  employeeStatus String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  role           RoleEmployee @relation(fields: [roleId], references: [id])
+}
+
+model RoleEmployee {
+  id   Int    @id @default(autoincrement())
+  name String
+  employees Employee[]
+}
+
 model Order {
   id            Int             @id @default(autoincrement())
   tableNumber   String

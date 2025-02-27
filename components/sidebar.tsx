@@ -48,10 +48,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
           />
         </li>
         <li>
-          <SidebarDropdown label="Menu Notarich" isOpen={isOpen} items={[
-            { href: "/manager/getMenu", label: "Daftar Menu" },
-            { href: "/manager/categoryMenu", label: "Kategori Menu" },
-            ]} border />
+          <SidebarDropdown
+            label="Menu Notarich"
+            isOpen={isOpen}
+            items={[
+              { href: "/manager/getMenu", label: "Daftar Menu" },
+              { href: "/manager/categoryMenu", label: "Kategori Menu" },
+            ]}
+            border
+          />
         </li>
         <li>
           <SidebarDropdown
@@ -65,8 +70,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             border
           />
         </li>
-          {/* Tambahan Label Modifier */}
-          <li>
+        {/* Tambahan Label Modifier */}
+        <li>
           <SidebarDropdown
             label="Modifier"
             isOpen={isOpen}
@@ -113,7 +118,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             border
           />
         </li>
-    
+
+        <li>
+          <SidebarDropdown
+            label="Employees"
+            isOpen={isOpen}
+            items={[
+              { href: "/manager/employeeSlots", label: "Employee Slots" },
+              { href: "/manager/employeeAccess", label: "Employee Access" },
+            ]}
+            border
+          />
+        </li>
+
         {/* Tombol Logout */}
         <li className="mt-4 mx-4">
           <LogoutButton />
