@@ -443,9 +443,12 @@ export default function IngredientsTable() {
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Daftar Ingredients</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-      <button onClick={handleAddIngredient} className="text-blue-500 hover:underline pb-4">
+      <button onClick={handleAddIngredient}       className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+      >
         + Tambah Ingredient Baru
       </button>
+
+
       <div className="p-4">
         {lowStockIngredients.length > 0 ? (
           lowStockIngredients.map((ingredient) => (

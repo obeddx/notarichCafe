@@ -137,7 +137,8 @@ export default function ManagerMenusPage() {
       {activeTab === "menu" && (
         <>
           <Link href="/manager/addMenu">
-            <p className="text-blue-500 hover:underline pb-4">+ Tambah Recipe Baru</p>
+            <p       className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
+            >+ Tambah Recipe Baru</p>
           </Link>
           <table className="min-w-full border border-gray-300 divide-y divide-gray-200">
             <thead className="bg-gray-50">

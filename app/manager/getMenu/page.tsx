@@ -126,9 +126,13 @@ export default function ManagerMenusPage() {
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Daftar Menu</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-      <Link href="/manager/addMenu">
-        <p className="text-blue-500 hover:underline pb-4">+ Tambah Menu Baru</p>
-      </Link>
+      
+      <button
+          onClick={() => window.location.href = "/manager/addMenu"}
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+        >
+          Add New Menu
+        </button>
       <div className="flex justify-end mb-6">
         <div className="relative w-full max-w-md">
           <input

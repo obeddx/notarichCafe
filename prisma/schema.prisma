@@ -25,6 +25,8 @@ model Menu {
   modifiers    MenuModifier[]  // Relasi balik ke MenuModifier
 }
 
+
+
 model Ingredient {
   id          Int                     @id @default(autoincrement())
   name        String

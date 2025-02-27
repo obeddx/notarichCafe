@@ -220,10 +220,12 @@ export default function ModifierPage() {
       <h1 className="text-2xl font-bold mb-4">Daftar Modifier</h1>
       <button
         onClick={() => setIsAdding(true)}
-        className="text-blue-500 hover:underline pb-4"
-      >
+        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
+        >
         + Tambah Modifier Baru
       </button>
+
+
 
       {(isAdding || isEditing) && (
         <Modal onClose={() => { setIsAdding(false); setIsEditing(null); setFormData({ name: "", price: 0, categoryId: 0, selectedIngredients: [] }); }}>

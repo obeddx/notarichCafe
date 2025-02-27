@@ -117,7 +117,8 @@ export default function CategoryList() {
 
       <h1 className="text-2xl font-bold mb-4">Daftar Kategori</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-      <button  onClick={() => setShowAddModal(true)} className="text-blue-500 hover:underline pb-4">
+      <button  onClick={() => setShowAddModal(true)}       className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
+      >
         + Tambah Ingredient Baru
       </button>
       <table style={{

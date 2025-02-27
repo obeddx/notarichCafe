@@ -117,10 +117,12 @@ export default function ModifierCategoryList() {
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       <button
         onClick={() => setShowAddModal(true)}
-        className="text-blue-500 hover:underline pb-4"
-      >
+        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
+        >
         + Tambah Kategori Modifier Baru
       </button>
+
+      
       <table
         style={{
           width: "100%",
