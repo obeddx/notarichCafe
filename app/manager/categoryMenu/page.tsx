@@ -16,6 +16,7 @@ export default function CategoryMenuList() {
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryMenu | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -104,6 +105,11 @@ export default function CategoryMenuList() {
     }
   };
 
+  // Filter kategori berdasarkan searchTerm
+  const filteredCategories = categories.filter(category =>
+    category.kategori.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading)
     return <div style={{ padding: "20px", fontSize: "18px" }}>Loading...</div>;
 
@@ -112,12 +118,28 @@ export default function CategoryMenuList() {
       <Toaster />
       <h1 className="text-2xl font-bold mb-4">Daftar Kategori Menu</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
-      >
-        + Tambah Kategori Menu Baru
-      </button>
+
+      {/* Search bar dan tombol tambah */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+        >
+          + Tambah Kategori Menu Baru
+        </button>
+        <input
+          type="text"
+          placeholder="Cari kategori..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            padding: "10px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            width: "200px",
+          }}
+        />
+      </div>
 
       <table
         style={{
@@ -127,67 +149,64 @@ export default function CategoryMenuList() {
           backgroundColor: "#fff",
         }}
       >
-       <thead style={{ backgroundColor: "#f2f2f2" }}>
-  <tr>
-    <th style={{ padding: "12px", border: "1px solid #ddd", width: "10%" }}>No</th>
-    <th style={{ padding: "12px", border: "1px solid #ddd", width: "60%" }}>Kategori</th>
-    <th style={{ padding: "12px", border: "1px solid #ddd", width: "30%" }}>Aksi</th>
-  </tr>
-</thead>
-
-
-<tbody>
-  {categories.length === 0 ? (
-    <tr>
-      <td colSpan={3} style={{ padding: "12px", textAlign: "center" }}>
-        Tidak ada kategori menu.
-      </td>
-    </tr>
-  ) : (
-    categories.map((category, index) => (
-      <tr
-        key={category.id}
-        style={{ backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}
-      >
-        <td style={{ padding: "12px", border: "1px solid #ddd" }}>{index + 1}</td>
-        <td style={{ padding: "12px", border: "1px solid #ddd" }}>{category.kategori}</td>
-        <td style={{ padding: "12px", border: "1px solid #ddd", textAlign: "center" }}>
-          <button
-            onClick={() => {
-              setSelectedCategory(category);
-              setShowEditModal(true);
-            }}
-            style={{
-              backgroundColor: "#2196F3",
-              color: "#fff",
-              border: "none",
-              padding: "8px 12px",
-              borderRadius: "4px",
-              cursor: "pointer",
-              marginRight: "8px",
-            }}
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => handleDelete(category.id)}
-            style={{
-              backgroundColor: "#f44336",
-              color: "#fff",
-              border: "none",
-              padding: "8px 12px",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            Delete
-          </button>
-        </td>
-      </tr>
-    ))
-  )}
-</tbody>
-
+        <thead style={{ backgroundColor: "#f2f2f2" }}>
+          <tr>
+            <th style={{ padding: "12px", border: "1px solid #ddd", width: "10%" }}>No</th>
+            <th style={{ padding: "12px", border: "1px solid #ddd", width: "60%" }}>Kategori</th>
+            <th style={{ padding: "12px", border: "1px solid #ddd", width: "30%" }}>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredCategories.length === 0 ? (
+            <tr>
+              <td colSpan={3} style={{ padding: "12px", textAlign: "center" }}>
+                Tidak ada kategori menu.
+              </td>
+            </tr>
+          ) : (
+            filteredCategories.map((category, index) => (
+              <tr
+                key={category.id}
+                style={{ backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}
+              >
+                <td style={{ padding: "12px", border: "1px solid #ddd" }}>{index + 1}</td>
+                <td style={{ padding: "12px", border: "1px solid #ddd" }}>{category.kategori}</td>
+                <td style={{ padding: "12px", border: "1px solid #ddd", textAlign: "center" }}>
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      setShowEditModal(true);
+                    }}
+                    style={{
+                      backgroundColor: "#2196F3",
+                      color: "#fff",
+                      border: "none",
+                      padding: "8px 12px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      marginRight: "8px",
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(category.id)}
+                    style={{
+                      backgroundColor: "#f44336",
+                      color: "#fff",
+                      border: "none",
+                      padding: "8px 12px",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
       </table>
 
       {showAddModal && (

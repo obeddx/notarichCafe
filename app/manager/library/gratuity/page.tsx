@@ -192,6 +192,7 @@ const GetGratuity: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
     fetchGratuities();
@@ -260,17 +261,31 @@ const GetGratuity: React.FC = () => {
     }
   };
 
+  // Filter data gratuity berdasarkan input search
+  const filteredGratuities = gratuities.filter((gratuity) =>
+    gratuity.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Gratuities</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-      <div className="mb-4">
+      <div className="mb-4 flex justify-between items-center">
         <button
           onClick={() => setShowAddModal(true)}
           className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
         >
           Add Gratuity
         </button>
+        <div className="w-1/3">
+          <input
+            type="text"
+            placeholder="Search Gratuity..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded"
+          />
+        </div>
       </div>
       {loading ? (
         <p>Loading...</p>
@@ -287,43 +302,51 @@ const GetGratuity: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {gratuities.map((gratuity) => (
-                <tr key={gratuity.id} className="text-center">
-                  <td className="border border-gray-300 px-4 py-2">{gratuity.id}</td>
-                  <td className="border border-gray-300 px-4 py-2">{gratuity.name}</td>
-                  <td className="border border-gray-300 px-4 py-2">{gratuity.value}</td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {gratuity.isActive ? (
-                      <span className="text-green-500 font-bold">Yes</span>
-                    ) : (
-                      <span className="text-red-500 font-bold">No</span>
-                    )}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 space-x-2">
-                    <button
-                      onClick={() => handleEdit(gratuity)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                    >
-                      Edit
-                    </button>
-                    {gratuity.isActive ? (
-                      <button
-                        onClick={() => gratuity.id && handleToggleStatus(gratuity.id, false)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-                      >
-                        Nonaktif
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => gratuity.id && handleToggleStatus(gratuity.id, true)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
-                      >
-                        Aktifkan
-                      </button>
-                    )}
+              {filteredGratuities.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="border border-gray-300 px-4 py-2 text-center">
+                    Data tidak ditemukan
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredGratuities.map((gratuity) => (
+                  <tr key={gratuity.id} className="text-center">
+                    <td className="border border-gray-300 px-4 py-2">{gratuity.id}</td>
+                    <td className="border border-gray-300 px-4 py-2">{gratuity.name}</td>
+                    <td className="border border-gray-300 px-4 py-2">{gratuity.value}</td>
+                    <td className="border border-gray-300 px-4 py-2">
+                      {gratuity.isActive ? (
+                        <span className="text-green-500 font-bold">Yes</span>
+                      ) : (
+                        <span className="text-red-500 font-bold">No</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 space-x-2">
+                      <button
+                        onClick={() => handleEdit(gratuity)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                      >
+                        Edit
+                      </button>
+                      {gratuity.isActive ? (
+                        <button
+                          onClick={() => gratuity.id && handleToggleStatus(gratuity.id, false)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                        >
+                          Nonaktif
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => gratuity.id && handleToggleStatus(gratuity.id, true)}
+                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+                        >
+                          Aktifkan
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -344,6 +367,7 @@ const GetGratuity: React.FC = () => {
           onSubmit={handleAddGratuity}
         />
       )}
+      <Toaster />
     </div>
   );
 };

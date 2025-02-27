@@ -80,10 +80,16 @@ export default function ManagerMenusPage() {
 
   useEffect(() => {
     if (activeTab === "menu") {
-      setFilteredMenus(menus.filter((menu) => menu.name.toLowerCase().includes(searchQuery.toLowerCase())));
+      setFilteredMenus(
+        menus.filter((menu) =>
+          menu.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
     } else {
       setFilteredSemiIngredients(
-        semiFinishedIngredients.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        semiFinishedIngredients.filter((item) =>
+          item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
       );
     }
   }, [searchQuery, activeTab, menus, semiFinishedIngredients]);
@@ -104,13 +110,21 @@ export default function ManagerMenusPage() {
       {/* Sub Navbar */}
       <div className="flex space-x-4 border-b pb-3 mb-6">
         <button
-          className={`px-4 py-2 font-medium ${activeTab === "menu" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
+          className={`px-4 py-2 font-medium ${
+            activeTab === "menu"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
           onClick={() => setActiveTab("menu")}
         >
           Menu
         </button>
         <button
-          className={`px-4 py-2 font-medium ${activeTab === "semi_ingredient" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"}`}
+          className={`px-4 py-2 font-medium ${
+            activeTab === "semi_ingredient"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500"
+          }`}
           onClick={() => setActiveTab("semi_ingredient")}
         >
           Semi-Finished Ingredient
@@ -137,50 +151,82 @@ export default function ManagerMenusPage() {
       {activeTab === "menu" && (
         <>
           <Link href="/manager/addMenu">
-            <p       className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
-            >+ Tambah Recipe Baru</p>
+            <p className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8">
+              + Tambah Recipe Baru
+            </p>
           </Link>
-          <table className="min-w-full border border-gray-300 divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Menu</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah Ingredient</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ingredients</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredMenus.map((menu) => (
-                <tr key={menu.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">{menu.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{menu.ingredients.length}</td>
-                  <td className="px-6 py-4">{menu.ingredients.map((item) => item.ingredient.name).join(", ")}</td>
+          {filteredMenus.length === 0 ? (
+            <p className="text-center text-gray-500">Data tidak ditemukan</p>
+          ) : (
+            <table className="min-w-full border border-gray-300 divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nama Menu
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Jumlah Ingredient
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ingredients
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredMenus.map((menu) => (
+                  <tr key={menu.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">{menu.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{menu.ingredients.length}</td>
+                    <td className="px-6 py-4">
+                      {menu.ingredients.map((item) => item.ingredient.name).join(", ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </>
       )}
 
       {/* Tabel Semi-Finished Ingredients */}
       {activeTab === "semi_ingredient" && (
-        <table className="min-w-full border border-gray-300 divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Semi-Finished</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah Raw Ingredient</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Raw Ingredients</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredSemiIngredients.map((item) => (
-              <tr key={item.id}>
-                <td className="px-6 py-4">{item.name}</td>
-                <td className="px-6 py-4">{item.compositions.length}</td>
-                <td className="px-6 py-4">{item.compositions.map((comp) => `${comp.rawIngredient.name} (${comp.amount} ${comp.rawIngredient.unit})`).join(", ")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          {filteredSemiIngredients.length === 0 ? (
+            <p className="text-center text-gray-500">Data tidak ditemukan</p>
+          ) : (
+            <table className="min-w-full border border-gray-300 divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nama Semi-Finished
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Jumlah Raw Ingredient
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Raw Ingredients
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredSemiIngredients.map((item) => (
+                  <tr key={item.id}>
+                    <td className="px-6 py-4">{item.name}</td>
+                    <td className="px-6 py-4">{item.compositions.length}</td>
+                    <td className="px-6 py-4">
+                      {item.compositions
+                        .map(
+                          (comp) =>
+                            `${comp.rawIngredient.name} (${comp.amount} ${comp.rawIngredient.unit})`
+                        )
+                        .join(", ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-'use client'
+'use client';
 import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import Sidebar from "@/components/sidebar";
 
@@ -23,7 +23,6 @@ interface Bundle {
     value: number;
   };
 }
-
 
 interface MenuOption {
   id: number;
@@ -52,14 +51,15 @@ const BundlesPage: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  
+  // State untuk search bar berdasarkan kategori
+  const [searchCategory, setSearchCategory] = useState<string>("");
 
   const fetchBundles = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/bundles');
       const data = await res.json();
-      // Filter data agar hanya menampilkan item dengan type "BUNDLE"
-      // const filteredBundles = data.filter((item: any) => item.type === "BUNDLE");
       setBundles(data);
     } catch (err) {
       console.error(err);
@@ -96,9 +96,7 @@ const BundlesPage: React.FC = () => {
   };
 
   const handleToggleStatus = async (id: number, newStatus: boolean) => {
-    // Tampilkan konfirmasi kepada pengguna
     if (!confirm("Apakah Anda yakin ingin mengubah status?")) return;
-  
     try {
       const res = await fetch(`/api/bundles/${id}`, {
         method: "PUT",
@@ -108,14 +106,19 @@ const BundlesPage: React.FC = () => {
       if (!res.ok) {
         throw new Error("Failed to toggle status");
       }
-      fetchBundles(); // Refresh data setelah update
+      fetchBundles();
       alert(newStatus ? "Bundle berhasil diaktifkan" : "Bundle berhasil dinonaktifkan");
     } catch (error) {
       console.error("Error toggling discount status:", error);
     }
   };
-  
 
+  // Filter bundles berdasarkan kategori (property 'category')
+  const displayedBundles = bundles.filter(bundle =>
+    bundle.name.toLowerCase().includes(searchCategory.toLowerCase()) ||
+    bundle.category.toLowerCase().includes(searchCategory.toLowerCase())
+  );
+  
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Daftar Bundles</h1>
@@ -126,6 +129,18 @@ const BundlesPage: React.FC = () => {
       >
         Tambah Bundle
       </button>
+      
+      {/* Search Bar untuk kategori */}
+      <div className="flex justify-end mb-4">
+        <input
+          type="text"
+          placeholder="Cari kategori..."
+          value={searchCategory}
+          onChange={(e) => setSearchCategory(e.target.value)}
+          className="w-1/3 p-2 border border-gray-300 rounded"
+        />
+      </div>
+
       {loading ? (
         <p>Loading...</p>
       ) : error ? (
@@ -144,50 +159,57 @@ const BundlesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {bundles.map((bundle) => (
-                <tr key={bundle.id}>
-                  <td className="px-6 py-4">
-                    <img src={bundle.image} alt={bundle.name} className="w-24 h-auto object-cover" />
-                  </td>
-                  <td className="px-6 py-4">{bundle.name}</td>
-                  <td className="px-6 py-4">
-                    {bundle.bundleCompositions && bundle.bundleCompositions.length > 0
-                      ? bundle.bundleCompositions
-                          .map((comp) => `${comp.menu.name} (${comp.amount})`)
-                          .join('+ ')
-                      : '-'}
-                  </td>
-
-                  <td className="px-6 py-4">{bundle.price}</td>
-                  <td className="px-6 py-4">{bundle.Status}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => {
-                        setSelectedBundle(bundle);
-                        setShowEditModal(true);
-                      }}
-                      className="bg-blue-500 hover:bg-green-600 text-white py-1 px-3 rounded mr-2"
-                    >
-                      Edit
-                    </button>
-                    {bundle.isActive ? (
-                    <button
-                      onClick={() => bundle.id && handleToggleStatus(bundle.id, false)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-                    >
-                      Nonaktif
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => bundle.id && handleToggleStatus(bundle.id, true)}
-                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
-                    >
-                      Aktifkan
-                    </button>
-                  )}
+              {displayedBundles.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center p-4">
+                    data tidak ditemukan
                   </td>
                 </tr>
-              ))}
+              ) : (
+                displayedBundles.map((bundle) => (
+                  <tr key={bundle.id}>
+                    <td className="px-6 py-4">
+                      <img src={bundle.image} alt={bundle.name} className="w-24 h-auto object-cover" />
+                    </td>
+                    <td className="px-6 py-4">{bundle.name}</td>
+                    <td className="px-6 py-4">
+                      {bundle.bundleCompositions && bundle.bundleCompositions.length > 0
+                        ? bundle.bundleCompositions
+                            .map((comp) => `${comp.menu.name} (${comp.amount})`)
+                            .join('+ ')
+                        : '-'}
+                    </td>
+                    <td className="px-6 py-4">{bundle.price}</td>
+                    <td className="px-6 py-4">{bundle.Status}</td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => {
+                          setSelectedBundle(bundle);
+                          setShowEditModal(true);
+                        }}
+                        className="bg-blue-500 hover:bg-green-600 text-white py-1 px-3 rounded mr-2"
+                      >
+                        Edit
+                      </button>
+                      {bundle.isActive ? (
+                        <button
+                          onClick={() => bundle.id && handleToggleStatus(bundle.id, false)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                        >
+                          Nonaktif
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => bundle.id && handleToggleStatus(bundle.id, true)}
+                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+                        >
+                          Aktifkan
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -210,6 +232,7 @@ const BundlesPage: React.FC = () => {
 };
 
 export default BundlesPage;
+
 
 /// ----------------- AddBundleModal Component -----------------
 

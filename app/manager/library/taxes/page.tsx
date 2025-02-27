@@ -192,6 +192,7 @@ const GetTax: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
     fetchTaxes();
@@ -260,17 +261,31 @@ const GetTax: React.FC = () => {
     }
   };
 
+  // Filter data tax berdasarkan input search
+  const filteredTaxes = taxes.filter((tax) =>
+    tax.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <h1 className="text-2xl font-bold mb-4">Taxes</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
-      <div className="mb-4">
+      <div className="mb-4 flex justify-between items-center">
         <button
           onClick={() => setShowAddModal(true)}
           className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
         >
           Add Tax
         </button>
+        <div className="w-1/3">
+          <input
+            type="text"
+            placeholder="Search Tax..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded"
+          />
+        </div>
       </div>
       {loading ? (
         <p>Loading...</p>
@@ -287,43 +302,51 @@ const GetTax: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {taxes.map((tax) => (
-                <tr key={tax.id} className="text-center">
-                  <td className="border border-gray-300 px-4 py-2">{tax.id}</td>
-                  <td className="border border-gray-300 px-4 py-2">{tax.name}</td>
-                  <td className="border border-gray-300 px-4 py-2">{tax.value}</td>
-                  <td className="border border-gray-300 px-4 py-2">
-                    {tax.isActive ? (
-                      <span className="text-green-500 font-bold">Yes</span>
-                    ) : (
-                      <span className="text-red-500 font-bold">No</span>
-                    )}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 space-x-2">
-                    <button
-                      onClick={() => handleEdit(tax)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                    >
-                      Edit
-                    </button>
-                    {tax.isActive ? (
-                      <button
-                        onClick={() => tax.id && handleToggleStatus(tax.id, false)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-                      >
-                        Nonaktif
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => tax.id && handleToggleStatus(tax.id, true)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
-                      >
-                        Aktifkan
-                      </button>
-                    )}
+              {filteredTaxes.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="border border-gray-300 px-4 py-2 text-center">
+                    Data tidak ditemukan
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredTaxes.map((tax) => (
+                  <tr key={tax.id} className="text-center">
+                    <td className="border border-gray-300 px-4 py-2">{tax.id}</td>
+                    <td className="border border-gray-300 px-4 py-2">{tax.name}</td>
+                    <td className="border border-gray-300 px-4 py-2">{tax.value}</td>
+                    <td className="border border-gray-300 px-4 py-2">
+                      {tax.isActive ? (
+                        <span className="text-green-500 font-bold">Yes</span>
+                      ) : (
+                        <span className="text-red-500 font-bold">No</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 space-x-2">
+                      <button
+                        onClick={() => handleEdit(tax)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                      >
+                        Edit
+                      </button>
+                      {tax.isActive ? (
+                        <button
+                          onClick={() => tax.id && handleToggleStatus(tax.id, false)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                        >
+                          Nonaktif
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => tax.id && handleToggleStatus(tax.id, true)}
+                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+                        >
+                          Aktifkan
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -344,6 +367,7 @@ const GetTax: React.FC = () => {
           onSubmit={handleAddTax}
         />
       )}
+      <Toaster />
     </div>
   );
 };

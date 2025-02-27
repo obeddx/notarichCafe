@@ -1,4 +1,3 @@
-// pages/manager/modifierCategory/index.tsx
 "use client";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/sidebar";
@@ -20,6 +19,7 @@ export default function ModifierCategoryList() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ModifierCategory | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -108,7 +108,13 @@ export default function ModifierCategoryList() {
     }
   };
 
-  if (loading) return <div style={{ padding: "20px", fontSize: "18px" }}>Loading...</div>;
+  // Filter kategori berdasarkan searchTerm
+  const filteredCategories = categories.filter((category) =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading)
+    return <div style={{ padding: "20px", fontSize: "18px" }}>Loading...</div>;
 
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
@@ -118,11 +124,21 @@ export default function ModifierCategoryList() {
       <button
         onClick={() => setShowAddModal(true)}
         className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
-        >
+      >
         + Tambah Kategori Modifier Baru
       </button>
 
-      
+      {/* Search Bar */}
+      <div className="mb-4 flex justify-end">
+        <input
+          type="text"
+          placeholder="Search Category..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-1/3 p-2 border border-gray-300 rounded"
+        />
+      </div>
+
       <table
         style={{
           width: "100%",
@@ -140,14 +156,14 @@ export default function ModifierCategoryList() {
           </tr>
         </thead>
         <tbody>
-          {categories.length === 0 ? (
+          {filteredCategories.length === 0 ? (
             <tr>
               <td colSpan={4} style={{ padding: "12px", textAlign: "center" }}>
-                Tidak ada kategori modifier.
+                {searchTerm ? "Data tidak ditemukan" : "Tidak ada kategori modifier."}
               </td>
             </tr>
           ) : (
-            categories.map((category, index) => (
+            filteredCategories.map((category, index) => (
               <tr
                 key={category.id}
                 style={{ backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}

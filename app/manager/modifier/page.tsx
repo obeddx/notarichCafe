@@ -40,6 +40,8 @@ export default function ModifierPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
   const [formData, setFormData] = useState({
     name: "",
     price: 0,
@@ -213,6 +215,11 @@ export default function ModifierPage() {
     console.log("Editing modifier with ID:", modifier.id);
   };
 
+  // Filter data modifier berdasarkan input search
+  const filteredModifiers = modifiers.filter((modifier) =>
+    modifier.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
       <Toaster />
@@ -221,16 +228,33 @@ export default function ModifierPage() {
       <button
         onClick={() => setIsAdding(true)}
         className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mb-8"
-        >
+      >
         + Tambah Modifier Baru
       </button>
 
-
+      {/* Search Bar */}
+      <div className="mb-4 flex justify-end">
+        <input
+          type="text"
+          placeholder="Search Modifier..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-1/3 p-2 border border-gray-300 rounded"
+        />
+      </div>
 
       {(isAdding || isEditing) && (
-        <Modal onClose={() => { setIsAdding(false); setIsEditing(null); setFormData({ name: "", price: 0, categoryId: 0, selectedIngredients: [] }); }}>
+        <Modal
+          onClose={() => {
+            setIsAdding(false);
+            setIsEditing(null);
+            setFormData({ name: "", price: 0, categoryId: 0, selectedIngredients: [] });
+          }}
+        >
           <div>
-            <h2 style={{ marginBottom: "15px" }}>{isEditing ? "Edit Modifier" : "Tambah Modifier Baru"}</h2>
+            <h2 style={{ marginBottom: "15px" }}>
+              {isEditing ? "Edit Modifier" : "Tambah Modifier Baru"}
+            </h2>
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: "15px" }}>
                 <label style={{ display: "block", marginBottom: "5px" }}>Nama Modifier:</label>
@@ -385,6 +409,8 @@ export default function ModifierPage() {
         <p className="text-center text-red-500">{error}</p>
       ) : modifiers.length === 0 ? (
         <p className="text-center text-[#979797]">Belum ada modifier.</p>
+      ) : searchTerm && filteredModifiers.length === 0 ? (
+        <p className="text-center text-[#979797]">Data tidak ditemukan</p>
       ) : (
         <table
           style={{
@@ -404,7 +430,7 @@ export default function ModifierPage() {
             </tr>
           </thead>
           <tbody>
-            {modifiers.map((modifier, index) => (
+            {filteredModifiers.map((modifier, index) => (
               <tr key={modifier.id} style={{ backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
                 <td style={{ padding: "12px", border: "1px solid #ddd" }}>{modifier.name}</td>
                 <td style={{ padding: "12px", border: "1px solid #ddd" }}>
