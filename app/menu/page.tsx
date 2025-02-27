@@ -565,94 +565,72 @@ export default function MenuPage() {
     setPaymentOption("ewallet");
     setShowPaymentMethodModal(false);
 
-    // Fungsi untuk menghitung total belanja secara dinamis
-    const calculateCartTotals = () => {
-      let productTotal = 0;
-      let discountAmount = 0;
-      cart.forEach((item) => {
-        // Total harga produk (tanpa diskon)
-        productTotal += item.menu.price * item.quantity;
+    // Gunakan fungsi calculateCartTotals global yang sudah ada
+    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
 
-        // Jika item memiliki diskon aktif, hitung diskonnya
-        if (item.menu.discounts && item.menu.discounts.length > 0) {
-          const activeDiscount = item.menu.discounts.find(
-            (d: any) => d.discount.isActive
-          );
-          if (activeDiscount) {
-            const discount = activeDiscount.discount;
-            const computedDiscount =
-              discount.type === "PERCENTAGE"
-                ? (discount.value / 100) * item.menu.price * item.quantity
-                : discount.value * item.quantity;
-            discountAmount += computedDiscount;
+    // Buat item_details dari data cart, termasuk modifier
+    const itemDetails = cart.map((item) => {
+      const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+      let modifierTotal = 0;
+      const modifierNames = [];
+      Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+        if (modifierId) {
+          const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+          if (modifier) {
+            modifierTotal += modifier.price;
+            modifierNames.push(modifier.name);
           }
         }
       });
+      const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
+      return {
+        id: item.menu.id.toString(),
+        price: itemBasePrice + modifierTotal, // Tambahkan modifier ke harga per item
+        quantity: item.quantity,
+        name: itemNameWithModifiers,
+      };
+    });
 
-      // Net total adalah harga produk setelah dikurangi diskon
-      const netTotal = productTotal - discountAmount;
-      // Misalnya pajak 10% dan gratuity 2% dari net total
-      const tax = netTotal * 0.10;
-      const gratuity = netTotal * 0.02;
-      const finalTotal = netTotal + tax + gratuity;
-      return { productTotal, discountAmount, tax, gratuity, finalTotal };
-    };
-
-    // Panggil fungsi perhitungan
-    const { productTotal, discountAmount, tax, gratuity, finalTotal } =
-      calculateCartTotals();
-
-    // Buat item_details dari data cart (harga asli produk)
-    const itemDetails = cart.map((item) => ({
-      id: item.menu.id.toString(),
-      price: item.menu.price,
-      quantity: item.quantity,
-      name: item.menu.name,
-    }));
-
-    // Jika ada diskon, tambahkan item diskon dengan nilai negatif
-    if (discountAmount > 0) {
+    // Jika ada diskon total (bukan per menu), tambahkan sebagai item negatif
+    if (totalDiscountAmount > 0) {
       itemDetails.push({
         id: "discount",
-        price: -discountAmount,
+        price: -totalDiscountAmount,
         quantity: 1,
         name: "Diskon",
       });
     }
 
-    // Tambahkan item untuk pajak (tax)
-    if (tax > 0) {
+    // Tambahkan pajak
+    if (taxAmount > 0) {
       itemDetails.push({
         id: "tax",
-        price: tax,
+        price: taxAmount,
         quantity: 1,
         name: "Pajak",
       });
     }
 
-    // Tambahkan item untuk gratuity
-    if (gratuity > 0) {
+    // Tambahkan gratuity
+    if (gratuityAmount > 0) {
       itemDetails.push({
         id: "gratuity",
-        price: gratuity,
+        price: gratuityAmount,
         quantity: 1,
         name: "Gratuity",
       });
     }
 
-    // Debug: cek apakah jumlah item_details sama dengan finalTotal
-    const sumItems = itemDetails.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-    console.log("Total dari item_details:", sumItems, "Final Total:", finalTotal);
+    // Debug: pastikan total item_details sesuai dengan totalAfterAll
+    const sumItems = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    console.log("Total dari item_details:", sumItems, "Final Total:", totalAfterAll);
 
-    // Payload yang dikirim ke Midtrans
+    // Payload untuk Midtrans
     const payload = {
       orderId: "ORDER-" + new Date().getTime(),
-      total: finalTotal, // gross_amount sesuai penjumlahan item_details
+      total: totalAfterAll, // Gunakan total yang sudah termasuk semua biaya
       customerName,
-      customerEmail: "", // Gunakan nilai valid jika diperlukan
+      customerEmail: "", // Tambahkan email jika ada
       customerPhone: "",
       item_details: itemDetails,
     };
@@ -666,63 +644,39 @@ export default function MenuPage() {
       const data = await response.json();
       if (data.success && data.snapToken) {
         setSnapToken(data.snapToken);
+        const handlePaymentSuccess = async (result: unknown) => {
+          console.log("Pembayaran sukses:", result);
+          const order = await createOrder();
+          if (order) {
+            setOrderRecord(order);
+            toast.success("Order placed successfully!");
+            generateReceiptPDF();
+            setCart([]);
+            sessionStorage.removeItem(`cart_table_${tableNumber}`);
+          } else {
+            setOrderError("Failed to create order after payment.");
+            toast.error("Failed to create order after payment.");
+          }
+        };
+
         if (window.snap) {
           window.snap.pay(data.snapToken, {
-            onSuccess: async (result: unknown) => {
-              console.log("Pembayaran sukses:", result);
-              const order = await createOrder();
-              if (order) {
-                setOrderRecord(order);
-                toast.success("Order placed successfully!");
-                generateReceiptPDF();
-                setCart([]);
-                sessionStorage.removeItem(`cart_table_${tableNumber}`);
-              } else {
-                setOrderError("Failed to create order after payment.");
-                toast.error("Failed to create order after payment.");
-              }
-            },
-            onPending: (result: unknown) =>
-              console.log("Pembayaran pending:", result),
-            onError: (result: unknown) =>
-              console.log("Pembayaran error:", result),
-            onClose: () =>
-              console.log(
-                "Popup pembayaran ditutup tanpa menyelesaikan pembayaran"
-              ),
+            onSuccess: handlePaymentSuccess,
+            onPending: (result: unknown) => console.log("Pembayaran pending:", result),
+            onError: (result: unknown) => console.log("Pembayaran error:", result),
+            onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
           });
         } else {
           const script = document.createElement("script");
           script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-          script.setAttribute(
-            "data-client-key",
-            process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!
-          );
+          script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
           document.body.appendChild(script);
           script.onload = () => {
             window.snap.pay(data.snapToken, {
-              onSuccess: async (result: unknown) => {
-                console.log("Pembayaran sukses:", result);
-                const order = await createOrder();
-                if (order) {
-                  setOrderRecord(order);
-                  toast.success("Order placed successfully!");
-                  generateReceiptPDF();
-                  setCart([]);
-                  sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                } else {
-                  setOrderError("Failed to create order after payment.");
-                  toast.error("Failed to create order after payment.");
-                }
-              },
-              onPending: (result: unknown) =>
-                console.log("Pembayaran pending:", result),
-              onError: (result: unknown) =>
-                console.log("Pembayaran error:", result),
-              onClose: () =>
-                console.log(
-                  "Popup pembayaran ditutup tanpa menyelesaikan pembayaran"
-                ),
+              onSuccess: handlePaymentSuccess,
+              onPending: (result: unknown) => console.log("Pembayaran pending:", result),
+              onError: (result: unknown) => console.log("Pembayaran error:", result),
+              onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
             });
           };
         }
@@ -737,6 +691,7 @@ export default function MenuPage() {
 >
   E-Wallet
 </button>
+
         <button
           onClick={() => setShowPaymentMethodModal(false)}
           className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
