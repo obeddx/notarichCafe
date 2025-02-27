@@ -15,6 +15,7 @@ const SidebarSales = () => {
     { href: "/manager/report/sales/TaxReport", label: "Taxes" },
     { href: "/manager/report/sales/GratuityReport", label: "Gratuity" },
     { href: "/manager/report/sales/ModifierSales", label: "Modifier Sales" },
+    { href: "/manager/report/sales/category-sales", label: "Category Sales" },
     // Anda bisa menambahkan item lain, misalnya:
     // { href: "/manager/report/sales/item", label: "Item Sales" },
   ];

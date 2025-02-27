@@ -165,7 +165,7 @@ export default function KasirPage() {
         const discountResponse = await fetch("/api/diskon");
         if (!discountResponse.ok) throw new Error(`Failed to fetch discounts: ${discountResponse.status}`);
         const discountData = await discountResponse.json();
-        setDiscounts(discountData.filter((d: Discount) => d.isActive)); // Ambil semua diskon aktif
+        setDiscounts(discountData.filter((d: Discount) => d.isActive));
       } catch (error) {
         console.error("Error fetching menus or discounts:", error);
       }
@@ -424,7 +424,7 @@ export default function KasirPage() {
           items: pendingOrderData.items,
           total: pendingOrderData.total,
           isCashierOrder: true,
-          discountId: selectedDiscountIdNewOrder || null, // Sertakan discountId untuk pesanan baru
+          discountId: selectedDiscountIdNewOrder || null,
         }),
       });
 
@@ -1226,7 +1226,7 @@ function OrderSection({
           Number(order.id),
           paymentMethod,
           paymentId,
-          discountId || order.discountId, // Gunakan discountId dari CombinedPaymentForm jika ada, jika tidak gunakan yang asli
+          discountId || order.discountId,
           cashGiven,
           change
         );
@@ -1328,7 +1328,7 @@ function OrderSection({
             setCombinedDetails({ subtotal: 0, modifier: 0, discount: 0, tax: 0, gratuity: 0 });
             setIsCombinedPaymentModalOpen(false);
           }}
-          discounts={discounts} // Kirim daftar diskon ke CombinedPaymentForm
+          discounts={discounts}
         />
       )}
     </div>
@@ -1357,23 +1357,67 @@ function OrderItemComponent({
   const [cashGiven, setCashGiven] = useState<string>("");
   const [change, setChange] = useState<number>(0);
   const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(order.discountId || null);
 
-  const totals = {
-    subtotal: order.orderItems.reduce((sum, item) => {
-      const basePrice = item.price - (item.modifiers?.reduce((modSum, mod) => modSum + mod.modifier.price, 0) || 0);
-      return sum + basePrice * item.quantity;
-    }, 0),
-    totalModifierCost: order.orderItems.reduce((sum, item) => {
-      return sum + (item.modifiers?.reduce((modSum, mod) => modSum + mod.modifier.price * item.quantity, 0) || 0);
-    }, 0),
-    totalDiscountAmount: order.discountAmount || 0,
-    taxAmount: order.taxAmount || 0,
-    gratuityAmount: order.gratuityAmount || 0,
-    finalTotal: order.finalTotal || 0,
+  const calculateTotals = (discountId: number | null) => {
+    let subtotal = 0;
+    let totalModifierCost = 0;
+    let totalMenuDiscountAmount = order.orderItems.reduce((sum, item) => sum + item.discountAmount, 0);
+
+    order.orderItems.forEach((item) => {
+      const basePrice = item.price - (item.modifiers?.reduce((sum, mod) => sum + mod.modifier.price, 0) || 0);
+      subtotal += basePrice * item.quantity;
+      totalModifierCost += (item.modifiers?.reduce((sum, mod) => sum + mod.modifier.price * item.quantity, 0) || 0);
+    });
+
+    let totalDiscountAmount = totalMenuDiscountAmount;
+
+    if (discountId) {
+      const selectedDiscount = discounts.find((d) => d.id === discountId);
+      if (selectedDiscount && selectedDiscount.scope === "TOTAL") {
+        const baseForDiscount = subtotal + totalModifierCost - totalMenuDiscountAmount;
+        const additionalDiscount =
+          selectedDiscount.type === "PERCENTAGE"
+            ? (selectedDiscount.value / 100) * baseForDiscount
+            : selectedDiscount.value;
+        totalDiscountAmount += additionalDiscount;
+      }
+    }
+
+    totalDiscountAmount = Math.min(totalDiscountAmount, subtotal + totalModifierCost);
+
+    const baseForTaxAndGratuity = subtotal + totalModifierCost - totalDiscountAmount;
+    const taxAmount = baseForTaxAndGratuity * 0.10;
+    const gratuityAmount = baseForTaxAndGratuity * 0.02;
+    const finalTotal = baseForTaxAndGratuity + taxAmount + gratuityAmount;
+
+    return {
+      subtotal,
+      totalModifierCost,
+      totalDiscountAmount,
+      taxAmount,
+      gratuityAmount,
+      finalTotal,
+    };
   };
 
+  const totals = calculateTotals(selectedDiscountId);
+
+  useEffect(() => {
+    const newTotals = calculateTotals(selectedDiscountId);
+    setLocalDiscountAmount(newTotals.totalDiscountAmount);
+    setLocalFinalTotal(newTotals.finalTotal);
+    setLocalTaxAmount(newTotals.taxAmount);
+    setLocalGratuityAmount(newTotals.gratuityAmount);
+  }, [selectedDiscountId, order]);
+
+  const [localDiscountAmount, setLocalDiscountAmount] = useState<number>(totals.totalDiscountAmount);
+  const [localFinalTotal, setLocalFinalTotal] = useState<number>(totals.finalTotal);
+  const [localTaxAmount, setLocalTaxAmount] = useState<number>(totals.taxAmount);
+  const [localGratuityAmount, setLocalGratuityAmount] = useState<number>(totals.gratuityAmount);
+
   const calculateChange = (given: string) => {
-    const total = totals.finalTotal;
+    const total = localFinalTotal;
     const givenNumber = parseFloat(given) || 0;
     const changeAmount = givenNumber - total;
     setChange(changeAmount >= 0 ? changeAmount : 0);
@@ -1401,11 +1445,11 @@ function OrderItemComponent({
       <div className="mt-2 text-gray-700">
         <p>Subtotal: <span className="font-semibold">Rp {totals.subtotal.toLocaleString()}</span></p>
         <p>Modifier: <span className="font-semibold">Rp {totals.totalModifierCost.toLocaleString()}</span></p>
-        <p>Diskon: <span className="font-semibold">Rp {totals.totalDiscountAmount.toLocaleString()}</span></p>
-        <p>Pajak: <span className="font-semibold">Rp {totals.taxAmount.toLocaleString()}</span></p>
-        <p>Gratuity: <span className="font-semibold">Rp {totals.gratuityAmount.toLocaleString()}</span></p>
+        <p>Diskon: <span className="font-semibold">Rp {localDiscountAmount.toLocaleString()}</span></p>
+        <p>Pajak: <span className="font-semibold">Rp {localTaxAmount.toLocaleString()}</span></p>
+        <p>Gratuity: <span className="font-semibold">Rp {localGratuityAmount.toLocaleString()}</span></p>
         <p className="font-semibold">
-          Total Bayar: Rp {totals.finalTotal.toLocaleString()}
+          Total Bayar: Rp {localFinalTotal.toLocaleString()}
         </p>
       </div>
       <ul className="mt-3 space-y-1">
@@ -1433,6 +1477,18 @@ function OrderItemComponent({
       </ul>
       {order.status === "pending" && confirmPayment && (
         <div className="mt-4 space-y-2">
+          <select
+            value={selectedDiscountId || ""}
+            onChange={(e) => setSelectedDiscountId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          >
+            <option value="">Tidak ada diskon</option>
+            {discounts.filter(d => d.scope === "TOTAL").map((discount) => (
+              <option key={discount.id} value={discount.id}>
+                {discount.name} ({discount.type === "PERCENTAGE" ? `${discount.value}%` : `Rp${discount.value}`})
+              </option>
+            ))}
+          </select>
           <select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
@@ -1476,12 +1532,12 @@ function OrderItemComponent({
             onClick={() => {
               if (paymentMethod === "tunai") {
                 const given = parseFloat(cashGiven) || 0;
-                if (given < totals.finalTotal) {
+                if (given < localFinalTotal) {
                   toast.error("Uang yang diberikan kurang");
                   return;
                 }
               }
-              confirmPayment(Number(order.id), paymentMethod, paymentId, order.discountId, Number(cashGiven), change);
+              confirmPayment(Number(order.id), paymentMethod, paymentId, selectedDiscountId, Number(cashGiven), change);
             }}
             className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
           >
@@ -1812,303 +1868,303 @@ function generatePDF(order: Order) {
 
   checkPage();
   doc.text("Total Bayar", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
-  yPosition += 5;
+doc.text(":", colonX, yPosition);
+doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
+checkPage();
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
 
-  doc.setFont("helvetica", "normal");
-  checkPage();
-  doc.text("Pembayaran", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(order.paymentMethod || "-", valueX, yPosition);
-  yPosition += 3;
+doc.setFont("helvetica", "normal");
+checkPage();
+doc.text("Pembayaran", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(order.paymentMethod || "-", valueX, yPosition);
+yPosition += 3;
 
-  checkPage();
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
+checkPage();
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.text("Uang Diberikan", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
-  yPosition += 5;
+checkPage();
+doc.text("Uang Diberikan", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.text("Kembalian", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
-  yPosition += 7;
+checkPage();
+doc.text("Kembalian", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
+yPosition += 7;
 
-  doc.setFont("helvetica", "italic");
-  checkPage();
-  doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 5;
-  checkPage();
-  doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
+doc.setFont("helvetica", "italic");
+checkPage();
+doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
+yPosition += 5;
+checkPage();
+doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
 
-  doc.save(`struk_order_${order.id}.pdf`);
+doc.save(`struk_order_${order.id}.pdf`);
 }
 
 function generateCombinedPDF(order: Order) {
-  const margin = 5;
-  const pageWidth = 58;
-  const pageHeight = 250;
-  const doc = new jsPDF({
-    unit: "mm",
-    format: [pageWidth, pageHeight],
-  });
+const margin = 5;
+const pageWidth = 58;
+const pageHeight = 250;
+const doc = new jsPDF({
+  unit: "mm",
+  format: [pageWidth, pageHeight],
+});
 
-  let yPosition = margin;
+let yPosition = margin;
 
-  const checkPage = () => {
-    if (yPosition > pageHeight - 10) {
-      doc.addPage();
-      yPosition = margin;
-    }
-  };
+const checkPage = () => {
+  if (yPosition > pageHeight - 10) {
+    doc.addPage();
+    yPosition = margin;
+  }
+};
 
-  const logoBase64 = "";
-  const logoWidth = 20;
-  const logoHeight = 20;
-  doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
-  yPosition += logoHeight + 6;
+const logoBase64 = "";
+const logoWidth = 20;
+const logoHeight = 20;
+doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
+yPosition += logoHeight + 6;
 
+doc.setFont("helvetica", "bold");
+doc.setFontSize(10);
+checkPage();
+doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
+yPosition += 6;
+
+doc.setFont("helvetica", "normal");
+doc.setFontSize(8);
+const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
+const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+addressLines.forEach((line: string) => {
+  checkPage();
+  doc.text(line, pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 4;
+});
+yPosition += 2;
+
+doc.setFontSize(9);
+checkPage();
+doc.text("Struk Gabungan Pesanan", pageWidth / 2, yPosition, { align: "center" });
+yPosition += 5;
+
+doc.setLineWidth(0.3);
+doc.setDrawColor(150);
+checkPage();
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
+
+const labelX = margin;
+const colonX = margin + 22;
+const valueX = margin + 24;
+
+doc.setFont("helvetica", "normal");
+doc.setFontSize(8);
+const now = new Date();
+const tanggal = now.toLocaleDateString();
+const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
+const jam = now.toLocaleTimeString();
+
+checkPage();
+doc.text("Tanggal", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(tanggal, valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Hari", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(hari, valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Jam", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(jam, valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Kasir", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text("Kasir 1", valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Meja", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(String(order.tableNumber), valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Order ID", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(String(order.id), valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Nama", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(order.customerName || "-", valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
+
+doc.setFont("helvetica", "bold");
+checkPage();
+doc.text("Pesanan", margin, yPosition);
+yPosition += 5;
+doc.setFont("helvetica", "bold");
+checkPage();
+doc.text("Item", margin, yPosition);
+doc.text("Total", pageWidth - margin, yPosition, { align: "right" });
+yPosition += 5;
+
+const truncateMenuName = (name: string) => {
+  const maxItemNameLength = 19;
+  if (name.length > maxItemNameLength) {
+    const firstLine = name.substring(0, maxItemNameLength);
+    const secondLine = name.substring(maxItemNameLength);
+    return [firstLine, secondLine];
+  } else {
+    return [name];
+  }
+};
+
+order.orderItems.forEach((item) => {
+  const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+  checkPage();
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  checkPage();
-  doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 6;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
-  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
-  addressLines.forEach((line: string) => {
-    checkPage();
-    doc.text(line, pageWidth / 2, yPosition, { align: "center" });
-    yPosition += 4;
-  });
-  yPosition += 2;
-
-  doc.setFontSize(9);
-  checkPage();
-  doc.text("Struk Gabungan Pesanan", pageWidth / 2, yPosition, { align: "center" });
+  doc.text(firstLine, margin, yPosition);
   yPosition += 5;
 
-  doc.setLineWidth(0.3);
-  doc.setDrawColor(150);
-  checkPage();
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
-
-  const labelX = margin;
-  const colonX = margin + 22;
-  const valueX = margin + 24;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  const now = new Date();
-  const tanggal = now.toLocaleDateString();
-  const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
-  const jam = now.toLocaleTimeString();
-
-  checkPage();
-  doc.text("Tanggal", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(tanggal, valueX, yPosition);
-  yPosition += 5;
-
-  checkPage();
-  doc.text("Hari", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(hari, valueX, yPosition);
-  yPosition += 5;
-
-  checkPage();
-  doc.text("Jam", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(jam, valueX, yPosition);
-  yPosition += 5;
-
-  checkPage();
-  doc.text("Kasir", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text("Kasir 1", valueX, yPosition);
-  yPosition += 5;
-
-  checkPage();
-  doc.text("Meja", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(String(order.tableNumber), valueX, yPosition);
-  yPosition += 5;
-
-  checkPage();
-  doc.text("Order ID", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(String(order.id), valueX, yPosition);
-  yPosition += 5;
-
-  checkPage();
-  doc.text("Nama", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(order.customerName || "-", valueX, yPosition);
-  yPosition += 5;
-
-  checkPage();
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
-
-  doc.setFont("helvetica", "bold");
-  checkPage();
-  doc.text("Pesanan", margin, yPosition);
-  yPosition += 5;
-  doc.setFont("helvetica", "bold");
-  checkPage();
-  doc.text("Item", margin, yPosition);
-  doc.text("Total", pageWidth - margin, yPosition, { align: "right" });
-  yPosition += 5;
-
-  const truncateMenuName = (name: string) => {
-    const maxItemNameLength = 19;
-    if (name.length > maxItemNameLength) {
-      const firstLine = name.substring(0, maxItemNameLength);
-      const secondLine = name.substring(maxItemNameLength);
-      return [firstLine, secondLine];
-    } else {
-      return [name];
-    }
-  };
-
-  order.orderItems.forEach((item) => {
-    const [firstLine, secondLine] = truncateMenuName(item.menu.name);
-    checkPage();
-    doc.setFont("helvetica", "bold");
-    doc.text(firstLine, margin, yPosition);
-    yPosition += 5;
-
-    if (secondLine) {
-      checkPage();
-      doc.setFont("helvetica", "bold");
-      doc.text(secondLine, margin, yPosition);
-      yPosition += 5;
-    }
-
-    const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+  if (secondLine) {
     checkPage();
     doc.setFont("helvetica", "bold");
-    doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
-    const itemTotal = itemPriceAfterDiscount * item.quantity;
-    doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+    doc.text(secondLine, margin, yPosition);
     yPosition += 5;
+  }
 
-    if (item.modifiers && item.modifiers.length > 0) {
-      checkPage();
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      item.modifiers.forEach((modifier) => {
-        doc.text(`- ${modifier.modifier.name} (Rp ${modifier.modifier.price.toLocaleString()})`, margin, yPosition);
-        yPosition += 4;
-      });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-    }
-
-    if (item.note) {
-      checkPage();
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      doc.text(`Catatan: ${item.note}`, margin, yPosition);
-      yPosition += 5;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-    }
-  });
-
+  const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
   checkPage();
-  yPosition += 3;
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
-
   doc.setFont("helvetica", "bold");
-  const totalQty = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
-
-  checkPage();
-  doc.text("Total qty", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(String(totalQty), valueX, yPosition);
+  doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
+  const itemTotal = itemPriceAfterDiscount * item.quantity;
+  doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
   yPosition += 5;
 
-  checkPage();
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
+  if (item.modifiers && item.modifiers.length > 0) {
+    checkPage();
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    item.modifiers.forEach((modifier) => {
+      doc.text(`- ${modifier.modifier.name} (Rp ${modifier.modifier.price.toLocaleString()})`, margin, yPosition);
+      yPosition += 4;
+    });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+  }
 
-  checkPage();
-  doc.text("Subtotal", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text("Rp " + order.total.toLocaleString(), valueX, yPosition);
-  yPosition += 5;
+  if (item.note) {
+    checkPage();
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.text(`Catatan: ${item.note}`, margin, yPosition);
+    yPosition += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+  }
+});
 
-  checkPage();
-  doc.text("Diskon", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text("Rp " + order.discountAmount.toLocaleString(), valueX, yPosition);
-  yPosition += 5;
+checkPage();
+yPosition += 3;
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.text("Pajak (10%)", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text("Rp " + order.taxAmount.toLocaleString(), valueX, yPosition);
-  yPosition += 5;
+doc.setFont("helvetica", "bold");
+const totalQty = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  checkPage();
-  doc.text("Gratuity (2%)", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text("Rp " + order.gratuityAmount.toLocaleString(), valueX, yPosition);
-  yPosition += 5;
+checkPage();
+doc.text("Total qty", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(String(totalQty), valueX, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.text("Total Bayar", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
-  yPosition += 5;
+checkPage();
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
+checkPage();
+doc.text("Subtotal", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text("Rp " + order.total.toLocaleString(), valueX, yPosition);
+yPosition += 5;
 
-  doc.setFont("helvetica", "normal");
-  checkPage();
-  doc.text("Pembayaran", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(order.paymentMethod || "-", valueX, yPosition);
-  yPosition += 5;
+checkPage();
+doc.text("Diskon", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text("Rp " + order.discountAmount.toLocaleString(), valueX, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 5;
+checkPage();
+doc.text("Pajak (10%)", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text("Rp " + order.taxAmount.toLocaleString(), valueX, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.text("Uang Diberikan", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
-  yPosition += 5;
+checkPage();
+doc.text("Gratuity (2%)", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text("Rp " + order.gratuityAmount.toLocaleString(), valueX, yPosition);
+yPosition += 5;
 
-  checkPage();
-  doc.text("Kembalian", labelX, yPosition);
-  doc.text(":", colonX, yPosition);
-  doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
-  yPosition += 7;
+checkPage();
+doc.text("Total Bayar", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
+yPosition += 5;
 
-  doc.setFont("helvetica", "italic");
-  checkPage();
-  doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 5;
-  checkPage();
-  doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
+checkPage();
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
 
-  doc.save(`struk_gabungan_${order.id}.pdf`);
+doc.setFont("helvetica", "normal");
+checkPage();
+doc.text("Pembayaran", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(order.paymentMethod || "-", valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.line(margin, yPosition, pageWidth - margin, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Uang Diberikan", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
+yPosition += 5;
+
+checkPage();
+doc.text("Kembalian", labelX, yPosition);
+doc.text(":", colonX, yPosition);
+doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
+yPosition += 7;
+
+doc.setFont("helvetica", "italic");
+checkPage();
+doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
+yPosition += 5;
+checkPage();
+doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
+
+doc.save(`struk_gabungan_${order.id}.pdf`);
 }
