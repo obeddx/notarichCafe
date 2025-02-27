@@ -565,12 +565,12 @@ export default function MenuPage() {
     setPaymentOption("ewallet");
     setShowPaymentMethodModal(false);
 
-    // Gunakan fungsi calculateCartTotals global yang sudah ada
+    // Gunakan calculateCartTotals untuk mendapatkan rincian
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
 
-    // Buat item_details dari data cart, termasuk modifier
+    // Buat item_details dari cart
     const itemDetails = cart.map((item) => {
-      const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+      const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds); // Harga setelah diskon menu
       let modifierTotal = 0;
       const modifierNames = [];
       Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
@@ -585,23 +585,13 @@ export default function MenuPage() {
       const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
       return {
         id: item.menu.id.toString(),
-        price: itemBasePrice + modifierTotal, // Tambahkan modifier ke harga per item
+        price: itemBasePrice + modifierTotal, // Harga setelah diskon + modifier
         quantity: item.quantity,
         name: itemNameWithModifiers,
       };
     });
 
-    // Jika ada diskon total (bukan per menu), tambahkan sebagai item negatif
-    if (totalDiscountAmount > 0) {
-      itemDetails.push({
-        id: "discount",
-        price: -totalDiscountAmount,
-        quantity: 1,
-        name: "Diskon",
-      });
-    }
-
-    // Tambahkan pajak
+    // Tambahkan pajak sebagai item terpisah
     if (taxAmount > 0) {
       itemDetails.push({
         id: "tax",
@@ -611,7 +601,7 @@ export default function MenuPage() {
       });
     }
 
-    // Tambahkan gratuity
+    // Tambahkan gratuity sebagai item terpisah
     if (gratuityAmount > 0) {
       itemDetails.push({
         id: "gratuity",
@@ -621,16 +611,29 @@ export default function MenuPage() {
       });
     }
 
-    // Debug: pastikan total item_details sesuai dengan totalAfterAll
+    // Jangan tambahkan item Diskon terpisah karena sudah diterapkan pada itemBasePrice
+
+    // Debug: hitung total dari item_details
     const sumItems = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    console.log("Total dari item_details:", sumItems, "Final Total:", totalAfterAll);
+    console.log("Subtotal:", subtotal);
+    console.log("Discount Amount:", totalDiscountAmount);
+    console.log("Modifier Cost:", totalModifierCost);
+    console.log("Tax Amount:", taxAmount);
+    console.log("Gratuity Amount:", gratuityAmount);
+    console.log("Total After All:", totalAfterAll);
+    console.log("Total dari item_details:", sumItems);
+
+    // Pastikan totalAfterAll sesuai dengan sumItems
+    if (sumItems !== totalAfterAll) {
+      console.error("Mismatch detected! Total from items:", sumItems, "Expected total:", totalAfterAll);
+    }
 
     // Payload untuk Midtrans
     const payload = {
       orderId: "ORDER-" + new Date().getTime(),
-      total: totalAfterAll, // Gunakan total yang sudah termasuk semua biaya
+      total: totalAfterAll, // Total keseluruhan Rp20.160
       customerName,
-      customerEmail: "", // Tambahkan email jika ada
+      customerEmail: "customer@example.com",
       customerPhone: "",
       item_details: itemDetails,
     };
@@ -642,6 +645,7 @@ export default function MenuPage() {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
+      console.log("Response from generateSnapToken:", data);
       if (data.success && data.snapToken) {
         setSnapToken(data.snapToken);
         const handlePaymentSuccess = async (result: unknown) => {
@@ -682,9 +686,11 @@ export default function MenuPage() {
         }
       } else {
         console.error("Gagal mendapatkan snap token", data);
+        toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
       }
     } catch (error: unknown) {
       console.error("Error generating snap token:", error);
+      toast.error("Terjadi kesalahan saat memproses pembayaran.");
     }
   }}
   className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
