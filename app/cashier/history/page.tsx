@@ -6,6 +6,9 @@ interface CompletedOrder {
   id: number;
   tableNumber: string;
   total: number;
+  discountAmount: number; // Tambahkan ini
+  taxAmount: number;     // Tambahkan ini
+  gratuityAmount: number; // Tambahkan ini
   paymentMethod?: string;
   paymentId?: string;
   createdAt: string;
@@ -14,6 +17,12 @@ interface CompletedOrder {
     menuName: string;
     quantity: number;
     note?: string;
+    modifiers?: {          // Tambahkan ini untuk modifier
+      id: number;
+      modifierId: number;
+      name: string;
+      price: number;
+    }[];
   }[];
 }
 
@@ -33,33 +42,34 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchCompletedOrders();
-  }, [startDate, endDate]); 
+  }, [startDate, endDate]);
 
   const fetchCompletedOrders = async () => {
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams({
-        ...(startDate && { startDate }), // Kirim langsung sebagai string 'YYYY-MM-DD'
-        ...(endDate && { endDate }),     // Kirim langsung sebagai string 'YYYY-MM-DD'
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate }),
         ...(tableNumber && { tableNumber }),
         ...(paymentMethod && { paymentMethod }),
         ...(minTotal && { minTotal }),
         ...(maxTotal && { maxTotal }),
       }).toString();
-  
+
       const response = await fetch(`/api/completedOrders?${queryParams}`);
       if (!response.ok) throw new Error("Gagal mengambil data riwayat pesanan");
-  
+
       const data = await response.json();
       setCompletedOrders(
         data.orders.map((order: any) => ({
           ...order,
           orderItems: order.orderItems.map((item: any) => ({
             id: item.id,
-            menuName: item.menu.name,
+            menuName: item.menuName,
             quantity: item.quantity,
             note: item.note,
+            modifiers: item.modifiers || [],
           })),
         }))
       );
@@ -179,7 +189,7 @@ export default function HistoryPage() {
                       <p className="font-semibold text-[#0E0E0E]">{order.tableNumber}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-[#979797]">Total Harga</p>
+                      <p className="text-sm text-[#979797]">Subtotal</p>
                       <p className="font-semibold text-[#0E0E0E]">Rp {order.total.toLocaleString()}</p>
                     </div>
                     <div>
@@ -192,17 +202,52 @@ export default function HistoryPage() {
                         {new Date(order.createdAt).toLocaleString()}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-sm text-[#979797]">Diskon</p>
+                      <p className="font-semibold text-[#0E0E0E]">
+                        Rp {order.discountAmount.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-[#979797]">Pajak (10%)</p>
+                      <p className="font-semibold text-[#0E0E0E]">
+                        Rp {order.taxAmount.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-[#979797]">Gratuity (2%)</p>
+                      <p className="font-semibold text-[#0E0E0E]">
+                        Rp {order.gratuityAmount.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-[#979797]">Total Akhir</p>
+                      <p className="font-semibold text-[#0E0E0E]">
+                        Rp {(order.total - order.discountAmount + order.taxAmount + order.gratuityAmount).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                   <div className="mt-4">
                     <p className="text-sm text-[#979797]">Pesanan</p>
                     <ul className="space-y-2">
                       {order.orderItems.map((item) => (
-                        <li key={item.id} className="flex items-center space-x-2">
-                          <span className="text-[#0E0E0E]">
-                            {item.menuName} - {item.quantity} pcs
-                          </span>
-                          {item.note && (
-                            <span className="text-sm text-[#979797]">({item.note})</span>
+                        <li key={item.id} className="flex flex-col space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[#0E0E0E]">
+                              {item.menuName} - {item.quantity} pcs
+                            </span>
+                            {item.note && (
+                              <span className="text-sm text-[#979797]">({item.note})</span>
+                            )}
+                          </div>
+                          {item.modifiers && item.modifiers.length > 0 && (
+                            <ul className="ml-4 space-y-1">
+                              {item.modifiers.map((mod) => (
+                                <li key={mod.id} className="text-sm text-[#0E0E0E]">
+                                  + {mod.name} (Rp {mod.price.toLocaleString()})
+                                </li>
+                              ))}
+                            </ul>
                           )}
                         </li>
                       ))}

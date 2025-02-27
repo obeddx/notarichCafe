@@ -79,6 +79,7 @@ interface CartItem {
   quantity: number;
   note: string;
   modifierIds: { [categoryId: number]: number | null };
+  uniqueKey: string;
 }
 
 const categories = [
@@ -103,7 +104,7 @@ export default function MenuPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [tableNumber, setTableNumber] = useState<string>("Unknown");
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [noteVisibility, setNoteVisibility] = useState<{ [key: number]: boolean }>({});
+  const [noteVisibility, setNoteVisibility] = useState<{ [key: string]: boolean }>({});
   const [orderError, setOrderError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
@@ -151,7 +152,14 @@ export default function MenuPage() {
 
   useEffect(() => {
     const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
-    if (storedCart) setCart(JSON.parse(storedCart));
+    if (storedCart) {
+      const parsedCart = JSON.parse(storedCart);
+      const updatedCart = parsedCart.map((item: CartItem) => ({
+        ...item,
+        uniqueKey: item.uniqueKey || `${item.menu.id}-${JSON.stringify(item.modifierIds)}`,
+      }));
+      setCart(updatedCart);
+    }
   }, [tableNumber]);
 
   useEffect(() => {
@@ -201,29 +209,45 @@ export default function MenuPage() {
     fetchMenuAndRates();
   }, []);
 
-  const addToCart = (menu: Menu) => {
+  const generateUniqueKey = (menuId: number, modifierIds: { [categoryId: number]: number | null }) => {
+    return `${menuId}-${JSON.stringify(modifierIds)}`;
+  };
+
+  const addToCart = (menu: Menu, modifierIds: { [categoryId: number]: number | null } = {}) => {
     setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex((item) => item.menu.id === menu.id && JSON.stringify(item.modifierIds) === JSON.stringify({}));
+      const uniqueKey = generateUniqueKey(menu.id, modifierIds);
+      const existingItemIndex = prevCart.findIndex(
+        (item) => item.uniqueKey === uniqueKey
+      );
+
       let updatedCart;
       if (existingItemIndex !== -1) {
         updatedCart = prevCart.map((item, index) =>
           index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
         );
       } else {
-        updatedCart = [...prevCart, { menu, quantity: 1, note: "", modifierIds: {} }];
+        const newItem = {
+          menu,
+          quantity: 1,
+          note: "",
+          modifierIds,
+          uniqueKey,
+        };
+        updatedCart = [...prevCart, newItem];
       }
-      setNoteVisibility((prev) => ({ ...prev, [menu.id]: false }));
+
+      setNoteVisibility((prev) => ({ ...prev, [uniqueKey]: false }));
       sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
     });
     toast.success(`${menu.name} added to cart!`);
   };
 
-  const removeFromCart = (menuId: number, modifierIds: { [categoryId: number]: number | null }) => {
+  const removeFromCart = (uniqueKey: string) => {
     setCart((prevCart) => {
       const updatedCart = prevCart
         .map((item) => {
-          if (item.menu.id === menuId && JSON.stringify(item.modifierIds) === JSON.stringify(modifierIds)) {
+          if (item.uniqueKey === uniqueKey) {
             if (item.quantity > 1) return { ...item, quantity: item.quantity - 1 };
             return null;
           }
@@ -232,7 +256,7 @@ export default function MenuPage() {
         .filter(Boolean) as CartItem[];
       setNoteVisibility((prev) => {
         const newVisibility = { ...prev };
-        delete newVisibility[menuId];
+        delete newVisibility[uniqueKey];
         return newVisibility;
       });
       sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
@@ -241,34 +265,54 @@ export default function MenuPage() {
     toast.error("Item removed from cart!");
   };
 
-  const updateCartItemModifier = (menuId: number, categoryId: number, modifierId: number | null) => {
+  const updateCartItemModifier = (uniqueKey: string, categoryId: number, modifierId: number | null) => {
     setCart((prevCart) => {
-      const updatedCart = prevCart.map((item) => {
-        if (item.menu.id === menuId) {
-          const newModifierIds = { ...item.modifierIds, [categoryId]: modifierId };
-          return { ...item, modifierIds: newModifierIds };
+      let updatedCart = [...prevCart];
+      const itemIndex = updatedCart.findIndex((item) => item.uniqueKey === uniqueKey);
+
+      if (itemIndex !== -1) {
+        const item = updatedCart[itemIndex];
+        const existingModifierIds = item.modifierIds;
+        const newModifierIds = { ...existingModifierIds, [categoryId]: modifierId };
+        const newUniqueKey = generateUniqueKey(item.menu.id, newModifierIds);
+
+        const existingNewItemIndex = updatedCart.findIndex(
+          (otherItem) => otherItem.uniqueKey === newUniqueKey && otherItem !== item
+        );
+
+        if (existingNewItemIndex !== -1) {
+          updatedCart[existingNewItemIndex].quantity += item.quantity;
+          updatedCart = updatedCart.filter((_, idx) => idx !== itemIndex);
+        } else {
+          updatedCart[itemIndex] = { ...item, modifierIds: newModifierIds, uniqueKey: newUniqueKey };
+          setNoteVisibility((prev) => {
+            const newVisibility = { ...prev };
+            if (newUniqueKey !== uniqueKey) {
+              newVisibility[newUniqueKey] = newVisibility[uniqueKey] || false;
+              delete newVisibility[uniqueKey];
+            }
+            return newVisibility;
+          });
         }
-        return item;
-      });
+      }
+
       sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
     });
   };
 
-  const updateCartItemNote = (menuId: number, modifierIds: { [categoryId: number]: number | null }, note: string) => {
+  const updateCartItemNote = (uniqueKey: string, note: string) => {
     setCart((prevCart) => {
       const updatedCart = prevCart.map((item) =>
-        item.menu.id === menuId && JSON.stringify(item.modifierIds) === JSON.stringify(modifierIds)
-          ? { ...item, note }
-          : item
+        item.uniqueKey === uniqueKey ? { ...item, note } : item
       );
       sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
     });
   };
 
-  const toggleNoteVisibility = (menuId: number) => {
-    setNoteVisibility((prev) => ({ ...prev, [menuId]: !prev[menuId] }));
+  const toggleNoteVisibility = (uniqueKey: string) => {
+    setNoteVisibility((prev) => ({ ...prev, [uniqueKey]: !prev[uniqueKey] }));
   };
 
   const calculateItemPrice = (menu: Menu, modifierIds: { [categoryId: number]: number | null }) => {
@@ -286,9 +330,9 @@ export default function MenuPage() {
   };
 
   const calculateCartTotals = () => {
-    let subtotal = 0; // Hanya harga menu sebelum diskon
-    let totalMenuDiscountAmount = 0; // Diskon dari menu
-    let totalModifierCost = 0; // Total harga modifier
+    let subtotal = 0;
+    let totalMenuDiscountAmount = 0;
+    let totalModifierCost = 0;
 
     cart.forEach((item) => {
       const originalPrice = item.menu.price;
@@ -296,7 +340,6 @@ export default function MenuPage() {
       subtotal += originalPrice * item.quantity;
       totalMenuDiscountAmount += (originalPrice - discountedPrice) * item.quantity;
 
-      // Hitung harga modifier
       Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
         if (modifierId) {
           const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
@@ -307,23 +350,22 @@ export default function MenuPage() {
       });
     });
 
-    const subtotalAfterMenuDiscount = subtotal - totalMenuDiscountAmount; // Subtotal setelah diskon menu
-    const subtotalWithModifiers = subtotalAfterMenuDiscount + totalModifierCost; // Subtotal + modifier
+    const subtotalAfterMenuDiscount = subtotal - totalMenuDiscountAmount;
+    const subtotalWithModifiers = subtotalAfterMenuDiscount + totalModifierCost;
 
-    // Diskon total (hanya dari diskon TOTAL, tidak memengaruhi modifier)
     let totalDiscountAmount = totalMenuDiscountAmount;
     if (selectedDiscountId) {
       const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
       if (selectedDiscount) {
         const additionalDiscount =
           selectedDiscount.type === "PERCENTAGE"
-            ? (selectedDiscount.value / 100) * subtotalAfterMenuDiscount // Hanya pada subtotal menu
+            ? (selectedDiscount.value / 100) * subtotalAfterMenuDiscount
             : selectedDiscount.value;
         totalDiscountAmount += additionalDiscount;
       }
     }
 
-    const subtotalAfterDiscount = subtotalWithModifiers - (totalDiscountAmount - totalMenuDiscountAmount); // Subtotal + modifier - diskon tambahan
+    const subtotalAfterDiscount = subtotalWithModifiers - (totalDiscountAmount - totalMenuDiscountAmount);
     const taxAmount = taxRate * subtotalAfterDiscount;
     const gratuityAmount = gratuityRate * subtotalAfterDiscount;
     const totalAfterAll = subtotalAfterDiscount + taxAmount + gratuityAmount;
@@ -331,7 +373,7 @@ export default function MenuPage() {
     return {
       subtotal,
       totalMenuDiscountAmount,
-      totalModifierCost, // Harga modifier terpisah
+      totalModifierCost,
       totalDiscountAmount,
       taxAmount,
       gratuityAmount,
@@ -428,7 +470,15 @@ export default function MenuPage() {
     let totalQty = 0;
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
     cart.forEach((item) => {
-      const itemTotal = (calculateItemPrice(item.menu, item.modifierIds) * item.quantity);
+      const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+      let modifierTotal = 0;
+      Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+        if (modifierId) {
+          const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+          if (modifier) modifierTotal += modifier.price;
+        }
+      });
+      const itemTotal = (itemBasePrice + modifierTotal) * item.quantity;
       const modifierNames = Object.entries(item.modifierIds)
         .map(([_, modifierId]) => 
           modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
@@ -437,7 +487,7 @@ export default function MenuPage() {
         .join(", ");
       const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
       doc.text(itemNameWithModifiers, margin, yPosition, { maxWidth: 30 });
-      doc.text(`${item.quantity} x ${calculateItemPrice(item.menu, item.modifierIds).toLocaleString()}`, margin, yPosition + 4, { maxWidth: 30 });
+      doc.text(`${item.quantity} x ${(itemBasePrice + modifierTotal).toLocaleString()}`, margin, yPosition + 4, { maxWidth: 30 });
       doc.text(`Rp${itemTotal.toLocaleString()}`, rightMargin, yPosition, { align: "right" });
       totalQty += item.quantity;
       yPosition += modifierNames ? 12 : 10;
@@ -448,7 +498,7 @@ export default function MenuPage() {
     yPosition += 6;
     doc.text(`Subtotal: Rp${subtotal.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
-    doc.text(`Modifier: Rp${totalModifierCost.toLocaleString()}`, margin, yPosition); // Tambah baris Modifier
+    doc.text(`Modifier: Rp${totalModifierCost.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
     doc.text(`Diskon: Rp${totalDiscountAmount.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
@@ -569,7 +619,15 @@ export default function MenuPage() {
           <h3 className="text-xl text-black mb-4">Table Number: {tableNumber}</h3>
           <ul className="space-y-2">
             {cart.map((item) => {
-              const itemTotal = calculateItemPrice(item.menu, item.modifierIds) * item.quantity;
+              const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+              let modifierTotal = 0;
+              Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+                if (modifierId) {
+                  const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                  if (modifier) modifierTotal += modifier.price;
+                }
+              });
+              const itemTotal = (itemBasePrice + modifierTotal) * item.quantity;
               const modifierNames = Object.entries(item.modifierIds)
                 .map(([_, modifierId]) => 
                   modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
@@ -578,7 +636,7 @@ export default function MenuPage() {
                 .join(", ");
               const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
               return (
-                <li key={`${item.menu.id}-${JSON.stringify(item.modifierIds)}`} className="flex justify-between text-black">
+                <li key={item.uniqueKey} className="flex justify-between text-black">
                   <span>{item.quantity}x {itemNameWithModifiers}</span>
                   <span>Rp{itemTotal.toLocaleString()}</span>
                 </li>
@@ -587,7 +645,7 @@ export default function MenuPage() {
           </ul>
           <div className="mt-4 border-t pt-4">
             <p className="text-lg text-black">Subtotal: Rp{subtotal.toLocaleString()}</p>
-            <p className="text-lg text-black">Modifier: Rp{totalModifierCost.toLocaleString()}</p> {/* Baris Modifier */}
+            <p className="text-lg text-black">Modifier: Rp{totalModifierCost.toLocaleString()}</p>
             <p className="text-lg text-black">Diskon: Rp{totalDiscountAmount.toLocaleString()}</p>
             <p className="text-lg text-black">Pajak: Rp{taxAmount.toLocaleString()}</p>
             <p className="text-lg text-black">Gratuity: Rp{gratuityAmount.toLocaleString()}</p>
@@ -814,11 +872,19 @@ export default function MenuPage() {
               <div className="flex-grow overflow-y-auto">
                 <ul className="space-y-4">
                   {cart.map((item) => {
-                    const itemPrice = calculateItemPrice(item.menu, item.modifierIds);
+                    const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+                    let modifierTotal = 0;
+                    Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+                      if (modifierId) {
+                        const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                        if (modifier) modifierTotal += modifier.price;
+                      }
+                    });
+                    const itemPrice = itemBasePrice + modifierTotal;
                     const itemTotalPrice = itemPrice * item.quantity;
-                    const isNoteOpen = noteVisibility[item.menu.id] || false;
+                    const isNoteOpen = noteVisibility[item.uniqueKey] || false;
                     const modifierNames = Object.entries(item.modifierIds)
-                      .map(([_, modifierId]) => 
+                      .map(([_, modifierId]) =>
                         modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
                       )
                       .filter(Boolean)
@@ -834,7 +900,7 @@ export default function MenuPage() {
                     }, {} as { [key: number]: { category: ModifierCategory; modifiers: Modifier[] } });
 
                     return (
-                      <li key={`${item.menu.id}-${JSON.stringify(item.modifierIds)}`} className="flex flex-col border-b pb-4">
+                      <li key={item.uniqueKey} className="flex flex-col border-b pb-4">
                         <div className="flex justify-between items-center">
                           <h3 className="text-lg font-semibold text-gray-900">{itemNameWithModifiers}</h3>
                           <p className="text-orange-600 font-semibold">
@@ -847,7 +913,7 @@ export default function MenuPage() {
                         <div className="flex justify-between items-center mt-2">
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => removeFromCart(item.menu.id, item.modifierIds)}
+                              onClick={() => removeFromCart(item.uniqueKey)}
                               className="px-4 py-2 bg-red-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-red-700 transition"
                             >
                               −
@@ -856,7 +922,7 @@ export default function MenuPage() {
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => addToCart(item.menu)}
+                              onClick={() => addToCart(item.menu, item.modifierIds)} // Gunakan modifierIds item saat ini
                               className="px-4 py-2 bg-green-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-green-700 transition"
                             >
                               +
@@ -869,7 +935,13 @@ export default function MenuPage() {
                               <label className="block text-sm font-medium">{group.category.name}:</label>
                               <select
                                 value={item.modifierIds[parseInt(categoryId)] || 0}
-                                onChange={(e) => updateCartItemModifier(item.menu.id, parseInt(categoryId), e.target.value === "0" ? null : parseInt(e.target.value))}
+                                onChange={(e) =>
+                                  updateCartItemModifier(
+                                    item.uniqueKey,
+                                    parseInt(categoryId),
+                                    e.target.value === "0" ? null : parseInt(e.target.value)
+                                  )
+                                }
                                 className="w-full p-2 border rounded-md"
                               >
                                 <option value={0}>Tanpa {group.category.name} (Rp0)</option>
@@ -887,11 +959,11 @@ export default function MenuPage() {
                             className="mt-2 p-2 border rounded-lg w-full"
                             placeholder="Add note (e.g., no sugar, extra spicy)"
                             value={item.note}
-                            onChange={(e) => updateCartItemNote(item.menu.id, item.modifierIds, e.target.value)}
+                            onChange={(e) => updateCartItemNote(item.uniqueKey, e.target.value)}
                           />
                         ) : (
                           <button
-                            onClick={() => toggleNoteVisibility(item.menu.id)}
+                            onClick={() => toggleNoteVisibility(item.uniqueKey)}
                             className="mt-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-full text-sm hover:bg-gray-300 transition"
                           >
                             Add Note
@@ -918,7 +990,7 @@ export default function MenuPage() {
                   Subtotal: Rp{calculateCartTotals().subtotal.toLocaleString()}
                 </p>
                 <p className="text-lg text-gray-900">
-                  Modifier: Rp{calculateCartTotals().totalModifierCost.toLocaleString()} {/* Baris Modifier */}
+                  Modifier: Rp{calculateCartTotals().totalModifierCost.toLocaleString()}
                 </p>
                 <p className="text-lg text-gray-900">
                   Diskon: Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}

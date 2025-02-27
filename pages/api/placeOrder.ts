@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const orderDetails: OrderDetails = req.body;
 
-    if (!orderDetails.tableNumber || !orderDetails.items.length || !orderDetails.total) {
+    if (!orderDetails.tableNumber || !orderDetails.items.length) {
       return res.status(400).json({ message: "Invalid order data" });
     }
 
@@ -51,100 +51,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const tax = await prisma.tax.findFirst({ where: { isActive: true } });
     const gratuity = await prisma.gratuity.findFirst({ where: { isActive: true } });
 
-    // Deklarasi variabel di luar transaksi
-    let totalBeforeDiscount = 0;
-    let totalDiscountAmount = 0;
-    let taxAmount = 0;
-    let gratuityAmount = 0;
-    let finalTotal = 0;
-
     const newOrder = await prisma.$transaction(async (prisma) => {
-      const orderItemsData = await Promise.all(
-        orderDetails.items.map(async (item) => {
-          const menu = menus.find((m) => m.id === item.menuId);
-          if (!menu) throw new Error(`Menu with ID ${item.menuId} not found`);
-          let price = menu.price;
+      const orderItemsData = orderDetails.items.map((item) => {
+        const menu = menus.find((m) => m.id === item.menuId);
+        if (!menu) throw new Error(`Menu with ID ${item.menuId} not found`);
+        let price = menu.price;
 
-          let modifierCost = 0;
-          if (item.modifierIds && item.modifierIds.length > 0) {
-            const modifiers = await prisma.modifier.findMany({
-              where: { id: { in: item.modifierIds } },
-              include: { ingredients: { include: { ingredient: true } } },
-            });
-            modifiers.forEach((modifier) => {
-              modifierCost += modifier.price || 0;
-            });
-          }
-          price += modifierCost;
+        let modifierCost = 0;
+        if (Array.isArray(item.modifierIds) && item.modifierIds.length > 0) {
+          const modifiers = menu.modifiers.filter((m) => item.modifierIds!.includes(m.modifier.id));
+          modifierCost = modifiers.reduce((sum, mod) => sum + (mod.modifier.price || 0), 0);
+        }
+        price += modifierCost;
 
-          const subtotal = price * item.quantity;
-          totalBeforeDiscount += subtotal;
+        const subtotal = price * item.quantity;
 
-          let discountAmount = 0;
-          const menuDiscount = menu.discounts.find((d) => d.discount.isActive);
-          if (menuDiscount) {
-            const discount = menuDiscount.discount;
-            discountAmount =
-              discount.type === "PERCENTAGE"
-                ? (discount.value / 100) * price * item.quantity
-                : discount.value * item.quantity;
-          }
+        let discountAmount = 0;
+        const menuDiscount = menu.discounts.find((d) => d.discount.isActive);
+        if (menuDiscount) {
+          const discount = menuDiscount.discount;
+          discountAmount =
+            discount.type === "PERCENTAGE"
+              ? (discount.value / 100) * menu.price * item.quantity
+              : discount.value * item.quantity;
+        }
 
-          // Kurangi stok dan tambah used untuk ingredients dari menu
-          for (const menuIng of menu.ingredients) {
-            const ingredient = menuIng.ingredient;
-            const usedAmount = menuIng.amount * item.quantity;
-            await prisma.ingredient.update({
-              where: { id: ingredient.id },
-              data: {
-                stock: ingredient.stock - usedAmount,
-                used: ingredient.used + usedAmount,
-              },
-            });
-          }
+        return {
+          menuId: item.menuId,
+          quantity: item.quantity,
+          note: item.note || "",
+          price,
+          discountAmount,
+          modifiers: {
+            create: (item.modifierIds || []).map((modifierId) => ({
+              modifierId,
+            })),
+          },
+        };
+      });
 
-          // Kurangi stok dan tambah used untuk ingredients dari modifier
-          if (item.modifierIds && item.modifierIds.length > 0) {
-            const modifierIngredients = await prisma.modifierIngredient.findMany({
-              where: { modifierId: { in: item.modifierIds } },
-              include: { ingredient: true },
-            });
-            for (const modIng of modifierIngredients) {
-              const ingredient = modIng.ingredient;
-              const usedAmount = modIng.amount * item.quantity;
-              await prisma.ingredient.update({
-                where: { id: ingredient.id },
-                data: {
-                  stock: ingredient.stock - usedAmount,
-                  used: ingredient.used + usedAmount,
-                },
-              });
-            }
-          }
-
-          return {
-            menuId: item.menuId,
-            quantity: item.quantity,
-            note: item.note || "",
-            price,
-            discountAmount,
-            modifiers: {
-              create: (item.modifierIds || []).map((modifierId) => ({
-                modifierId,
-              })),
-            },
-          };
-        })
-      );
-
+      const totalBeforeDiscount = orderItemsData.reduce((acc, item) => acc + (item.price * item.quantity), 0);
       const totalMenuDiscountAmount = orderItemsData.reduce((sum, item) => sum + item.discountAmount, 0);
       const totalAfterMenuDiscount = totalBeforeDiscount - totalMenuDiscountAmount;
 
-      taxAmount = tax ? (tax.value / 100) * totalAfterMenuDiscount : 0;
-      gratuityAmount = gratuity ? (gratuity.value / 100) * totalAfterMenuDiscount : 0;
-      const initialFinalTotal = totalAfterMenuDiscount + taxAmount + gratuityAmount;
+      const taxAmount = tax ? (tax.value / 100) * totalAfterMenuDiscount : 0;
+      const gratuityAmount = gratuity ? (gratuity.value / 100) * totalAfterMenuDiscount : 0;
 
-      totalDiscountAmount = totalMenuDiscountAmount;
+      let totalDiscountAmount = totalMenuDiscountAmount;
       if (orderDetails.discountId) {
         const discount = await prisma.discount.findUnique({
           where: { id: orderDetails.discountId },
@@ -152,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (discount && discount.isActive && discount.scope === "TOTAL") {
           const additionalDiscount =
             discount.type === "PERCENTAGE"
-              ? (discount.value / 100) * initialFinalTotal
+              ? (discount.value / 100) * totalAfterMenuDiscount
               : discount.value;
           totalDiscountAmount += additionalDiscount;
           console.log(`Applied TOTAL discount: ${discount.name}, Amount: ${additionalDiscount}`);
@@ -161,8 +114,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      totalDiscountAmount = Math.min(totalDiscountAmount, initialFinalTotal);
-      finalTotal = initialFinalTotal - totalDiscountAmount;
+      const baseTotal = totalAfterMenuDiscount - (totalDiscountAmount - totalMenuDiscountAmount);
+      const finalTotal = baseTotal + taxAmount + gratuityAmount;
 
       const newOrder = await prisma.order.create({
         data: {
@@ -187,6 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               modifiers: { include: { modifier: true } },
             },
           },
+          discount: true, // Pastikan discount disertakan
         },
       });
 
@@ -195,11 +149,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log("New Order Created:", {
       id: newOrder.id,
-      totalBeforeDiscount,
-      totalDiscountAmount,
-      taxAmount,
-      gratuityAmount,
-      finalTotal,
+      totalBeforeDiscount: newOrder.total,
+      totalDiscountAmount: newOrder.discountAmount,
+      taxAmount: newOrder.taxAmount,
+      gratuityAmount: newOrder.gratuityAmount,
+      finalTotal: newOrder.finalTotal,
       discountId: newOrder.discountId,
     });
 
