@@ -41,42 +41,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const menuMaxBeli: Map<number, number> = new Map();
 
     await prisma.$transaction(async (prisma) => {
-      const updatedIngredientStocks = new Map<number, number>();
-
-      // Update stok bahan berdasarkan pesanan
-      for (const orderItem of order.orderItems) {
-        const menu = orderItem.menu;
-        for (const menuIngredient of menu.ingredients) {
-          const ingredient = menuIngredient.ingredient;
-          const amountUsed = menuIngredient.amount * orderItem.quantity;
-
-          const updatedIngredient = await prisma.ingredient.update({
-            where: { id: ingredient.id },
-            data: {
-              used: { increment: amountUsed },
-              stock: { decrement: amountUsed },
-            },
-          });
-
-          updatedIngredientStocks.set(ingredient.id, updatedIngredient.stock);
-
-          if (updatedIngredient.stock <= 0) {
-            await prisma.menu.update({
-              where: { id: menu.id },
-              data: { Status: "habis" },
-            });
-          }
-        }
-      }
-
-      // Hitung ulang maxBeli untuk menu yang terpengaruh
-      const updatedIngredientIds = Array.from(updatedIngredientStocks.keys());
+      // Hitung ulang maxBeli untuk menu yang terpengaruh (tanpa pengurangan stok ulang)
+      const menuIds = order.orderItems.map((item) => item.menuId);
       const menusToRecalculate = await prisma.menu.findMany({
-        where: {
-          ingredients: {
-            some: { ingredientId: { in: updatedIngredientIds } },
-          },
-        },
+        where: { id: { in: menuIds } },
         include: {
           ingredients: { include: { ingredient: true } },
         },
@@ -85,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       for (const menu of menusToRecalculate) {
         let maxPurchase = Infinity;
         for (const menuIngredient of menu.ingredients) {
-          let currentStock = updatedIngredientStocks.get(menuIngredient.ingredient.id) ?? menuIngredient.ingredient.stock;
+          const currentStock = menuIngredient.ingredient.stock;
           if (menuIngredient.amount <= 0) {
             maxPurchase = 0;
             break;
@@ -111,12 +79,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         data: {
           originalOrderId: order.id,
           tableNumber: order.tableNumber,
-          total: order.total,              // Subtotal sebelum diskon, pajak, dan gratuity
-          discountId: order.discountId,    // Foreign key ke Discount (jika ada)
-          discountAmount: order.discountAmount, // Jumlah diskon
-          taxAmount: order.taxAmount,      // Jumlah pajak
-          gratuityAmount: order.gratuityAmount, // Jumlah gratuity
-          finalTotal: order.finalTotal,    // Total akhir setelah diskon, pajak, dan gratuity
+          total: order.total,
+          discountId: order.discountId,
+          discountAmount: order.discountAmount,
+          taxAmount: order.taxAmount,
+          gratuityAmount: order.gratuityAmount,
+          finalTotal: order.finalTotal,
           paymentMethod: order.paymentMethod,
           paymentId: order.paymentId,
           createdAt: new Date(),
