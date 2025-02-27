@@ -3,6 +3,11 @@ import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
 import { useRouter, useSearchParams } from "next/navigation";
 
+interface Category {
+  id: number;
+  kategori: string;
+}
+
 interface IngredientOption {
   id: number;
   name: string;
@@ -59,6 +64,7 @@ export default function AddMenu() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   // State untuk diskon
   const [applyDiscount, setApplyDiscount] = useState<boolean>(false);
@@ -72,6 +78,20 @@ export default function AddMenu() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const menuId = searchParams ? searchParams.get("id") : null;
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/categoryMenu");
+        const data = await res.json();
+        setCategories(data.categories);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
 
   useEffect(() => {
     const fetchIngredients = async () => {
@@ -295,7 +315,7 @@ export default function AddMenu() {
               </label>
             </div>
             <div>
-              <label className="block font-semibold mb-2">
+               <label className="block font-semibold mb-2">
                 Category:
                 <select
                   value={category}
@@ -303,16 +323,11 @@ export default function AddMenu() {
                   required
                   className="w-full p-2 border border-gray-300 rounded mt-1"
                 >
-                  <option value="Coffee">Coffee</option>
-                  <option value="Tea">Tea</option>
-                  <option value="Frappe">Frappe</option>
-                  <option value="Juice">Juice</option>
-                  <option value="Milk Base">Milk Base</option>
-                  <option value="Refresher">Refresher</option>
-                  <option value="Cocorich">Cocorich</option>
-                  <option value="Mocktail">Mocktail</option>
-                  <option value="Snack">Snack</option>
-                  <option value="Main Course">Main Course</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.kategori}>
+                      {cat.kategori}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>

@@ -25,7 +25,10 @@ model Menu {
   modifiers    MenuModifier[]  // Relasi balik ke MenuModifier
 }
 
-
+model CategoryMenu {
+  id       Int    @id @default(autoincrement())
+  kategori String
+}
 
 model Ingredient {
   id          Int                     @id @default(autoincrement())

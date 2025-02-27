@@ -48,7 +48,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
           />
         </li>
         <li>
-          <SidebarDropdown label="Menu Notarich" isOpen={isOpen} items={[{ href: "/manager/getMenu", label: "Daftar Menu" }]} border />
+          <SidebarDropdown label="Menu Notarich" isOpen={isOpen} items={[
+            { href: "/manager/getMenu", label: "Daftar Menu" },
+            { href: "/manager/categoryMenu", label: "Kategori Menu" },
+            ]} border />
         </li>
         <li>
           <SidebarDropdown

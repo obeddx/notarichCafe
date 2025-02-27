@@ -117,6 +117,7 @@ export default function MenuPage() {
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
   const [taxRate, setTaxRate] = useState<number>(0);
   const [gratuityRate, setGratuityRate] = useState<number>(0);
+  const [categories, setCategories] = useState<string[]>([]); // State untuk menyimpan kategori dari API
 
   const searchParams = useSearchParams();
 
@@ -161,6 +162,24 @@ export default function MenuPage() {
       setCart(updatedCart);
     }
   }, [tableNumber]);
+
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch("/api/categoryMenu");
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        const data = await response.json();
+        const categoryNames = data.categories.map((cat: { kategori: string }) => cat.kategori);
+        setCategories(["All Menu", ...categoryNames]); // Tambahkan "All Menu" ke awal array
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+        setError("Failed to load categories.");
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const fetchMenuAndRates = async () => {
@@ -721,7 +740,8 @@ export default function MenuPage() {
             placeholder="Cari nama menu..."
           />
         </div>
-        <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
+
+      <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
           {categories.map((category) => (
             <button
               key={category}
