@@ -55,7 +55,7 @@ interface Modifier {
   modifier: {
     id: number;
     name: string;
-    price: number; // Tambahkan harga modifier
+    price: number;
     category: ModifierCategory;
   };
 }
@@ -78,7 +78,7 @@ interface CartItem {
   menu: Menu;
   quantity: number;
   note: string;
-  modifierIds: { [categoryId: number]: number | null }; // Modifier per kategori
+  modifierIds: { [categoryId: number]: number | null };
 }
 
 const categories = [
@@ -282,63 +282,65 @@ export default function MenuPage() {
           ? (activeDiscount.discount.value / 100) * menu.price
           : activeDiscount.discount.value;
     }
-
-    // Tambahkan harga modifier
-    Object.entries(modifierIds).forEach(([categoryId, modifierId]) => {
-      if (modifierId) {
-        const modifier = menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-        if (modifier) {
-          price += modifier.price;
-        }
-      }
-    });
-
     return price > 0 ? price : 0;
   };
 
   const calculateCartTotals = () => {
-    let totalBeforeDiscount = 0;
-    let totalMenuDiscountAmount = 0;
+    let subtotal = 0; // Hanya harga menu sebelum diskon
+    let totalMenuDiscountAmount = 0; // Diskon dari menu
+    let totalModifierCost = 0; // Total harga modifier
 
     cart.forEach((item) => {
       const originalPrice = item.menu.price;
       const discountedPrice = calculateItemPrice(item.menu, item.modifierIds);
-      totalBeforeDiscount += originalPrice * item.quantity;
+      subtotal += originalPrice * item.quantity;
       totalMenuDiscountAmount += (originalPrice - discountedPrice) * item.quantity;
+
+      // Hitung harga modifier
+      Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+        if (modifierId) {
+          const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+          if (modifier) {
+            totalModifierCost += modifier.price * item.quantity;
+          }
+        }
+      });
     });
 
-    const totalAfterMenuDiscount = totalBeforeDiscount - totalMenuDiscountAmount;
-    const taxAmount = taxRate * totalAfterMenuDiscount;
-    const gratuityAmount = gratuityRate * totalAfterMenuDiscount;
-    const initialFinalTotal = totalAfterMenuDiscount + taxAmount + gratuityAmount;
+    const subtotalAfterMenuDiscount = subtotal - totalMenuDiscountAmount; // Subtotal setelah diskon menu
+    const subtotalWithModifiers = subtotalAfterMenuDiscount + totalModifierCost; // Subtotal + modifier
 
+    // Diskon total (hanya dari diskon TOTAL, tidak memengaruhi modifier)
     let totalDiscountAmount = totalMenuDiscountAmount;
     if (selectedDiscountId) {
       const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
       if (selectedDiscount) {
         const additionalDiscount =
           selectedDiscount.type === "PERCENTAGE"
-            ? (selectedDiscount.value / 100) * initialFinalTotal
+            ? (selectedDiscount.value / 100) * subtotalAfterMenuDiscount // Hanya pada subtotal menu
             : selectedDiscount.value;
         totalDiscountAmount += additionalDiscount;
       }
     }
 
-    totalDiscountAmount = Math.min(totalDiscountAmount, initialFinalTotal);
-    const totalAfterDiscount = initialFinalTotal - totalDiscountAmount;
+    const subtotalAfterDiscount = subtotalWithModifiers - (totalDiscountAmount - totalMenuDiscountAmount); // Subtotal + modifier - diskon tambahan
+    const taxAmount = taxRate * subtotalAfterDiscount;
+    const gratuityAmount = gratuityRate * subtotalAfterDiscount;
+    const totalAfterAll = subtotalAfterDiscount + taxAmount + gratuityAmount;
 
     return {
-      totalBeforeDiscount,
+      subtotal,
       totalMenuDiscountAmount,
+      totalModifierCost, // Harga modifier terpisah
+      totalDiscountAmount,
       taxAmount,
       gratuityAmount,
-      totalDiscountAmount,
-      totalAfterDiscount,
+      totalAfterAll,
     };
   };
 
   const createOrder = async () => {
-    const { totalBeforeDiscount, taxAmount, gratuityAmount, totalDiscountAmount, totalAfterDiscount } = calculateCartTotals();
+    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
     const orderDetails = {
       customerName,
       tableNumber,
@@ -348,12 +350,12 @@ export default function MenuPage() {
         note: item.note,
         modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
       })),
-      total: totalBeforeDiscount,
+      total: subtotal,
       discountId: selectedDiscountId || undefined,
       taxAmount,
       gratuityAmount,
       discountAmount: totalDiscountAmount,
-      finalTotal: totalAfterDiscount,
+      finalTotal: totalAfterAll,
     };
     try {
       const response = await fetch("/api/placeOrder", {
@@ -424,11 +426,11 @@ export default function MenuPage() {
     yPosition += 4;
 
     let totalQty = 0;
-    const { totalBeforeDiscount, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterDiscount } = calculateCartTotals();
+    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
     cart.forEach((item) => {
-      const itemTotal = calculateItemPrice(item.menu, item.modifierIds) * item.quantity;
+      const itemTotal = (calculateItemPrice(item.menu, item.modifierIds) * item.quantity);
       const modifierNames = Object.entries(item.modifierIds)
-        .map(([categoryId, modifierId]) => 
+        .map(([_, modifierId]) => 
           modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
         )
         .filter(Boolean)
@@ -444,7 +446,9 @@ export default function MenuPage() {
     yPosition += 2;
     doc.text(`Total qty = ${totalQty}`, margin, yPosition);
     yPosition += 6;
-    doc.text(`Subtotal: Rp${totalBeforeDiscount.toLocaleString()}`, margin, yPosition);
+    doc.text(`Subtotal: Rp${subtotal.toLocaleString()}`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Modifier: Rp${totalModifierCost.toLocaleString()}`, margin, yPosition); // Tambah baris Modifier
     yPosition += 6;
     doc.text(`Diskon: Rp${totalDiscountAmount.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
@@ -452,7 +456,7 @@ export default function MenuPage() {
     yPosition += 6;
     doc.text(`Gratuity: Rp${gratuityAmount.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
-    doc.text(`Total: Rp${totalAfterDiscount.toLocaleString()}`, margin, yPosition);
+    doc.text(`Total: Rp${totalAfterAll.toLocaleString()}`, margin, yPosition);
     yPosition += 6;
     doc.text(`Pembayaran: ${paymentOption === "ewallet" ? "E-Wallet" : "Tunai"}`, margin, yPosition);
     yPosition += 10;
@@ -491,16 +495,16 @@ export default function MenuPage() {
           onClick={async () => {
             setPaymentOption("ewallet");
             setShowPaymentMethodModal(false);
-            const { totalBeforeDiscount } = calculateCartTotals();
+            const { subtotal } = calculateCartTotals();
             const payload = {
               orderId: "ORDER-" + new Date().getTime(),
-              total: totalBeforeDiscount,
+              total: subtotal,
               customerName,
               customerEmail: "",
               customerPhone: "",
               item_details: cart.map((item) => ({
                 id: item.menu.id.toString(),
-                price: calculateItemPrice(item.menu, item.modifierIds), // Sertakan harga dengan modifier
+                price: calculateItemPrice(item.menu, item.modifierIds),
                 quantity: item.quantity,
                 name: item.menu.name,
               })),
@@ -557,7 +561,7 @@ export default function MenuPage() {
   );
 
   const renderReceiptModal = () => {
-    const { totalBeforeDiscount, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterDiscount } = calculateCartTotals();
+    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white p-6 rounded-lg w-full max-w-md" id="receipt-content">
@@ -567,7 +571,7 @@ export default function MenuPage() {
             {cart.map((item) => {
               const itemTotal = calculateItemPrice(item.menu, item.modifierIds) * item.quantity;
               const modifierNames = Object.entries(item.modifierIds)
-                .map(([categoryId, modifierId]) => 
+                .map(([_, modifierId]) => 
                   modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
                 )
                 .filter(Boolean)
@@ -582,12 +586,13 @@ export default function MenuPage() {
             })}
           </ul>
           <div className="mt-4 border-t pt-4">
-            <p className="text-lg text-black">Subtotal: Rp{totalBeforeDiscount.toLocaleString()}</p>
+            <p className="text-lg text-black">Subtotal: Rp{subtotal.toLocaleString()}</p>
+            <p className="text-lg text-black">Modifier: Rp{totalModifierCost.toLocaleString()}</p> {/* Baris Modifier */}
             <p className="text-lg text-black">Diskon: Rp{totalDiscountAmount.toLocaleString()}</p>
             <p className="text-lg text-black">Pajak: Rp{taxAmount.toLocaleString()}</p>
             <p className="text-lg text-black">Gratuity: Rp{gratuityAmount.toLocaleString()}</p>
             <p className="text-lg font-semibold text-black">
-              Total: Rp{totalAfterDiscount.toLocaleString()}
+              Total: Rp{totalAfterAll.toLocaleString()}
             </p>
           </div>
           <p className="mt-4 text-center text-green-600 font-semibold">
@@ -788,7 +793,7 @@ export default function MenuPage() {
         <span className="hidden sm:block">Cart</span>
         <div className="sm:hidden flex flex-col items-center">
           <span className="text-sm font-semibold">
-            Rp{calculateCartTotals().totalAfterDiscount.toLocaleString()}
+            Rp{calculateCartTotals().totalAfterAll.toLocaleString()}
           </span>
           <span className="text-xs">Checkout</span>
         </div>
@@ -813,7 +818,7 @@ export default function MenuPage() {
                     const itemTotalPrice = itemPrice * item.quantity;
                     const isNoteOpen = noteVisibility[item.menu.id] || false;
                     const modifierNames = Object.entries(item.modifierIds)
-                      .map(([categoryId, modifierId]) => 
+                      .map(([_, modifierId]) => 
                         modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
                       )
                       .filter(Boolean)
@@ -910,7 +915,10 @@ export default function MenuPage() {
               <div className="p-4 bg-gray-100 rounded-lg mt-auto">
                 <h3 className="text-xl font-bold text-gray-900">Rincian Harga:</h3>
                 <p className="text-lg text-gray-900">
-                  Subtotal: Rp{calculateCartTotals().totalBeforeDiscount.toLocaleString()}
+                  Subtotal: Rp{calculateCartTotals().subtotal.toLocaleString()}
+                </p>
+                <p className="text-lg text-gray-900">
+                  Modifier: Rp{calculateCartTotals().totalModifierCost.toLocaleString()} {/* Baris Modifier */}
                 </p>
                 <p className="text-lg text-gray-900">
                   Diskon: Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}
@@ -922,7 +930,7 @@ export default function MenuPage() {
                   Gratuity: Rp{calculateCartTotals().gratuityAmount.toLocaleString()}
                 </p>
                 <p className="text-2xl text-orange-600 font-semibold">
-                  Total: Rp{calculateCartTotals().totalAfterDiscount.toLocaleString()}
+                  Total: Rp{calculateCartTotals().totalAfterAll.toLocaleString()}
                 </p>
                 <button
                   onClick={handleShowPaymentModal}
