@@ -7,9 +7,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum MenuType {
+  NORMAL
+  BUNDLE
+}
+
 model Menu {
   id           Int             @id @default(autoincrement())
   name         String
+  type         MenuType       @default(NORMAL)
   description  String?
   image        String
   price        Float
@@ -23,6 +29,23 @@ model Menu {
   completedOrderItems CompletedOrderItem[]
   discounts    MenuDiscount[]
   modifiers    MenuModifier[]  // Relasi balik ke MenuModifier
+  // Relasi untuk bundle: jika menu ini adalah bundle, maka field ini akan menyimpan daftar menu yang termasuk.
+  bundleCompositions      MenuComposition[]     @relation("bundleMenu")
+  // Relasi untuk menu yang termasuk dalam bundle: jika menu ini merupakan bagian dari bundle tertentu.
+  normalMenuCompositions  MenuComposition[]     @relation("normalMenu")
+}
+
+model MenuComposition {
+  id        Int    @id @default(autoincrement())
+  bundleId  Int
+  menuId    Int
+  amount    Float  @default(0)
+  // Relasi ke menu bundle (parent bundle)
+  bundle    Menu   @relation("bundleMenu", fields: [bundleId], references: [id])
+  // Relasi ke menu yang termasuk di dalam bundle
+  menu      Menu   @relation("normalMenu", fields: [menuId], references: [id])
+  
+  @@unique([bundleId, menuId])
 }
 
 model CategoryMenu {
@@ -151,6 +174,7 @@ model Order {
   status        String          @default("pending")
   paymentMethod String?
   paymentId     String?
+  paymentStatus String?  @default("pending")
   cashGiven     Float?          // Uang yang diberikan
   change        Float?          // Kembalian
   customerName  String

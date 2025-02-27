@@ -6,6 +6,7 @@ import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import { jsPDF } from "jspdf";
+import io from "socket.io-client";
 
 interface Ingredient {
   id: number;
@@ -15,6 +16,13 @@ interface Ingredient {
   used: number;
   wasted: number;
   stock: number;
+}
+
+interface MidtransResult {
+  transaction_id: string;
+  status_code: string;
+  status_message: string;
+  [key: string]: any;
 }
 
 interface MenuIngredient {
@@ -108,6 +116,8 @@ export default function MenuPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+
+  useState(false);
   const [paymentOption, setPaymentOption] = useState<"cash" | "ewallet" | null>(null);
   const [orderRecord, setOrderRecord] = useState<string>("");
   const [snapToken, setSnapToken] = useState<string>("");
@@ -117,7 +127,7 @@ export default function MenuPage() {
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
   const [taxRate, setTaxRate] = useState<number>(0);
   const [gratuityRate, setGratuityRate] = useState<number>(0);
-  const [categories, setCategories] = useState<string[]>([]); // State untuk menyimpan kategori dari API
+  const [categoriesState, setCategories] = useState<string[]>([]);
 
   const searchParams = useSearchParams();
 
@@ -163,7 +173,6 @@ export default function MenuPage() {
     }
   }, [tableNumber]);
 
-
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -171,13 +180,12 @@ export default function MenuPage() {
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         const data = await response.json();
         const categoryNames = data.categories.map((cat: { kategori: string }) => cat.kategori);
-        setCategories(["All Menu", ...categoryNames]); // Tambahkan "All Menu" ke awal array
+        setCategories(["All Menu", ...categoryNames]);
       } catch (err) {
         console.error("Failed to fetch categories:", err);
         setError("Failed to load categories.");
       }
     };
-
     fetchCategories();
   }, []);
 
@@ -235,9 +243,7 @@ export default function MenuPage() {
   const addToCart = (menu: Menu, modifierIds: { [categoryId: number]: number | null } = {}) => {
     setCart((prevCart) => {
       const uniqueKey = generateUniqueKey(menu.id, modifierIds);
-      const existingItemIndex = prevCart.findIndex(
-        (item) => item.uniqueKey === uniqueKey
-      );
+      const existingItemIndex = prevCart.findIndex((item) => item.uniqueKey === uniqueKey);
 
       let updatedCart;
       if (existingItemIndex !== -1) {
@@ -359,14 +365,16 @@ export default function MenuPage() {
       subtotal += originalPrice * item.quantity;
       totalMenuDiscountAmount += (originalPrice - discountedPrice) * item.quantity;
 
+      let modifierTotal = 0;
       Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
         if (modifierId) {
           const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
           if (modifier) {
-            totalModifierCost += modifier.price * item.quantity;
+            modifierTotal += modifier.price * item.quantity;
           }
         }
       });
+      totalModifierCost += modifierTotal;
     });
 
     const subtotalAfterMenuDiscount = subtotal - totalMenuDiscountAmount;
@@ -378,7 +386,7 @@ export default function MenuPage() {
       if (selectedDiscount) {
         const additionalDiscount =
           selectedDiscount.type === "PERCENTAGE"
-            ? (selectedDiscount.value / 100) * subtotalAfterMenuDiscount
+            ? (selectedDiscount.value / 100) * subtotalWithModifiers
             : selectedDiscount.value;
         totalDiscountAmount += additionalDiscount;
       }
@@ -498,18 +506,17 @@ export default function MenuPage() {
         }
       });
       const itemTotal = (itemBasePrice + modifierTotal) * item.quantity;
-      const modifierNames = Object.entries(item.modifierIds)
-        .map(([_, modifierId]) => 
-          modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
+      const modifierNames: string[] = Object.entries(item.modifierIds)
+        .map(([_, modifierId]) =>
+          modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name ?? "" : ""
         )
-        .filter(Boolean)
-        .join(", ");
-      const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
+        .filter(Boolean);
+      const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
       doc.text(itemNameWithModifiers, margin, yPosition, { maxWidth: 30 });
       doc.text(`${item.quantity} x ${(itemBasePrice + modifierTotal).toLocaleString()}`, margin, yPosition + 4, { maxWidth: 30 });
       doc.text(`Rp${itemTotal.toLocaleString()}`, rightMargin, yPosition, { align: "right" });
       totalQty += item.quantity;
-      yPosition += modifierNames ? 12 : 10;
+      yPosition += modifierNames.length ? 12 : 10;
     });
 
     yPosition += 2;
@@ -550,7 +557,7 @@ export default function MenuPage() {
             if (order) {
               setOrderRecord(order);
               toast.success("Order placed successfully!");
-              setShowReceiptModal(true);
+              setShowReceiptModal(true); // Tetap tampilkan modal untuk pembayaran tunai
             } else {
               setOrderError("Failed to create order. Please try again.");
               toast.error("Failed to create order. Please try again.");
@@ -561,142 +568,200 @@ export default function MenuPage() {
           Tunai
         </button>
         <button
-  onClick={async () => {
-    setPaymentOption("ewallet");
-    setShowPaymentMethodModal(false);
+          onClick={async () => {
+            setPaymentOption("ewallet");
+            setShowPaymentMethodModal(false);
 
-    // Gunakan calculateCartTotals untuk mendapatkan rincian
-    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
+            const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
 
-    // Buat item_details dari cart
-    const itemDetails = cart.map((item) => {
-      const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds); // Harga setelah diskon menu
-      let modifierTotal = 0;
-      const modifierNames = [];
-      Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
-        if (modifierId) {
-          const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-          if (modifier) {
-            modifierTotal += modifier.price;
-            modifierNames.push(modifier.name);
-          }
-        }
-      });
-      const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
-      return {
-        id: item.menu.id.toString(),
-        price: itemBasePrice + modifierTotal, // Harga setelah diskon + modifier
-        quantity: item.quantity,
-        name: itemNameWithModifiers,
-      };
-    });
-
-    // Tambahkan pajak sebagai item terpisah
-    if (taxAmount > 0) {
-      itemDetails.push({
-        id: "tax",
-        price: taxAmount,
-        quantity: 1,
-        name: "Pajak",
-      });
-    }
-
-    // Tambahkan gratuity sebagai item terpisah
-    if (gratuityAmount > 0) {
-      itemDetails.push({
-        id: "gratuity",
-        price: gratuityAmount,
-        quantity: 1,
-        name: "Gratuity",
-      });
-    }
-
-    // Jangan tambahkan item Diskon terpisah karena sudah diterapkan pada itemBasePrice
-
-    // Debug: hitung total dari item_details
-    const sumItems = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    console.log("Subtotal:", subtotal);
-    console.log("Discount Amount:", totalDiscountAmount);
-    console.log("Modifier Cost:", totalModifierCost);
-    console.log("Tax Amount:", taxAmount);
-    console.log("Gratuity Amount:", gratuityAmount);
-    console.log("Total After All:", totalAfterAll);
-    console.log("Total dari item_details:", sumItems);
-
-    // Pastikan totalAfterAll sesuai dengan sumItems
-    if (sumItems !== totalAfterAll) {
-      console.error("Mismatch detected! Total from items:", sumItems, "Expected total:", totalAfterAll);
-    }
-
-    // Payload untuk Midtrans
-    const payload = {
-      orderId: "ORDER-" + new Date().getTime(),
-      total: totalAfterAll, // Total keseluruhan Rp20.160
-      customerName,
-      customerEmail: "customer@example.com",
-      customerPhone: "",
-      item_details: itemDetails,
-    };
-
-    try {
-      const response = await fetch("/api/payment/generateSnapToken", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      console.log("Response from generateSnapToken:", data);
-      if (data.success && data.snapToken) {
-        setSnapToken(data.snapToken);
-        const handlePaymentSuccess = async (result: unknown) => {
-          console.log("Pembayaran sukses:", result);
-          const order = await createOrder();
-          if (order) {
-            setOrderRecord(order);
-            toast.success("Order placed successfully!");
-            generateReceiptPDF();
-            setCart([]);
-            sessionStorage.removeItem(`cart_table_${tableNumber}`);
-          } else {
-            setOrderError("Failed to create order after payment.");
-            toast.error("Failed to create order after payment.");
-          }
-        };
-
-        if (window.snap) {
-          window.snap.pay(data.snapToken, {
-            onSuccess: handlePaymentSuccess,
-            onPending: (result: unknown) => console.log("Pembayaran pending:", result),
-            onError: (result: unknown) => console.log("Pembayaran error:", result),
-            onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-          });
-        } else {
-          const script = document.createElement("script");
-          script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-          script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
-          document.body.appendChild(script);
-          script.onload = () => {
-            window.snap.pay(data.snapToken, {
-              onSuccess: handlePaymentSuccess,
-              onPending: (result: unknown) => console.log("Pembayaran pending:", result),
-              onError: (result: unknown) => console.log("Pembayaran error:", result),
-              onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+            const itemDetails = cart.map((item) => {
+              const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+              let modifierTotal = 0;
+              const modifierNames: string[] = [];
+              Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+                if (modifierId) {
+                  const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                  if (modifier) {
+                    modifierTotal += modifier.price * item.quantity;
+                    modifierNames.push(modifier.name);
+                  }
+                }
+              });
+              const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
+              return {
+                id: item.menu.id.toString(),
+                price: itemBasePrice + (modifierTotal / item.quantity),
+                quantity: item.quantity,
+                name: itemNameWithModifiers,
+              };
             });
-          };
-        }
-      } else {
-        console.error("Gagal mendapatkan snap token", data);
-        toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
-      }
-    } catch (error: unknown) {
-      console.error("Error generating snap token:", error);
-      toast.error("Terjadi kesalahan saat memproses pembayaran.");
-    }
-  }}
-  className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
->
-  E-Wallet
-</button>
+
+            if (taxAmount > 0) {
+              itemDetails.push({
+                id: "tax",
+                price: taxAmount,
+                quantity: 1,
+                name: "Pajak",
+              });
+            }
+
+            if (gratuityAmount > 0) {
+              itemDetails.push({
+                id: "gratuity",
+                price: gratuityAmount,
+                quantity: 1,
+                name: "Gratuity",
+              });
+            }
+
+            const sumItems = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            console.log("Subtotal:", subtotal);
+            console.log("Total Modifier Cost:", totalModifierCost);
+            console.log("Total Discount Amount:", totalDiscountAmount);
+            console.log("Tax Amount:", taxAmount);
+            console.log("Gratuity Amount:", gratuityAmount);
+            console.log("Total After All:", totalAfterAll);
+            console.log("Sum from item_details:", sumItems);
+            console.log("Item Details:", itemDetails);
+
+            if (Math.abs(sumItems - totalAfterAll) > 0.01) {
+              console.error("Mismatch detected! Total from items:", sumItems, "Expected total:", totalAfterAll);
+              toast.error("Kesalahan perhitungan total. Silakan coba lagi.");
+              return;
+            }
+
+            const payload = {
+              orderId: "ORDER-" + new Date().getTime(),
+              total: totalAfterAll,
+              customerName,
+              customerEmail: "customer@example.com",
+              customerPhone: "",
+              item_details: itemDetails,
+            };
+
+            try {
+              const response = await fetch("/api/payment/generateSnapToken", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+              const data = await response.json();
+              console.log("Response from generateSnapToken:", data);
+
+              if (data.success && data.snapToken) {
+                setSnapToken(data.snapToken);
+                const handlePaymentSuccess = async (result: MidtransResult) => {
+                  console.log("Pembayaran sukses:", result);
+                  const order = await createOrder();
+                  if (order) {
+                    const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        orderId: order.id,
+                        paymentMethod: "e-wallet",
+                        paymentStatus: "paid",
+                        paymentId: result.transaction_id,
+                      }),
+                    });
+
+                    if (!paymentUpdateResponse.ok) {
+                      console.error("Gagal memperbarui status pembayaran");
+                      toast.error("Gagal memperbarui status pembayaran");
+                      return;
+                    }
+
+                    const updatedOrder = {
+                      id: order.id,
+                      customerName,
+                      tableNumber,
+                      total: subtotal,
+                      discountId: selectedDiscountId || null,
+                      discountAmount: totalDiscountAmount,
+                      taxAmount,
+                      gratuityAmount,
+                      finalTotal: totalAfterAll,
+                      status: "pending",
+                      paymentMethod: "e-wallet",
+                      paymentId: result.transaction_id,
+                      paymentStatus: "paid",
+                      createdAt: new Date().toISOString(),
+                      orderItems: cart.map((item) => ({
+                        id: item.menu.id,
+                        menuId: item.menu.id,
+                        quantity: item.quantity,
+                        note: item.note,
+                        price: calculateItemPrice(item.menu, item.modifierIds),
+                        discountAmount: (item.menu.price - calculateItemPrice(item.menu, item.modifierIds)) * item.quantity,
+                        menu: item.menu,
+                        modifiers: Object.entries(item.modifierIds)
+                          .filter(([_, modifierId]) => modifierId !== null)
+                          .map(([_, modifierId]) => {
+                            const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                            return {
+                              id: modifierId!,
+                              modifierId: modifierId!,
+                              modifier: modifier!,
+                            };
+                          }),
+                      })),
+                    };
+                    const socket = io("http://localhost:3000", { path: "/api/socket" });
+                    socket.emit("ordersUpdated", updatedOrder);
+                    console.log("Emitted order:", updatedOrder);
+
+                    setOrderRecord(order);
+                    toast.success("Order placed successfully!");
+                    generateReceiptPDF(); // Download PDF langsung
+                    setCart([]); // Reset keranjang
+                    sessionStorage.removeItem(`cart_table_${tableNumber}`);
+                    // Tidak setShowReceiptModal(true) agar modal tidak muncul
+                  } else {
+                    setOrderError("Failed to create order after payment.");
+                    toast.error("Failed to create order after payment.");
+                  }
+                };
+
+                if (window.snap) {
+                  window.snap.pay(data.snapToken, {
+                    onSuccess: handlePaymentSuccess,
+                    onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
+                    onError: (result: MidtransResult) => {
+                      console.error("Pembayaran error:", result);
+                      toast.error("Gagal melakukan pembayaran e-Wallet.");
+                    },
+                    onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                  });
+                } else {
+                  const script = document.createElement("script");
+                  script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+                  script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
+                  document.body.appendChild(script);
+                  script.onload = () => {
+                    window.snap.pay(data.snapToken, {
+                      onSuccess: handlePaymentSuccess,
+                      onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
+                      onError: (result: MidtransResult) => {
+                        console.error("Pembayaran error:", result);
+                        toast.error("Gagal melakukan pembayaran e-Wallet.");
+                      },
+                      onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                    });
+                  };
+                }
+              } else {
+                console.error("Gagal mendapatkan snap token:", data);
+                toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
+              }
+            } catch (error) {
+              console.error("Error generating snap token:", error);
+              toast.error("Terjadi kesalahan saat memproses pembayaran.");
+            }
+          }}
+          className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
+        >
+          E-Wallet
+        </button>
 
         <button
           onClick={() => setShowPaymentMethodModal(false)}
@@ -727,7 +792,7 @@ export default function MenuPage() {
               });
               const itemTotal = (itemBasePrice + modifierTotal) * item.quantity;
               const modifierNames = Object.entries(item.modifierIds)
-                .map(([_, modifierId]) => 
+                .map(([_, modifierId]) =>
                   modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
                 )
                 .filter(Boolean)
@@ -820,8 +885,8 @@ export default function MenuPage() {
           />
         </div>
 
-      <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
-          {categories.map((category) => (
+        <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
+          {categoriesState.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
@@ -1021,7 +1086,7 @@ export default function MenuPage() {
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => addToCart(item.menu, item.modifierIds)} // Gunakan modifierIds item saat ini
+                              onClick={() => addToCart(item.menu, item.modifierIds)}
                               className="px-4 py-2 bg-green-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-green-700 transition"
                             >
                               +
@@ -1094,7 +1159,7 @@ export default function MenuPage() {
                 <p className="text-lg text-gray-900">
                   Diskon: Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}
                 </p>
-                <p className="text-lg text-gray-900">
+                <p className="text-lg text-gold-900">
                   Pajak: Rp{calculateCartTotals().taxAmount.toLocaleString()}
                 </p>
                 <p className="text-lg text-gray-900">
