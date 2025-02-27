@@ -27,6 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ orders: [], message: "Tidak ada pesanan ditemukan" });
       }
 
+      // Pastikan semua field termasuk paymentStatus dikembalikan
       res.status(200).json({ orders });
     } catch (error) {
       console.error("Error fetching orders:", error);

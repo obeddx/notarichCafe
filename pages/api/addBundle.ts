@@ -1,33 +1,46 @@
-import type { NextApiResponse } from "next";
-import { NextApiRequest } from "next";
-import { PrismaClient } from "@prisma/client";
+// pages/api/addBundle.ts
+import type { NextApiRequest, NextApiResponse } from "next";
+import { PrismaClient, MenuType } from "@prisma/client";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import { IncomingMessage, ServerResponse } from "http";
 
-// Buat interface untuk request yang memiliki properti file
+export const config = {
+  api: {
+    bodyParser: false, // Nonaktifkan body parser bawaan Next.js
+  },
+};
+
+const prisma = new PrismaClient();
+
+const uploadDir = path.join(process.cwd(), "public/uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, "./public/uploads");
+  },
+  filename: (_req, file, cb) => {
+    const ext = file.originalname.split(".").pop();
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+    cb(null, filename);
+  },
+});
+
+const upload = multer({ storage });
+
 interface NextApiRequestWithFile extends NextApiRequest {
   file?: Express.Multer.File;
 }
 
-const prisma = new PrismaClient();
-
-// Nonaktifkan built-in body parser Next.js
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// Gunakan memory storage untuk Multer (bisa disesuaikan jika ingin menyimpan langsung ke disk)
-const upload = multer({ storage: multer.memoryStorage() });
-
-// Helper untuk menjalankan middleware (Multer) di Next.js API
-function runMiddleware(
-  req: NextApiRequest,
-  res: NextApiResponse,
+const runMiddleware = (
+  req: IncomingMessage,
+  res: ServerResponse,
   fn: Function
-) {
+) => {
   return new Promise((resolve, reject) => {
     fn(req, res, (result: any) => {
       if (result instanceof Error) {
@@ -36,104 +49,117 @@ function runMiddleware(
       return resolve(result);
     });
   });
-}
-
-interface MenuSelection {
-  menuId: number;
-  quantity: number;
-}
-
-interface AddBundlePayload {
-  name: string;
-  description?: string;
-  bundlePrice?: number | null;
-  menuSelections: MenuSelection[];
-}
+};
 
 export default async function handler(
   req: NextApiRequestWithFile,
   res: NextApiResponse
 ) {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method Not Allowed" });
+    res.setHeader("Allow", ["POST"]);
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
-    // Jalankan middleware multer untuk menangani file upload (file key: "image")
+    // Jalankan middleware multer untuk menangani file upload
     await runMiddleware(req, res, upload.single("image"));
 
-    // Karena request berupa multipart/form-data,
-    // req.body berisi field yang dikirim dalam bentuk string.
-    // Pastikan untuk melakukan parse jika perlu.
-    const { name, description, bundlePrice, menuSelections } = req.body;
+    const { name, description, price, includedMenus, discountId, modifierIds } = req.body;
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : "";
 
-    // menuSelections kemungkinan dikirim sebagai string JSON, jadi parse jika perlu
-    let parsedMenuSelections: MenuSelection[];
-    try {
-      parsedMenuSelections =
-        typeof menuSelections === "string"
-          ? JSON.parse(menuSelections)
-          : menuSelections;
-    } catch (err) {
-      return res.status(400).json({ message: "menuSelections tidak valid" });
+    // Validasi field wajib
+    if (!name || !price) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Validasi: nama paket dan minimal 2 menu harus diisi.
-    if (
-      !name ||
-      !parsedMenuSelections ||
-      !Array.isArray(parsedMenuSelections) ||
-      parsedMenuSelections.length < 2
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Nama paket dan minimal 2 menu harus diisi." });
-    }
-
-    // Jika terdapat file image, simpan ke direktori 'public/uploads'
-    let imageUrl: string | null = null;
-    if (req.file) {
-      const uploadsDir = path.join(process.cwd(), "public", "uploads");
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-      const fileName = `${Date.now()}-${req.file.originalname}`;
-      const filePath = path.join(uploadsDir, fileName);
-      fs.writeFileSync(filePath, req.file.buffer);
-      imageUrl = `/uploads/${fileName}`;
-    }
-
-    // Jika field image pada skema Prisma tidak mengizinkan null, gunakan nilai default ""
-    const finalImageUrl = imageUrl ?? "";
-
-    // Buat record Bundle (asumsikan model Bundle memiliki field "image" untuk menyimpan URL image)
-    const newBundle = await prisma.bundle.create({
+    // Buat record Menu baru dengan type BUNDLE
+    const newBundle = await prisma.menu.create({
       data: {
         name,
-        description,
-        bundlePrice: bundlePrice ? Number(bundlePrice) : null,
-        image: finalImageUrl,
+        description: description || null,
+        image: imagePath || "",
+        price: parseFloat(price),
+        category: "bundle",
+        Status: "tersedia",
+        type: MenuType.BUNDLE,
       },
     });
 
-    // Buat record pivot untuk setiap menu yang dipilih
-    for (const selection of parsedMenuSelections) {
-      // Opsional: tambahkan validasi untuk menuId dan quantity di sini
-      await prisma.bundleMenu.create({
+    // Parse includedMenus sebagai array dari objek { menuId, amount }
+    let parsedMenuRows: { menuId: number; amount: number }[] = [];
+    if (includedMenus) {
+      parsedMenuRows =
+        typeof includedMenus === "string"
+          ? JSON.parse(includedMenus)
+          : includedMenus;
+    }
+
+    // Buat relasi di tabel MenuComposition jika ada data
+    if (parsedMenuRows && Array.isArray(parsedMenuRows) && parsedMenuRows.length > 0) {
+      await Promise.all(
+        parsedMenuRows.map(async (row) => {
+          return await prisma.menuComposition.create({
+            data: {
+              bundleId: newBundle.id,
+              menuId: row.menuId,
+              amount: row.amount,
+            },
+          });
+        })
+      );
+    }
+
+    // Jika discountId dikirimkan, buat record di tabel menuDiscount
+    if (discountId && discountId.toString().trim() !== "") {
+      const parsedDiscountId = parseInt(discountId.toString());
+      await prisma.menuDiscount.create({
         data: {
-          bundleId: newBundle.id,
-          menuId: selection.menuId,
-          quantity: selection.quantity,
+          menuId: newBundle.id,
+          discountId: parsedDiscountId,
         },
       });
     }
 
-    res
-      .status(200)
-      .json({ message: "Paket bundling berhasil dibuat", bundle: newBundle });
+    // Jika modifierIds dikirimkan, buat record di tabel menuModifier
+    if (modifierIds) {
+      let parsedModifierIds: number[] = [];
+      parsedModifierIds =
+        typeof modifierIds === "string"
+          ? JSON.parse(modifierIds)
+          : modifierIds;
+      if (Array.isArray(parsedModifierIds) && parsedModifierIds.length > 0) {
+        await Promise.all(
+          parsedModifierIds.map(async (modId: number) => {
+            return await prisma.menuModifier.create({
+              data: {
+                menuId: newBundle.id,
+                modifierId: modId,
+              },
+            });
+          })
+        );
+      }
+    }
+
+    // Ambil data bundle lengkap dengan daftar menu yang termasuk
+    const createdBundle = await prisma.menu.findUnique({
+      where: { id: newBundle.id },
+      include: {
+        bundleCompositions: {
+          include: {
+            menu: true,
+          },
+        },
+      },
+    });
+
+    return res.status(201).json({
+      message: "Bundle created successfully",
+      bundle: createdBundle,
+    });
   } catch (error) {
     console.error("Error creating bundle:", error);
-    res.status(500).json({ message: "Terjadi kesalahan pada server" });
+    return res.status(500).json({ message: "Internal server error" });
   } finally {
     await prisma.$disconnect();
   }

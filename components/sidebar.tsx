@@ -63,6 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             label="Library"
             isOpen={isOpen}
             items={[
+              { href: "/manager/library/bundle", label: "Bundles" },
               { href: "/manager/library/taxes", label: "Taxes" },
               { href: "/manager/library/gratuity", label: "Gratuity" },
               { href: "/manager/library/diskon", label: "Discount" },

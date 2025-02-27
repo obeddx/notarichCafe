@@ -135,7 +135,7 @@ if (updatedIngredient.type === "SEMI_FINISHED") {
       let updatedGudang = null;
       if (stockIn !== undefined) {
         const gudang = await prisma.gudang.findUnique({
-          where: { id: ingredientId },
+          where: { ingredientId: ingredientId },
         });
 
         if (gudang) {
@@ -144,7 +144,7 @@ if (updatedIngredient.type === "SEMI_FINISHED") {
           const newGudangStock = (gudang.start + gudang.stockIn) - newGudangUsed - gudang.wasted;
 
           updatedGudang = await prisma.gudang.update({
-            where: { id: ingredientId },
+            where: { ingredientId: ingredientId },
             data: {
               used: newGudangUsed,
               stock: newGudangStock,
