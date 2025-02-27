@@ -6,17 +6,16 @@ const prisma = new PrismaClient();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
-  
+
   if (typeof id !== "string") {
     return res.status(400).json({ message: "ID tidak valid" });
   }
 
   if (req.method === "PUT") {
     try {
-      const { namaCustomer, nomorKontak, tanggalReservasi, jumlahTamu, durasiPemesanan, nomorMeja, kodeBooking, status } = req.body;
-      
-      // Validasi data sesuai kebutuhan
-      if (!namaCustomer || !nomorKontak || !tanggalReservasi || !jumlahTamu || !durasiPemesanan || !nomorMeja || !kodeBooking || !status) {
+      const { namaCustomer, nomorKontak, tanggalReservasi, durasiPemesanan, nomorMeja, kodeBooking, status } = req.body;
+
+      if (!namaCustomer || !nomorKontak || !tanggalReservasi || !durasiPemesanan || !nomorMeja || !kodeBooking || !status) {
         return res.status(400).json({ message: "Semua field harus diisi!" });
       }
 
@@ -26,7 +25,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           namaCustomer,
           nomorKontak,
           tanggalReservasi: new Date(tanggalReservasi),
-          jumlahTamu,
           durasiPemesanan,
           nomorMeja,
           kodeBooking,

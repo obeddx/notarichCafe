@@ -10,12 +10,22 @@ interface OrderItem {
   modifierIds?: number[];
 }
 
+interface ReservationData {
+  namaCustomer: string;
+  nomorKontak: string;
+  selectedDateTime: string;
+  durasiJam: number;
+  durasiMenit: number;
+  meja?: string;
+  kodeBooking: string;
+}
+
 interface OrderDetails {
   tableNumber: string;
   items: OrderItem[];
   total: number;
   customerName: string;
-  paymentMethod?: string; // properti baru untuk menentukan metode pembayaran
+  paymentMethod?: string;
   isCashierOrder?: boolean;
   reservasiId?: number;
   discountId?: number;
@@ -23,6 +33,8 @@ interface OrderDetails {
   gratuityAmount?: number;
   discountAmount?: number;
   finalTotal?: number;
+  bookingCode?: string;
+  reservationData?: ReservationData; // Tambahkan data reservasi dari client
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -124,8 +136,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const baseTotal = totalAfterMenuDiscount - (totalDiscountAmount - totalMenuDiscountAmount);
       const finalTotal = baseTotal + taxAmount + gratuityAmount;
 
-      // Tentukan status order berdasarkan metode pembayaran
       const orderStatus = orderDetails.paymentMethod === "ewallet" ? "Sedang Diproses" : "pending";
+
+      let reservasiId: number | null = null;
+      if (orderDetails.bookingCode && orderDetails.reservationData) {
+        const reservation = await prisma.reservasi.upsert({
+          where: { kodeBooking: orderDetails.bookingCode },
+          update: { status: "RESERVED" },
+          create: {
+            namaCustomer: orderDetails.reservationData.namaCustomer,
+            nomorKontak: orderDetails.reservationData.nomorKontak,
+            tanggalReservasi: new Date(orderDetails.reservationData.selectedDateTime),
+            durasiPemesanan: orderDetails.reservationData.durasiJam * 60 + orderDetails.reservationData.durasiMenit,
+            nomorMeja: orderDetails.tableNumber.split(" - ")[0],
+            kodeBooking: orderDetails.bookingCode,
+            status: "RESERVED",
+          },
+        });
+        reservasiId = reservation.id;
+      }
 
       const newOrder = await prisma.order.create({
         data: {
@@ -138,7 +167,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           gratuityAmount,
           finalTotal,
           status: orderStatus,
-          reservasiId: orderDetails.reservasiId || null,
+          paymentMethod: orderDetails.paymentMethod,
+          reservasiId,
           orderItems: {
             create: orderItemsData,
           },

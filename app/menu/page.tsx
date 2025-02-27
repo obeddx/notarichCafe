@@ -7,6 +7,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import { jsPDF } from "jspdf";
 import io from "socket.io-client";
+import html2canvas from "html2canvas";
 
 interface Ingredient {
   id: number;
@@ -116,8 +117,6 @@ export default function MenuPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
-
-  useState(false);
   const [paymentOption, setPaymentOption] = useState<"cash" | "ewallet" | null>(null);
   const [orderRecord, setOrderRecord] = useState<string>("");
   const [snapToken, setSnapToken] = useState<string>("");
@@ -128,40 +127,26 @@ export default function MenuPage() {
   const [taxRate, setTaxRate] = useState<number>(0);
   const [gratuityRate, setGratuityRate] = useState<number>(0);
   const [categoriesState, setCategories] = useState<string[]>([]);
+  const [showReservationDetails, setShowReservationDetails] = useState(false);
 
   const searchParams = useSearchParams();
 
+  // Deteksi reservasi dan konfigurasi awal
   useEffect(() => {
     const tableFromUrl = searchParams?.get("table");
-    const tableFromSession = sessionStorage.getItem("tableNumber");
-    const finalTableNumber = tableFromUrl || tableFromSession || "Unknown";
-    setTableNumber(finalTableNumber);
-    if (tableFromUrl) {
-      sessionStorage.setItem("tableNumber", tableFromUrl);
+    const reservation = searchParams?.get("reservation") === "true";
+    const bookingCode = searchParams?.get("bookingCode");
+    const finalTableNumber = tableFromUrl || sessionStorage.getItem("tableNumber") || "Unknown";
+    if (reservation && bookingCode) {
+      setTableNumber(`Meja ${finalTableNumber} - ${bookingCode}`);
+      sessionStorage.setItem("reservation", "true");
+      sessionStorage.setItem("bookingCode", bookingCode);
+      setPaymentOption("ewallet"); // Default ke E-Wallet untuk reservasi
+      setCustomerName(JSON.parse(sessionStorage.getItem("reservationData") || "{}").namaCustomer || "");
+    } else {
+      setTableNumber(finalTableNumber);
     }
-  }, [searchParams]);
 
-  useEffect(() => {
-    if (tableNumber !== "Unknown") {
-      const sendTableNumber = async () => {
-        try {
-          const response = await fetch("/api/nomeja", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tableNumber }),
-          });
-          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-          const result = await response.json();
-          console.log("Table number sent successfully:", result);
-        } catch (error) {
-          console.error("Error sending table number:", error);
-        }
-      };
-      sendTableNumber();
-    }
-  }, [tableNumber]);
-
-  useEffect(() => {
     const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
     if (storedCart) {
       const parsedCart = JSON.parse(storedCart);
@@ -171,8 +156,36 @@ export default function MenuPage() {
       }));
       setCart(updatedCart);
     }
+  }, [searchParams]);
+
+  // Kirim nomor meja ke server
+  useEffect(() => {
+    if (tableNumber !== "Unknown") {
+      const sendTableNumber = async () => {
+        try {
+          // Membersihkan tableNumber untuk hanya mengirim nomor meja
+          const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
+          const response = await fetch("/api/nomeja", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tableNumber: cleanTableNumber }),
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
+          }
+          const result = await response.json();
+          console.log("Table number sent successfully:", result);
+        } catch (error) {
+          console.error("Error sending table number:", error);
+          toast.error("Gagal mengirim nomor meja ke server.");
+        }
+      };
+      sendTableNumber();
+    }
   }, [tableNumber]);
 
+  // Fetch kategori
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -189,6 +202,7 @@ export default function MenuPage() {
     fetchCategories();
   }, []);
 
+  // Fetch menu dan rate
   useEffect(() => {
     const fetchMenuAndRates = async () => {
       try {
@@ -351,7 +365,16 @@ export default function MenuPage() {
           ? (activeDiscount.discount.value / 100) * menu.price
           : activeDiscount.discount.value;
     }
-    return price > 0 ? price : 0;
+
+    let modifierTotal = 0;
+    Object.entries(modifierIds).forEach(([_, modifierId]) => {
+      if (modifierId) {
+        const modifier = menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+        if (modifier) modifierTotal += modifier.price;
+      }
+    });
+
+    return (price + modifierTotal) > 0 ? price + modifierTotal : 0;
   };
 
   const calculateCartTotals = () => {
@@ -369,9 +392,7 @@ export default function MenuPage() {
       Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
         if (modifierId) {
           const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-          if (modifier) {
-            modifierTotal += modifier.price * item.quantity;
-          }
+          if (modifier) modifierTotal += modifier.price * item.quantity;
         }
       });
       totalModifierCost += modifierTotal;
@@ -409,6 +430,8 @@ export default function MenuPage() {
   };
 
   const createOrder = async () => {
+    const bookingCode = sessionStorage.getItem("bookingCode");
+    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
     const orderDetails = {
       customerName,
@@ -425,6 +448,9 @@ export default function MenuPage() {
       gratuityAmount,
       discountAmount: totalDiscountAmount,
       finalTotal: totalAfterAll,
+      paymentMethod: paymentOption,
+      bookingCode: bookingCode || undefined,
+      reservationData: bookingCode ? reservationData : undefined, // Kirim semua data reservasi jika ada bookingCode
     };
     try {
       const response = await fetch("/api/placeOrder", {
@@ -432,7 +458,10 @@ export default function MenuPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderDetails),
       });
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
+      }
       const data = await response.json();
       return data.order;
     } catch (error) {
@@ -545,28 +574,76 @@ export default function MenuPage() {
     doc.save("receipt.pdf");
   };
 
-  const renderPaymentMethodModal = () => (
+  // Fungsi untuk format tanggal
+  const formatTanggalForKode = (date: string) => {
+    const validDate = new Date(date);
+    if (isNaN(validDate.getTime())) return "-";
+    const day = String(validDate.getDate()).padStart(2, "0");
+    const month = String(validDate.getMonth() + 1).padStart(2, "0");
+    const year = String(validDate.getFullYear());
+    const hours = String(validDate.getHours()).padStart(2, "0");
+    const minutes = String(validDate.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
+  // Fungsi untuk format kode booking
+  const formatKodeBooking = (kode: string) => {
+    const regex = /^RESV-(\d{2})(\d{2})(\d{4})-(\w{6})$/;
+    const match = kode.match(regex);
+    if (match) {
+      const [, day, month, year, random] = match;
+      return `RESV-${day}/${month}/${year}-${random}`;
+    }
+    return kode;
+  };
+
+  // Fungsi untuk capture dan download Reservation Details
+  const captureAndDownloadReservationDetails = (kodeBooking: string, namaCustomer: string) => {
+    const element = document.getElementById("reservationDetails");
+    if (!element) {
+      console.error("Elemen detail reservasi tidak ditemukan!");
+      return;
+    }
+    html2canvas(element, {
+      backgroundColor: null,
+      useCORS: true,
+      ignoreElements: (element) => element.classList.contains("no-capture"),
+    }).then((canvas) => {
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `Reservasi_${namaCustomer || "Tanpa_Nama"}_${kodeBooking}.png`;
+      link.click();
+    });
+  };
+
+  // Di dalam renderPaymentMethodModal
+const renderPaymentMethodModal = () => {
+  const isReservation = sessionStorage.getItem("reservation") === "true";
+  return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md">
         <h2 className="text-2xl font-bold text-orange-600 mb-4">Pilih Metode Pembayaran</h2>
-        <button
-          onClick={async () => {
-            setPaymentOption("cash");
-            setShowPaymentMethodModal(false);
-            const order = await createOrder();
-            if (order) {
-              setOrderRecord(order);
-              toast.success("Order placed successfully!");
-              setShowReceiptModal(true); // Tetap tampilkan modal untuk pembayaran tunai
-            } else {
-              setOrderError("Failed to create order. Please try again.");
-              toast.error("Failed to create order. Please try again.");
-            }
-          }}
-          className="w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition mb-4"
-        >
-          Tunai
-        </button>
+        {!isReservation && (
+          <button
+            onClick={async () => {
+              setPaymentOption("cash");
+              setShowPaymentMethodModal(false);
+              const order = await createOrder();
+              if (order) {
+                setOrderRecord(order);
+                toast.success("Order placed successfully!");
+                setShowReceiptModal(true);
+              } else {
+                setOrderError("Failed to create order. Please try again.");
+                toast.error("Failed to create order. Please try again.");
+              }
+            }}
+            className="w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition mb-4"
+          >
+            Tunai
+          </button>
+        )}
         <button
           onClick={async () => {
             setPaymentOption("ewallet");
@@ -597,37 +674,10 @@ export default function MenuPage() {
             });
 
             if (taxAmount > 0) {
-              itemDetails.push({
-                id: "tax",
-                price: taxAmount,
-                quantity: 1,
-                name: "Pajak",
-              });
+              itemDetails.push({ id: "tax", price: taxAmount, quantity: 1, name: "Pajak" });
             }
-
             if (gratuityAmount > 0) {
-              itemDetails.push({
-                id: "gratuity",
-                price: gratuityAmount,
-                quantity: 1,
-                name: "Gratuity",
-              });
-            }
-
-            const sumItems = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            console.log("Subtotal:", subtotal);
-            console.log("Total Modifier Cost:", totalModifierCost);
-            console.log("Total Discount Amount:", totalDiscountAmount);
-            console.log("Tax Amount:", taxAmount);
-            console.log("Gratuity Amount:", gratuityAmount);
-            console.log("Total After All:", totalAfterAll);
-            console.log("Sum from item_details:", sumItems);
-            console.log("Item Details:", itemDetails);
-
-            if (Math.abs(sumItems - totalAfterAll) > 0.01) {
-              console.error("Mismatch detected! Total from items:", sumItems, "Expected total:", totalAfterAll);
-              toast.error("Kesalahan perhitungan total. Silakan coba lagi.");
-              return;
+              itemDetails.push({ id: "gratuity", price: gratuityAmount, quantity: 1, name: "Gratuity" });
             }
 
             const payload = {
@@ -646,15 +696,31 @@ export default function MenuPage() {
                 body: JSON.stringify(payload),
               });
               const data = await response.json();
-              console.log("Response from generateSnapToken:", data);
-
               if (data.success && data.snapToken) {
                 setSnapToken(data.snapToken);
+
+                // Pastikan script Midtrans dimuat sebelum memanggil pay
+                const loadMidtransScript = (): Promise<void> => {
+                  return new Promise((resolve, reject) => {
+                    if (window.snap) {
+                      resolve();
+                    } else {
+                      const script = document.createElement("script");
+                      script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+                      script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "YOUR_CLIENT_KEY");
+                      script.onload = () => resolve();
+                      script.onerror = () => reject(new Error("Gagal memuat Midtrans Snap"));
+                      document.body.appendChild(script);
+                    }
+                  });
+                };
+
+                await loadMidtransScript();
+
                 const handlePaymentSuccess = async (result: MidtransResult) => {
-                  console.log("Pembayaran sukses:", result);
                   const order = await createOrder();
                   if (order) {
-                    const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
+                    await fetch("/api/updatePaymentStatus", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
@@ -665,96 +731,38 @@ export default function MenuPage() {
                       }),
                     });
 
-                    if (!paymentUpdateResponse.ok) {
-                      console.error("Gagal memperbarui status pembayaran");
-                      toast.error("Gagal memperbarui status pembayaran");
-                      return;
+                    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+                    if (isReservation) {
+                      reservationData.meja = tableNumber.split(" - ")[0];
+                      setShowReservationDetails(true);
+                      setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
                     }
 
-                    const updatedOrder = {
-                      id: order.id,
-                      customerName,
-                      tableNumber,
-                      total: subtotal,
-                      discountId: selectedDiscountId || null,
-                      discountAmount: totalDiscountAmount,
-                      taxAmount,
-                      gratuityAmount,
-                      finalTotal: totalAfterAll,
-                      status: "pending",
-                      paymentMethod: "e-wallet",
-                      paymentId: result.transaction_id,
-                      paymentStatus: "paid",
-                      createdAt: new Date().toISOString(),
-                      orderItems: cart.map((item) => ({
-                        id: item.menu.id,
-                        menuId: item.menu.id,
-                        quantity: item.quantity,
-                        note: item.note,
-                        price: calculateItemPrice(item.menu, item.modifierIds),
-                        discountAmount: (item.menu.price - calculateItemPrice(item.menu, item.modifierIds)) * item.quantity,
-                        menu: item.menu,
-                        modifiers: Object.entries(item.modifierIds)
-                          .filter(([_, modifierId]) => modifierId !== null)
-                          .map(([_, modifierId]) => {
-                            const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-                            return {
-                              id: modifierId!,
-                              modifierId: modifierId!,
-                              modifier: modifier!,
-                            };
-                          }),
-                      })),
-                    };
-                    const socket = io("http://localhost:3000", { path: "/api/socket" });
-                    socket.emit("ordersUpdated", updatedOrder);
-                    console.log("Emitted order:", updatedOrder);
-
-                    setOrderRecord(order);
                     toast.success("Order placed successfully!");
-                    generateReceiptPDF(); // Download PDF langsung
-                    setCart([]); // Reset keranjang
+                    generateReceiptPDF();
+                    setCart([]);
                     sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                    // Tidak setShowReceiptModal(true) agar modal tidak muncul
                   } else {
                     setOrderError("Failed to create order after payment.");
                     toast.error("Failed to create order after payment.");
                   }
                 };
 
-                if (window.snap) {
-                  window.snap.pay(data.snapToken, {
-                    onSuccess: handlePaymentSuccess,
-                    onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
-                    onError: (result: MidtransResult) => {
-                      console.error("Pembayaran error:", result);
-                      toast.error("Gagal melakukan pembayaran e-Wallet.");
-                    },
-                    onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-                  });
-                } else {
-                  const script = document.createElement("script");
-                  script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-                  script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
-                  document.body.appendChild(script);
-                  script.onload = () => {
-                    window.snap.pay(data.snapToken, {
-                      onSuccess: handlePaymentSuccess,
-                      onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
-                      onError: (result: MidtransResult) => {
-                        console.error("Pembayaran error:", result);
-                        toast.error("Gagal melakukan pembayaran e-Wallet.");
-                      },
-                      onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-                    });
-                  };
-                }
+                window.snap.pay(data.snapToken, {
+                  onSuccess: handlePaymentSuccess,
+                  onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
+                  onError: (result: MidtransResult) => {
+                    console.error("Pembayaran error:", result);
+                    toast.error("Gagal melakukan pembayaran e-Wallet.");
+                  },
+                  onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                });
               } else {
                 console.error("Gagal mendapatkan snap token:", data);
                 toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
               }
             } catch (error) {
-              console.error("Error generating snap token:", error);
+              console.error("Error generating snap token or loading Midtrans:", error);
               toast.error("Terjadi kesalahan saat memproses pembayaran.");
             }
           }}
@@ -762,7 +770,6 @@ export default function MenuPage() {
         >
           E-Wallet
         </button>
-
         <button
           onClick={() => setShowPaymentMethodModal(false)}
           className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
@@ -772,6 +779,7 @@ export default function MenuPage() {
       </div>
     </div>
   );
+};
 
   const renderReceiptModal = () => {
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
@@ -1159,7 +1167,7 @@ export default function MenuPage() {
                 <p className="text-lg text-gray-900">
                   Diskon: Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}
                 </p>
-                <p className="text-lg text-gold-900">
+                <p className="text-lg text-gray-900">
                   Pajak: Rp{calculateCartTotals().taxAmount.toLocaleString()}
                 </p>
                 <p className="text-lg text-gray-900">
@@ -1182,6 +1190,36 @@ export default function MenuPage() {
 
       {showPaymentMethodModal && renderPaymentMethodModal()}
       {showReceiptModal && renderReceiptModal()}
+      {showReservationDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div
+            id="reservationDetails"
+            className="mt-6 p-4 border rounded-lg bg-white w-full sm:w-96 mx-auto transform transition-all hover:scale-105"
+            style={{ width: "384px", minHeight: "500px" }}
+          >
+            <img
+              src="/logo-notarich-transparent.png"
+              alt="Logo NotarichCafe"
+              className="mx-auto"
+              style={{ width: "100%", height: "auto" }}
+            />
+            <h3 className="text-lg font-bold text-gray-800 text-center mb-4">Detail Reservasi</h3>
+            <div>
+              <p><strong>Nama :</strong> {JSON.parse(sessionStorage.getItem("reservationData") || "{}").namaCustomer}</p>
+              <p><strong>Tanggal & Waktu :</strong> {formatTanggalForKode(JSON.parse(sessionStorage.getItem("reservationData") || "{}").selectedDateTime)}</p>
+              <p><strong>Meja :</strong> {tableNumber.split(" - ")[0]}</p>
+              <p><strong>Durasi :</strong> {JSON.parse(sessionStorage.getItem("reservationData") || "{}").durasiJam} Jam {JSON.parse(sessionStorage.getItem("reservationData") || "{}").durasiMenit} Menit</p>
+              <p><strong>Kode Booking :</strong> {formatKodeBooking(JSON.parse(sessionStorage.getItem("reservationData") || "{}").kodeBooking)}</p>
+            </div>
+            <button
+              onClick={() => setShowReservationDetails(false)}
+              className="mt-6 bg-red-500 text-white p-3 rounded-md w-full hover:bg-red-600 transition-all transform hover:scale-105 no-capture"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
       {orderError && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md">

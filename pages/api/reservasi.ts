@@ -8,7 +8,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "GET") {
     try {
       const reservasis = await prisma.reservasi.findMany({
-        where: { status: "BOOKED" }, // Hanya ambil reservasi dengan status BOOKED
         orderBy: { tanggalReservasi: "asc" },
       });
       return res.status(200).json(reservasis);
@@ -18,9 +17,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } else if (req.method === "POST") {
     try {
-      const { namaCustomer, nomorKontak, tanggalReservasi, jumlahTamu, durasiPemesanan, nomorMeja, kodeBooking } = req.body;
+      const { namaCustomer, nomorKontak, tanggalReservasi, durasiPemesanan, nomorMeja, kodeBooking } = req.body;
 
-      if (!namaCustomer || !nomorKontak || !tanggalReservasi || !jumlahTamu || !durasiPemesanan || !nomorMeja || !kodeBooking) {
+      if (!namaCustomer || !nomorKontak || !tanggalReservasi || !durasiPemesanan || !nomorMeja || !kodeBooking) {
         return res.status(400).json({ message: "Semua field harus diisi!" });
       }
 
@@ -31,7 +30,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           namaCustomer,
           nomorKontak,
           tanggalReservasi: reservasiDate,
-          jumlahTamu,
           durasiPemesanan,
           nomorMeja,
           kodeBooking,
