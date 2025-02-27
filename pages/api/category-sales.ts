@@ -9,6 +9,7 @@ interface AggregatedCategory {
   itemSold: number;
   totalCollected: number;
   discount: number;
+  tax: number;
   gratuity: number;
   netSales: number;
 }
@@ -87,10 +88,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const order of orders) {
       const orderTotal = Number(order.finalTotal);
       const orderDiscount = Number(order.discountAmount || 0);
+      const orderTax = Number(order.taxAmount || 0);
       const orderGratuity = Number(order.gratuityAmount || 0);
       const totalItems = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
       const discountPerItem = totalItems > 0 ? orderDiscount / totalItems : 0;
-      // Net sales dihitung sebagai totalCollected - discount untuk konsistensi dengan item-sales (tanpa HPP)
 
       for (const item of order.orderItems) {
         const category = item.menu.category;
@@ -100,7 +101,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             itemSold: 0,
             totalCollected: 0,
             discount: 0,
-            gratuity: orderGratuity,
+            tax: 0,
+            gratuity: 0,
             netSales: 0,
           };
         }
@@ -108,13 +110,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const quantity = item.quantity;
         const itemSellingPrice = Number(item.menu.price);
         const itemTotal = itemSellingPrice * quantity;
-        const itemCollected = (itemTotal - discountPerItem * quantity); // Proporsional berdasarkan finalTotal
+        const itemCollected = itemTotal - discountPerItem * quantity;
 
         aggregatedData[category].itemSold += quantity;
         aggregatedData[category].totalCollected += itemCollected;
         aggregatedData[category].discount += discountPerItem * quantity;
-        aggregatedData[category].gratuity = orderGratuity; // Gratuity dipertahankan per pesanan
-        aggregatedData[category].netSales += itemCollected - (discountPerItem * quantity);
+        aggregatedData[category].tax += orderTax;
+        aggregatedData[category].gratuity += orderGratuity; 
+        aggregatedData[category].netSales += itemCollected + orderTax + orderGratuity - (discountPerItem * quantity);
       }
     }
 

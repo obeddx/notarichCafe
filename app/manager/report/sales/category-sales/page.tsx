@@ -33,7 +33,7 @@ const CategorySales = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [sortColumn, setSortColumn] = useState<
-    "category" | "itemSold" | "totalCollected" | "discount" | "gratuity" | "netSales" | null
+    "category" | "itemSold" | "totalCollected" | "discount" | "tax" | "gratuity" | "netSales" | null
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -76,11 +76,12 @@ const CategorySales = () => {
   const totalItemSold = data.reduce((acc, item) => acc + item.itemSold, 0);
   const totalCollected = data.reduce((acc, item) => acc + item.totalCollected, 0);
   const totalDiscount = data.reduce((acc, item) => acc + item.discount, 0);
+  const totalTax = data.reduce((acc, item) => acc + item.tax, 0);
   const totalGratuity = data.reduce((acc, item) => acc + item.gratuity, 0);
   const totalNetSales = data.reduce((acc, item) => acc + item.netSales, 0);
 
   const handleSort = (
-    column: "category" | "itemSold" | "totalCollected" | "discount" | "gratuity" | "netSales"
+    column: "category" | "itemSold" | "totalCollected" | "discount" | "tax" | "gratuity" | "netSales"
   ) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -102,6 +103,8 @@ const CategorySales = () => {
         return direction * (a.totalCollected - b.totalCollected);
       case "discount":
         return direction * (a.discount - b.discount);
+      case "tax":
+        return direction * (a.tax - b.tax);
       case "gratuity":
         return direction * (a.gratuity - b.gratuity);
       case "netSales":
@@ -116,6 +119,7 @@ const CategorySales = () => {
     "Item Sold": item.itemSold,
     "Total Collected": item.totalCollected,
     "Discount": item.discount,
+    "Tax": item.tax,
     "Gratuity": item.gratuity,
     "Net Sales": item.netSales,
   }));
@@ -125,6 +129,7 @@ const CategorySales = () => {
     "Item Sold": totalItemSold,
     "Total Collected": totalCollected,
     "Discount": totalDiscount,
+    "Tax": totalTax,
     "Gratuity": totalGratuity,
     "Net Sales": totalNetSales,
   });
@@ -134,6 +139,7 @@ const CategorySales = () => {
     { header: "Item Sold", key: "Item Sold" },
     { header: "Total Collected", key: "Total Collected" },
     { header: "Discount", key: "Discount" },
+    { header: "Tax", key: "Tax" },
     { header: "Gratuity", key: "Gratuity" },
     { header: "Net Sales", key: "Net Sales" },
   ];
@@ -288,6 +294,25 @@ const CategorySales = () => {
                 </th>
                 <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
                   <div className="flex items-center justify-end">
+                    Tax
+                    <div className="ml-2 flex flex-col">
+                      <button
+                        onClick={() => handleSort("tax")}
+                        className={`text-gray-500 ${sortColumn === "tax" && sortDirection === "asc" ? "text-blue-500" : ""}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleSort("tax")}
+                        className={`text-gray-500 ${sortColumn === "tax" && sortDirection === "desc" ? "text-blue-500" : ""}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">
+                  <div className="flex items-center justify-end">
                     Gratuity
                     <div className="ml-2 flex flex-col">
                       <button
@@ -333,6 +358,7 @@ const CategorySales = () => {
                   <td className="px-6 py-4 text-sm text-gray-900 text-right">{item.itemSold}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.totalCollected)}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.discount)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.tax)}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.gratuity)}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.netSales)}</td>
                 </tr>
@@ -342,6 +368,7 @@ const CategorySales = () => {
                 <td className="px-6 py-4 text-sm text-gray-900 text-right">{totalItemSold}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalCollected)}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalDiscount)}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalTax)}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalGratuity)}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalNetSales)}</td>
               </tr>
