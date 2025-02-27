@@ -561,64 +561,182 @@ export default function MenuPage() {
           Tunai
         </button>
         <button
-          onClick={async () => {
-            setPaymentOption("ewallet");
-            setShowPaymentMethodModal(false);
-            const { subtotal } = calculateCartTotals();
-            const payload = {
-              orderId: "ORDER-" + new Date().getTime(),
-              total: subtotal,
-              customerName,
-              customerEmail: "",
-              customerPhone: "",
-              item_details: cart.map((item) => ({
-                id: item.menu.id.toString(),
-                price: calculateItemPrice(item.menu, item.modifierIds),
-                quantity: item.quantity,
-                name: item.menu.name,
-              })),
-            };
-            try {
-              const response = await fetch("/api/payment/generateSnapToken", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const data = await response.json();
-              if (data.success && data.snapToken) {
-                setSnapToken(data.snapToken);
-                if (window.snap) {
-                  window.snap.pay(data.snapToken, {
-                    onSuccess: async (result: unknown) => {
-                      console.log("Pembayaran sukses:", result);
-                      const order = await createOrder();
-                      if (order) {
-                        setOrderRecord(order);
-                        toast.success("Order placed successfully!");
-                        generateReceiptPDF();
-                        setCart([]);
-                        sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                      } else {
-                        setOrderError("Failed to create order after payment.");
-                        toast.error("Failed to create order after payment.");
-                      }
-                    },
-                    onPending: (result: unknown) => console.log("Pembayaran pending:", result),
-                    onError: (result: unknown) => console.log("Pembayaran error:", result),
-                    onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-                  });
-                }
+  onClick={async () => {
+    setPaymentOption("ewallet");
+    setShowPaymentMethodModal(false);
+
+    // Fungsi untuk menghitung total belanja secara dinamis
+    const calculateCartTotals = () => {
+      let productTotal = 0;
+      let discountAmount = 0;
+      cart.forEach((item) => {
+        // Total harga produk (tanpa diskon)
+        productTotal += item.menu.price * item.quantity;
+
+        // Jika item memiliki diskon aktif, hitung diskonnya
+        if (item.menu.discounts && item.menu.discounts.length > 0) {
+          const activeDiscount = item.menu.discounts.find(
+            (d: any) => d.discount.isActive
+          );
+          if (activeDiscount) {
+            const discount = activeDiscount.discount;
+            const computedDiscount =
+              discount.type === "PERCENTAGE"
+                ? (discount.value / 100) * item.menu.price * item.quantity
+                : discount.value * item.quantity;
+            discountAmount += computedDiscount;
+          }
+        }
+      });
+
+      // Net total adalah harga produk setelah dikurangi diskon
+      const netTotal = productTotal - discountAmount;
+      // Misalnya pajak 10% dan gratuity 2% dari net total
+      const tax = netTotal * 0.10;
+      const gratuity = netTotal * 0.02;
+      const finalTotal = netTotal + tax + gratuity;
+      return { productTotal, discountAmount, tax, gratuity, finalTotal };
+    };
+
+    // Panggil fungsi perhitungan
+    const { productTotal, discountAmount, tax, gratuity, finalTotal } =
+      calculateCartTotals();
+
+    // Buat item_details dari data cart (harga asli produk)
+    const itemDetails = cart.map((item) => ({
+      id: item.menu.id.toString(),
+      price: item.menu.price,
+      quantity: item.quantity,
+      name: item.menu.name,
+    }));
+
+    // Jika ada diskon, tambahkan item diskon dengan nilai negatif
+    if (discountAmount > 0) {
+      itemDetails.push({
+        id: "discount",
+        price: -discountAmount,
+        quantity: 1,
+        name: "Diskon",
+      });
+    }
+
+    // Tambahkan item untuk pajak (tax)
+    if (tax > 0) {
+      itemDetails.push({
+        id: "tax",
+        price: tax,
+        quantity: 1,
+        name: "Pajak",
+      });
+    }
+
+    // Tambahkan item untuk gratuity
+    if (gratuity > 0) {
+      itemDetails.push({
+        id: "gratuity",
+        price: gratuity,
+        quantity: 1,
+        name: "Gratuity",
+      });
+    }
+
+    // Debug: cek apakah jumlah item_details sama dengan finalTotal
+    const sumItems = itemDetails.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    console.log("Total dari item_details:", sumItems, "Final Total:", finalTotal);
+
+    // Payload yang dikirim ke Midtrans
+    const payload = {
+      orderId: "ORDER-" + new Date().getTime(),
+      total: finalTotal, // gross_amount sesuai penjumlahan item_details
+      customerName,
+      customerEmail: "", // Gunakan nilai valid jika diperlukan
+      customerPhone: "",
+      item_details: itemDetails,
+    };
+
+    try {
+      const response = await fetch("/api/payment/generateSnapToken", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (data.success && data.snapToken) {
+        setSnapToken(data.snapToken);
+        if (window.snap) {
+          window.snap.pay(data.snapToken, {
+            onSuccess: async (result: unknown) => {
+              console.log("Pembayaran sukses:", result);
+              const order = await createOrder();
+              if (order) {
+                setOrderRecord(order);
+                toast.success("Order placed successfully!");
+                generateReceiptPDF();
+                setCart([]);
+                sessionStorage.removeItem(`cart_table_${tableNumber}`);
               } else {
-                console.error("Gagal mendapatkan snap token", data);
+                setOrderError("Failed to create order after payment.");
+                toast.error("Failed to create order after payment.");
               }
-            } catch (error: unknown) {
-              console.error("Error generating snap token:", error);
-            }
-          }}
-          className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
-        >
-          E-Wallet
-        </button>
+            },
+            onPending: (result: unknown) =>
+              console.log("Pembayaran pending:", result),
+            onError: (result: unknown) =>
+              console.log("Pembayaran error:", result),
+            onClose: () =>
+              console.log(
+                "Popup pembayaran ditutup tanpa menyelesaikan pembayaran"
+              ),
+          });
+        } else {
+          const script = document.createElement("script");
+          script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+          script.setAttribute(
+            "data-client-key",
+            process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!
+          );
+          document.body.appendChild(script);
+          script.onload = () => {
+            window.snap.pay(data.snapToken, {
+              onSuccess: async (result: unknown) => {
+                console.log("Pembayaran sukses:", result);
+                const order = await createOrder();
+                if (order) {
+                  setOrderRecord(order);
+                  toast.success("Order placed successfully!");
+                  generateReceiptPDF();
+                  setCart([]);
+                  sessionStorage.removeItem(`cart_table_${tableNumber}`);
+                } else {
+                  setOrderError("Failed to create order after payment.");
+                  toast.error("Failed to create order after payment.");
+                }
+              },
+              onPending: (result: unknown) =>
+                console.log("Pembayaran pending:", result),
+              onError: (result: unknown) =>
+                console.log("Pembayaran error:", result),
+              onClose: () =>
+                console.log(
+                  "Popup pembayaran ditutup tanpa menyelesaikan pembayaran"
+                ),
+            });
+          };
+        }
+      } else {
+        console.error("Gagal mendapatkan snap token", data);
+      }
+    } catch (error: unknown) {
+      console.error("Error generating snap token:", error);
+    }
+  }}
+  className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
+>
+  E-Wallet
+</button>
         <button
           onClick={() => setShowPaymentMethodModal(false)}
           className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
