@@ -15,6 +15,7 @@ interface OrderDetails {
   items: OrderItem[];
   total: number;
   customerName: string;
+  paymentMethod?: string; // properti baru untuk menentukan metode pembayaran
   isCashierOrder?: boolean;
   reservasiId?: number;
   discountId?: number;
@@ -90,8 +91,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         };
       });
 
-      const totalBeforeDiscount = orderItemsData.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-      const totalMenuDiscountAmount = orderItemsData.reduce((sum, item) => sum + item.discountAmount, 0);
+      const totalBeforeDiscount = orderItemsData.reduce(
+        (acc, item) => acc + item.price * item.quantity,
+        0
+      );
+      const totalMenuDiscountAmount = orderItemsData.reduce(
+        (sum, item) => sum + item.discountAmount,
+        0
+      );
       const totalAfterMenuDiscount = totalBeforeDiscount - totalMenuDiscountAmount;
 
       const taxAmount = tax ? (tax.value / 100) * totalAfterMenuDiscount : 0;
@@ -117,6 +124,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const baseTotal = totalAfterMenuDiscount - (totalDiscountAmount - totalMenuDiscountAmount);
       const finalTotal = baseTotal + taxAmount + gratuityAmount;
 
+      // Tentukan status order berdasarkan metode pembayaran
+      const orderStatus = orderDetails.paymentMethod === "ewallet" ? "Sedang Diproses" : "pending";
+
       const newOrder = await prisma.order.create({
         data: {
           customerName: orderDetails.customerName,
@@ -127,7 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           taxAmount,
           gratuityAmount,
           finalTotal,
-          status: "pending",
+          status: orderStatus,
           reservasiId: orderDetails.reservasiId || null,
           orderItems: {
             create: orderItemsData,
@@ -140,7 +150,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               modifiers: { include: { modifier: true } },
             },
           },
-          discount: true, // Pastikan discount disertakan
+          discount: true,
         },
       });
 
