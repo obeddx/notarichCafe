@@ -10,7 +10,15 @@ import io from "socket.io-client";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Interface Definitions
+interface Discount {
+  id: number;
+  name: string;
+  type: "PERCENTAGE" | "NORMAL";
+  scope: "MENU" | "TOTAL";
+  value: number;
+  isActive: boolean;
+}
+
 interface Order {
   id: number;
   tableNumber: string;
@@ -22,11 +30,12 @@ interface Order {
   orderItems: OrderItem[];
   customerName: string;
   paymentStatus?: string;
-  reservasi?: { // Tambahkan relasi ini
+  reservasi?: {
     id: number;
     kodeBooking: string;
   };
 }
+
 interface OrderItem {
   id: number;
   menuId: number;
@@ -57,6 +66,7 @@ interface Menu {
   category: string;
   Status: string;
   modifiers: Modifier[];
+  discounts: DiscountInfo[];
 }
 
 interface Modifier {
@@ -69,6 +79,10 @@ interface Modifier {
       name: string;
     };
   };
+}
+
+interface DiscountInfo {
+  discount: Discount;
 }
 
 interface CartItem {
@@ -98,6 +112,106 @@ const Bookinge = () => {
   const [customerName, setCustomerName] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
+  const [isModifierPopupOpen, setIsModifierPopupOpen] = useState(false);
+  const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
+  const [selectedModifiers, setSelectedModifiers] = useState<number[]>([]);
+  const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchDiscounts = async () => {
+      try {
+        const response = await fetch("/api/diskon");
+        const data = await response.json();
+        setDiscounts(data.filter((d: Discount) => d.isActive));
+      } catch (error) {
+        console.error("Error fetching discounts:", error);
+      }
+    };
+    fetchDiscounts();
+  }, []);
+
+
+  const calculateCartTotals = () => {
+    let subtotal = 0;
+    let totalModifierCost = 0;
+    let totalMenuDiscountAmount = 0;
+    let totalDiscountAmount = 0;
+
+    selectedMenuItems.forEach((item) => {
+      const originalPrice = item.menu.price;
+      const modifierTotal = Object.values(item.modifierIds)
+        .filter((id): id is number => id !== null)
+        .reduce((acc, modifierId) => {
+          const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+          return acc + (modifier?.price || 0);
+        }, 0);
+
+      let itemPrice = originalPrice;
+      // Apply menu-specific discounts
+      const activeMenuDiscounts = item.menu.discounts.filter((d) => d.discount.isActive);
+      if (activeMenuDiscounts.length > 0) {
+        activeMenuDiscounts.forEach((d) => {
+          const discountAmount =
+            d.discount.type === "PERCENTAGE"
+              ? (originalPrice * d.discount.value) / 100
+              : d.discount.value;
+          itemPrice -= discountAmount;
+          totalMenuDiscountAmount += discountAmount * item.quantity;
+        });
+      }
+
+      subtotal += itemPrice * item.quantity;
+      totalModifierCost += modifierTotal * item.quantity;
+    });
+
+    const subtotalWithModifiers = subtotal + totalModifierCost;
+
+    // Apply total discount if selected
+    if (selectedDiscountId) {
+      const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId && d.scope === "TOTAL");
+      if (selectedDiscount) {
+        totalDiscountAmount =
+          selectedDiscount.type === "PERCENTAGE"
+            ? (subtotalWithModifiers * selectedDiscount.value) / 100
+            : selectedDiscount.value;
+      }
+    }
+
+    const subtotalAfterDiscount = subtotalWithModifiers - totalDiscountAmount;
+    const taxAmount = subtotalAfterDiscount * 0.10;
+    const gratuityAmount = subtotalAfterDiscount * 0.02;
+    const finalTotal = subtotalAfterDiscount + taxAmount + gratuityAmount;
+
+    return {
+      subtotal,
+      totalModifierCost,
+      totalMenuDiscountAmount,
+      totalDiscountAmount: totalDiscountAmount + totalMenuDiscountAmount,
+      taxAmount,
+      gratuityAmount,
+      finalTotal,
+    };
+  };
+
+  const getMenuDiscountedPrice = (menu: Menu) => {
+    let originalPrice = menu.price;
+    let discountedPrice = originalPrice;
+
+    const activeMenuDiscounts = menu.discounts.filter((d) => d.discount.isActive);
+    if (activeMenuDiscounts.length > 0) {
+      activeMenuDiscounts.forEach((d) => {
+        const discountAmount =
+          d.discount.type === "PERCENTAGE"
+            ? (originalPrice * d.discount.value) / 100
+            : d.discount.value;
+        discountedPrice -= discountAmount;
+      });
+    }
+
+    return { originalPrice, discountedPrice };
+  };
 
   const generateUniqueKey = (menuId: number, modifierIds: { [categoryId: number]: number | null }) => {
     return `${menuId}-${JSON.stringify(modifierIds)}`;
@@ -137,6 +251,39 @@ const Bookinge = () => {
     });
   };
 
+
+  const handleDiscountToggle = (discountId: number) => {
+    setSelectedDiscountId((prev) => (prev === discountId ? null : discountId));
+  };
+
+  const saveDiscountToOrder = () => {
+    setIsDiscountPopupOpen(false);
+  };
+
+  const handleModifierToggle = (modifierId: number) => {
+    setSelectedModifiers((prev) =>
+      prev.includes(modifierId)
+        ? prev.filter((id) => id !== modifierId)
+        : [...prev, modifierId]
+    );
+  };
+
+const saveModifiersToCart = () => {
+    if (currentMenu) {
+      const modifierIds: { [categoryId: number]: number | null } = {};
+      selectedModifiers.forEach((modifierId) => {
+        const modifier = currentMenu.modifiers.find((m) => m.modifier.id === modifierId);
+        if (modifier) {
+          modifierIds[modifier.modifier.category.id] = modifierId;
+        }
+      });
+      addToCart(currentMenu, modifierIds);
+    }
+    setIsModifierPopupOpen(false);
+    setSelectedModifiers([]);
+    setCurrentMenu(null);
+  };
+  
   useEffect(() => {
     if (isOrderModalOpen) {
       fetch("/api/cart", {
@@ -236,10 +383,9 @@ const Bookinge = () => {
     socket.on("connect", () => console.log("Connected to WebSocket server"));
 
     socket.on("ordersUpdated", (newOrder: Order) => {
-      console.log("New order received via WebSocket:", newOrder);
       setAllOrders((prevOrders) => [...prevOrders, newOrder]);
       if (
-        newOrder.tableNumber === selectedTableNumber || 
+        newOrder.tableNumber === selectedTableNumber ||
         newOrder.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
       ) {
         fetchTableOrders(selectedTableNumber);
@@ -247,14 +393,13 @@ const Bookinge = () => {
     });
 
     socket.on("paymentStatusUpdated", (updatedOrder: Order) => {
-      console.log("Payment status updated:", updatedOrder);
       setAllOrders((prevOrders) =>
         prevOrders.map((order) =>
           order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
         )
       );
       if (
-        updatedOrder.tableNumber === selectedTableNumber || 
+        updatedOrder.tableNumber === selectedTableNumber ||
         updatedOrder.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
       ) {
         fetchTableOrders(selectedTableNumber);
@@ -1403,22 +1548,14 @@ const Bookinge = () => {
                 </select>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {menus
+              {menus
                   .filter(
                     (menu) =>
                       (!selectedCategory || menu.category === selectedCategory) &&
                       (!searchQuery || menu.name.toLowerCase().includes(searchQuery.toLowerCase()))
                   )
                   .map((menu) => {
-                    const modifierGroups = menu.modifiers.reduce((acc, mod) => {
-                      const categoryId = mod.modifier.category.id;
-                      if (!acc[categoryId]) {
-                        acc[categoryId] = { category: mod.modifier.category, modifiers: [] };
-                      }
-                      acc[categoryId].modifiers.push(mod);
-                      return acc;
-                    }, {} as { [key: number]: { category: { id: number; name: string }; modifiers: Modifier[] } });
-
+                    const { originalPrice, discountedPrice } = getMenuDiscountedPrice(menu);
                     return (
                       <div
                         key={menu.id}
@@ -1432,33 +1569,28 @@ const Bookinge = () => {
                           className="object-cover rounded-full mb-2"
                         />
                         <h3 className="font-semibold text-center">{menu.name}</h3>
-                        <p className="text-sm text-gray-600 text-center">
-                          Rp {menu.price.toLocaleString()}
-                        </p>
-                        {Object.entries(modifierGroups).map(([categoryId, group]) => (
-                          <div key={categoryId} className="mb-2 w-full">
-                            <label className="block text-sm font-medium">{group.category.name}:</label>
-                            <select
-                              onChange={(e) => {
-                                const modifierId = e.target.value === "0" ? null : parseInt(e.target.value);
-                                const modifierIds = {
-                                  [parseInt(categoryId)]: modifierId,
-                                };
-                                addToCart(menu, modifierIds);
-                              }}
-                              className="w-full p-2 border rounded-md"
-                            >
-                              <option value="0">Tanpa {group.category.name} (Rp0)</option>
-                              {group.modifiers.map((mod) => (
-                                <option key={mod.modifier.id} value={mod.modifier.id}>
-                                  {mod.modifier.name} (Rp{mod.modifier.price.toLocaleString()})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ))}
+                        <div className="text-center">
+                          {discountedPrice < originalPrice ? (
+                            <>
+                              <p className="text-sm text-gray-600 line-through">
+                                Rp {originalPrice.toLocaleString()}
+                              </p>
+                              <p className="text-sm text-red-600 font-semibold">
+                                Rp {discountedPrice.toLocaleString()}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-600">
+                              Rp {originalPrice.toLocaleString()}
+                            </p>
+                          )}
+                        </div>
                         <button
-                          onClick={() => addToCart(menu, {})}
+                          onClick={() => {
+                            setCurrentMenu(menu);
+                            setSelectedModifiers([]);
+                            setIsModifierPopupOpen(true);
+                          }}
                           className="mt-2 bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
                         >
                           Tambah
@@ -1467,21 +1599,22 @@ const Bookinge = () => {
                     );
                   })}
               </div>
+
               <div className="mt-6 border-t pt-4">
                 <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
                 {selectedMenuItems.map((item) => {
-                  const itemPrice = item.menu.price;
-                  let modifierTotal: number = 0;
-                  const modifierNames = Object.entries(item.modifierIds)
-                    .map(([, modifierId]) => {
-                      if (modifierId) {
-                        const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-                        if (modifier) {
-                          modifierTotal += modifier.price;
-                          return modifier.name;
-                        }
-                      }
-                      return null;
+                  const { originalPrice, discountedPrice } = getMenuDiscountedPrice(item.menu);
+                  const modifierTotal = Object.values(item.modifierIds)
+                    .filter((id): id is number => id !== null)
+                    .reduce((acc, modifierId) => {
+                      const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                      return acc + (modifier?.price || 0);
+                    }, 0);
+                  const modifierNames = Object.values(item.modifierIds)
+                    .filter((id): id is number => id !== null)
+                    .map((modifierId) => {
+                      const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                      return modifier?.name;
                     })
                     .filter(Boolean)
                     .join(", ");
@@ -1495,7 +1628,7 @@ const Bookinge = () => {
                       <div className="flex-1">
                         <p className="font-medium">{itemNameWithModifiers}</p>
                         <p className="text-sm text-gray-600">
-                          Rp {(itemPrice + modifierTotal).toLocaleString()} x {item.quantity}
+                          Rp {(discountedPrice + modifierTotal).toLocaleString()} x {item.quantity}
                         </p>
                         <input
                           type="text"
@@ -1541,28 +1674,32 @@ const Bookinge = () => {
                     </div>
                   );
                 })}
+
                 <div className="mt-4">
-                  <p className="text-lg font-semibold">
-                    Total: Rp{" "}
-                    {selectedMenuItems
-                      .reduce((sum, item) => {
-                        const itemPrice = item.menu.price;
-                        const modifierTotal = Object.values(item.modifierIds).reduce(
-                          (acc, modifierId) => {
-                            if (modifierId) {
-                              const modifier = item.menu.modifiers.find(
-                                (m) => m.modifier.id === modifierId
-                              )?.modifier;
-                              return  (modifier?.price || 0);
-                            }
-                            return acc;
-                          },
-                          0
-                        );
-                        return sum + (itemPrice + modifierTotal) * item.quantity;
-                      }, 0)
-                      .toLocaleString()}
-                  </p>
+                  <div className="text-lg">
+                    <p>Subtotal: Rp {calculateCartTotals().subtotal.toLocaleString()}</p>
+                    <p>Modifier: Rp {calculateCartTotals().totalModifierCost.toLocaleString()}</p>
+                    <p>Diskon Menu: Rp {calculateCartTotals().totalMenuDiscountAmount.toLocaleString()}</p>
+                    <p>Diskon Total: Rp {(calculateCartTotals().totalDiscountAmount - calculateCartTotals().totalMenuDiscountAmount).toLocaleString()}</p>
+                    <p>Pajak (10%): Rp {calculateCartTotals().taxAmount.toLocaleString()}</p>
+                    <p>Gratuity (2%): Rp {calculateCartTotals().gratuityAmount.toLocaleString()}</p>
+                    <p className="font-semibold">
+                      Total Bayar: Rp {calculateCartTotals().finalTotal.toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium mb-1">Diskon Total:</label>
+                    <button
+                      onClick={() => setIsDiscountPopupOpen(true)}
+                      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
+                    >
+                      {selectedDiscountId
+                        ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
+                        : "Pilih Diskon"}
+                    </button>
+                  </div>
+
                   <button
                     onClick={async () => {
                       if (!selectedTableNumberForOrder || !customerName) {
@@ -1571,6 +1708,7 @@ const Bookinge = () => {
                       }
 
                       try {
+                        const totals = calculateCartTotals();
                         const response = await fetch("/api/placeOrder", {
                           method: "POST",
                           headers: {
@@ -1587,22 +1725,8 @@ const Bookinge = () => {
                                 (id): id is number => id !== null
                               ),
                             })),
-                            total: selectedMenuItems.reduce((sum, item) => {
-                              const itemPrice = item.menu.price;
-                              const modifierTotal = Object.values(item.modifierIds).reduce(
-                                (acc, modifierId) => {
-                                  if (modifierId) {
-                                    const modifier = item.menu.modifiers.find(
-                                      (m) => m.modifier.id === modifierId
-                                    )?.modifier;
-                                    return  (modifier?.price || 0);
-                                  }
-                                  return acc;
-                                },
-                                0
-                              );
-                              return sum + (itemPrice + modifierTotal) * item.quantity;
-                            }, 0),
+                            total: totals.finalTotal,
+                            discountId: selectedDiscountId || null,
                           }),
                         });
 
@@ -1612,7 +1736,7 @@ const Bookinge = () => {
                           setSelectedMenuItems([]);
                           setCustomerName("");
                           setSelectedTableNumberForOrder("");
-                          fetchOrders();
+                          setSelectedDiscountId(null);
                           fetchData();
                         } else {
                           throw new Error("Gagal membuat pesanan");
@@ -1622,11 +1746,117 @@ const Bookinge = () => {
                         toast.error("Gagal membuat pesanan");
                       }
                     }}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md"
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md mt-4"
                   >
                     Simpan Pesanan
                   </button>
+                </div> </div>
+            </div>
+          </div>
+        )}
+        {/* New Modifier Selection Popup */}
+        {isModifierPopupOpen && currentMenu && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Tambah Modifier - {currentMenu.name}
+                </h2>
+                <button
+                  onClick={() => setIsModifierPopupOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-3">
+                  {currentMenu.modifiers.length > 0 ? (
+                    currentMenu.modifiers.map((mod) => (
+                      <div
+                        key={mod.modifier.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedModifiers.includes(mod.modifier.id)}
+                            onChange={() => handleModifierToggle(mod.modifier.id)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-gray-700">{mod.modifier.name}</span>
+                        </div>
+                        <span className="text-gray-600 text-sm">
+                          +Rp {mod.modifier.price.toLocaleString()}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
+                  )}
                 </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button
+                  onClick={saveModifiersToCart}
+                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+                >
+                  Simpan Modifier ({selectedModifiers.length} dipilih)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {isDiscountPopupOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
+                <button
+                  onClick={() => setIsDiscountPopupOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-3">
+                  {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
+                    discounts
+                      .filter((d) => d.scope === "TOTAL")
+                      .map((discount) => (
+                        <div
+                          key={discount.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedDiscountId === discount.id}
+                              onChange={() => handleDiscountToggle(discount.id)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-gray-700">{discount.name}</span>
+                          </div>
+                          <span className="text-gray-600 text-sm">
+                            {discount.type === "PERCENTAGE"
+                              ? `${discount.value}%`
+                              : `Rp ${discount.value.toLocaleString()}`}
+                          </span>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
+                  )}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button
+                  onClick={saveDiscountToOrder}
+                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+                >
+                  Simpan Diskon
+                </button>
               </div>
             </div>
           </div>
