@@ -8,7 +8,7 @@ interface OrderItem {
   quantity: number;
   note?: string;
   modifierIds?: number[];
-  discountId?: number; // Tambahkan discountId per item
+  discountId?: number;
 }
 
 interface ReservationData {
@@ -45,6 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const orderDetails: OrderDetails = req.body;
+    console.log("Received Order Details in API:", orderDetails); // Tambahkan log
 
     if (!orderDetails.tableNumber || !orderDetails.items.length) {
       return res.status(400).json({ message: "Invalid order data" });
@@ -64,7 +65,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const tax = await prisma.tax.findFirst({ where: { isActive: true } });
     const gratuity = await prisma.gratuity.findFirst({ where: { isActive: true } });
-
+    const paymentMethod = orderDetails.paymentMethod || null; // Pastikan null jika undefined
+    console.log("Processed paymentMethod:", paymentMethod); // Tambahkan log
+    const orderStatus = "pending"; // Tetap pending untuk awal
+    const paymentStatus = orderDetails.paymentMethod === "ewallet" ? "paid" : "pending";
     const newOrder = await prisma.$transaction(async (prisma) => {
       const orderItemsData = await Promise.all(
         orderDetails.items.map(async (item) => {
@@ -145,7 +149,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Jika semua item memiliki discountId yang sama, gunakan itu sebagai order.discountId
       const itemDiscountIds = orderDetails.items
         .map((item) => item.discountId)
         .filter((id): id is number => id !== undefined);
@@ -158,7 +161,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const baseTotal = totalAfterMenuDiscount - (totalDiscountAmount - totalMenuDiscountAmount);
       const finalTotal = baseTotal + taxAmount + gratuityAmount;
 
-      const orderStatus = orderDetails.paymentMethod === "ewallet" ? "Sedang Diproses" : "pending";
+      // Status order: "paid" untuk e-wallet, "pending" untuk lainnya
+      const orderStatus = "pending"; // Selalu "pending" saat order dibuat
+      const paymentStatus = orderDetails.paymentMethod === "ewallet" ? "paid" : "pending";
 
       let reservasiId: number | null = null;
       if (orderDetails.bookingCode && orderDetails.reservationData) {
@@ -189,7 +194,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           gratuityAmount,
           finalTotal,
           status: orderStatus,
-          paymentMethod: orderDetails.paymentMethod,
+          paymentMethod,
+          paymentStatus, // Tambahkan field ini
           reservasiId,
           orderItems: {
             create: orderItemsData,
@@ -205,7 +211,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           discount: true,
         },
       });
-
+    
       return newOrder;
     });
 
@@ -217,18 +223,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       gratuityAmount: newOrder.gratuityAmount,
       finalTotal: newOrder.finalTotal,
       discountId: newOrder.discountId,
+      status: newOrder.status,
+      paymentStatus: newOrder.paymentStatus,
     });
 
     if (res.socket && (res.socket as any).server) {
       const io = (res.socket as any).server.io;
       if (io) {
         io.emit("ordersUpdated", newOrder);
-        console.log("Pesanan baru dikirim ke kasir melalui WebSocket");
+        console.log("Pesanan baru dikirim ke kasir melalui WebSocket:", newOrder);
       } else {
         console.error("WebSocket server belum diinisialisasi");
       }
     }
-
+    
     res.status(200).json({
       success: true,
       message: "Order placed successfully",

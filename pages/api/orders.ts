@@ -27,7 +27,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ orders: [], message: "Tidak ada pesanan ditemukan" });
       }
 
-      // Pastikan semua field termasuk paymentStatus dikembalikan
       res.status(200).json({ orders });
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -54,6 +53,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               menu: {
                 include: {
                   ingredients: { include: { ingredient: true } },
+                  bundleCompositions: {
+                    include: {
+                      menu: {
+                        include: {
+                          ingredients: { include: { ingredient: true } },
+                        },
+                      },
+                    },
+                  },
                 },
               },
               modifiers: {
@@ -104,7 +112,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const finalTotal = subtotal + totalModifierCost - totalDiscountAmount + taxAmount + gratuityAmount;
 
       const updatedOrder = await prisma.$transaction(async (prisma) => {
-        // Update status pesanan menjadi "Sedang Diproses"
+        // Tentukan status baru: hanya menjadi "Sedang Diproses" jika sebelumnya "pending" atau "paid"
+        const newStatus = (order.status === "pending" || order.status === "paid") ? "Sedang Diproses" : order.status;
+
+        // Update order
         const updatedOrder = await prisma.order.update({
           where: { id: orderId },
           data: {
@@ -117,7 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             finalTotal,
             cashGiven: cashGiven ? Number(cashGiven) : null,
             change: change ? Number(change) : null,
-            status: "Sedang Diproses",
+            status: newStatus,
           },
           include: {
             orderItems: {
@@ -125,6 +136,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 menu: {
                   include: {
                     ingredients: { include: { ingredient: true } },
+                    bundleCompositions: {
+                      include: {
+                        menu: {
+                          include: {
+                            ingredients: { include: { ingredient: true } },
+                          },
+                        },
+                      },
+                    },
                   },
                 },
                 modifiers: {
@@ -142,39 +162,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
         });
 
-        // Kurangi stok dan tambah used untuk ingredients dari menu
-        for (const orderItem of order.orderItems) {
-          for (const menuIng of orderItem.menu.ingredients) {
-            const ingredient = menuIng.ingredient;
-            const usedAmount = menuIng.amount * orderItem.quantity;
-            await prisma.ingredient.update({
-              where: { id: ingredient.id },
-              data: {
-                used: { increment: usedAmount },
-                stock: { decrement: usedAmount },
-              },
-            });
-          }
-
-          // Kurangi stok dan tambah used untuk ingredients dari modifier
-          for (const modifier of orderItem.modifiers) {
-            const modifierIngredients = modifier.modifier.ingredients;
-            for (const modIng of modifierIngredients) {
-              const ingredient = modIng.ingredient;
-              const usedAmount = modIng.amount * orderItem.quantity;
-              await prisma.ingredient.update({
-                where: { id: ingredient.id },
-                data: {
-                  used: { increment: usedAmount },
-                  stock: { decrement: usedAmount },
-                },
-              });
+        // Kurangi stok hanya jika status berubah menjadi "Sedang Diproses"
+        if (newStatus === "Sedang Diproses") {
+          for (const orderItem of order.orderItems) {
+            if (orderItem.menu.type === "BUNDLE") {
+              // Jika menu merupakan bundle, gunakan relasi bundleCompositions
+              // Perhitungan: untuk setiap komposisi dalam bundle, 
+              // usedAmount = comp.amount * (menu ingredient amount) * orderItem.quantity
+              for (const comp of orderItem.menu.bundleCompositions) {
+                for (const menuIng of comp.menu.ingredients) {
+                  const ingredient = menuIng.ingredient;
+                  const usedAmount = (Number(menuIng.amount) || 0) * comp.amount * orderItem.quantity;
+                  await prisma.ingredient.update({
+                    where: { id: ingredient.id },
+                    data: {
+                      used: { increment: usedAmount },
+                      stock: { decrement: usedAmount },
+                    },
+                  });
+                }
+              }
+            } else {
+              // Untuk menu NORMAL, gunakan perhitungan biasa
+              for (const menuIng of orderItem.menu.ingredients) {
+                const ingredient = menuIng.ingredient;
+                const usedAmount = (Number(menuIng.amount) || 0) * orderItem.quantity;
+                await prisma.ingredient.update({
+                  where: { id: ingredient.id },
+                  data: {
+                    used: { increment: usedAmount },
+                    stock: { decrement: usedAmount },
+                  },
+                });
+              }
+            }
+            
+            // Proses modifier (sama untuk kedua tipe menu)
+            for (const modifier of orderItem.modifiers) {
+              const modifierIngredients = modifier.modifier.ingredients;
+              for (const modIng of modifierIngredients) {
+                const ingredient = modIng.ingredient;
+                const usedAmount = (Number(modIng.amount) || 0) * orderItem.quantity;
+                await prisma.ingredient.update({
+                  where: { id: ingredient.id },
+                  data: {
+                    used: { increment: usedAmount },
+                    stock: { decrement: usedAmount },
+                  },
+                });
+              }
             }
           }
-        }
-
+      
         return updatedOrder;
-      });
+    }});
+
+      // Kirim event WebSocket untuk real-time update
+      if (res.socket && (res.socket as any).server) {
+        const io = (res.socket as any).server.io;
+        if (io) {
+          io.emit("paymentStatusUpdated", updatedOrder);
+          console.log("Status order dikirim ke kasir melalui WebSocket:", updatedOrder);
+        } else {
+          console.error("WebSocket server belum diinisialisasi");
+        }
+      }
 
       res.status(200).json({ success: true, order: updatedOrder });
     } catch (error) {
@@ -183,5 +235,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } finally {
       await prisma.$disconnect();
     }
+  } else {
+    res.status(405).json({ message: "Method not allowed" });
   }
 }

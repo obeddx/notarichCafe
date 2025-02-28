@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, ChangeEvent } from "react";
 import Image from "next/image";
-import { ShoppingCart, X, ChevronDown } from "lucide-react"; // Tambahkan ChevronDown
+import { ShoppingCart, X, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
@@ -105,6 +105,22 @@ const categories = [
   "Snack",
   "Main Course",
 ];
+
+// Fungsi loadMidtransScript didefinisikan di luar komponen
+const loadMidtransScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (window.snap) {
+      resolve();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+      script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "YOUR_CLIENT_KEY");
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Gagal memuat Midtrans Snap"));
+      document.body.appendChild(script);
+    }
+  });
+};
 
 export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("All Menu");
@@ -452,10 +468,11 @@ export default function MenuPage() {
       gratuityAmount,
       discountAmount: totalDiscountAmount,
       finalTotal: totalAfterAll,
-      paymentMethod: paymentOption,
+      paymentMethod: paymentOption === "ewallet" ? "ewallet" : undefined, // Kosong untuk "cash"
       bookingCode: bookingCode || undefined,
       reservationData: bookingCode ? reservationData : undefined,
     };
+    console.log("Order Details Before Sending:", orderDetails); // Tambahkan log
     try {
       const response = await fetch("/api/placeOrder", {
         method: "POST",
@@ -605,7 +622,51 @@ export default function MenuPage() {
     }
     return kode;
   };
-
+  const createOrderWithMethod = async (method: "cash" | "ewallet") => {
+    const bookingCode = sessionStorage.getItem("bookingCode");
+    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
+    const orderDetails = {
+      customerName,
+      tableNumber,
+      items: cart.map((item) => {
+        const activeDiscount = item.menu.discounts.find((d) => d.discount.isActive);
+        return {
+          menuId: item.menu.id,
+          quantity: item.quantity,
+          note: item.note,
+          modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
+          discountId: activeDiscount ? activeDiscount.discount.id : undefined,
+        };
+      }),
+      total: subtotal,
+      discountId: selectedDiscountId || undefined,
+      taxAmount,
+      gratuityAmount,
+      discountAmount: totalDiscountAmount,
+      finalTotal: totalAfterAll,
+      paymentMethod: method === "ewallet" ? "ewallet" : undefined, // Kosong untuk "cash"
+      bookingCode: bookingCode || undefined,
+      reservationData: bookingCode ? reservationData : undefined,
+    };
+    console.log("Order Details Before Sending:", orderDetails);
+    try {
+      const response = await fetch("/api/placeOrder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderDetails),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
+      }
+      const data = await response.json();
+      return data.order;
+    } catch (error) {
+      console.error("Error creating order:", error);
+      return null;
+    }
+  };
   const captureAndDownloadReservationDetails = (kodeBooking: string, namaCustomer: string) => {
     const element = document.getElementById("reservationDetails");
     if (!element) {
@@ -635,8 +696,11 @@ export default function MenuPage() {
             <button
               onClick={async () => {
                 setPaymentOption("cash");
+                console.log("Payment Option Set To:", "cash"); // Tambahkan log
+                console.log("Current paymentOption after set:", paymentOption); // Log setelah set
                 setShowPaymentMethodModal(false);
-                const order = await createOrder();
+                const order = await createOrderWithMethod("cash"); // Buat fungsi baru
+                console.log("Order Sent:", order); // Log hasil order
                 if (order) {
                   setOrderRecord(order);
                   toast.success("Order placed successfully!");
@@ -706,37 +770,22 @@ export default function MenuPage() {
                 if (data.success && data.snapToken) {
                   setSnapToken(data.snapToken);
 
-                  const loadMidtransScript = (): Promise<void> => {
-                    return new Promise((resolve, reject) => {
-                      if (window.snap) {
-                        resolve();
-                      } else {
-                        const script = document.createElement("script");
-                        script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-                        script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "YOUR_CLIENT_KEY");
-                        script.onload = () => resolve();
-                        script.onerror = () => reject(new Error("Gagal memuat Midtrans Snap"));
-                        document.body.appendChild(script);
-                      }
-                    });
-                  };
-
                   await loadMidtransScript();
 
                   const handlePaymentSuccess = async (result: MidtransResult) => {
-                    const order = await createOrder();
+                    const order = await createOrder(); // paymentMethod akan "ewallet"
                     if (order) {
                       await fetch("/api/updatePaymentStatus", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           orderId: order.id,
-                          paymentMethod: "e-wallet",
+                          paymentMethod: "ewallet",
                           paymentStatus: "paid",
                           paymentId: result.transaction_id,
+                          status: "paid",
                         }),
                       });
-
                       const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
                       if (isReservation) {
                         reservationData.meja = tableNumber.split(" - ")[0];

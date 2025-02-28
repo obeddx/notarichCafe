@@ -1,16 +1,15 @@
-// Di server API /api/socket
 import { Server as HttpServer } from "http";
 import { Server as IOServer } from "socket.io";
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Socket as NetSocket } from "net";
 
-// Perluas tipe `res.socket` agar TypeScript mengenali `server`
 interface CustomSocket extends NetSocket {
   server: HttpServer & { io?: IOServer };
 }
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!res.socket) {
+    console.error("Socket is not available on the response object");
     return res.status(500).json({ message: "Socket is not available" });
   }
 
@@ -20,7 +19,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     console.log("Initializing WebSocket server...");
 
     const io = new IOServer(socket.server, {
-      path: "/api/socket", // Pastikan path ini benar
+      path: "/api/socket",
     });
     socket.server.io = io;
 
@@ -31,7 +30,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         console.log("Client disconnected:", socket.id);
       });
     });
+
+    console.log("WebSocket server initialized successfully");
+  } else {
+    console.log("WebSocket server already initialized");
   }
 
   res.end();
 }
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
