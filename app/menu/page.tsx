@@ -155,7 +155,7 @@ export default function MenuPage() {
     const bookingCode = searchParams?.get("bookingCode");
     const finalTableNumber = tableFromUrl || sessionStorage.getItem("tableNumber") || "Unknown";
     if (reservation && bookingCode) {
-      setTableNumber(`Meja ${finalTableNumber} - ${bookingCode}`);
+      setTableNumber(finalTableNumber); // Hanya nomor meja
       sessionStorage.setItem("reservation", "true");
       sessionStorage.setItem("bookingCode", bookingCode);
       setPaymentOption("ewallet");
@@ -163,8 +163,8 @@ export default function MenuPage() {
     } else {
       setTableNumber(finalTableNumber);
     }
-
-    const storedCart = sessionStorage.getItem(`cart_table_${tableNumber}`);
+  
+    const storedCart = sessionStorage.getItem(`cart_table_${finalTableNumber}`); // Gunakan finalTableNumber
     if (storedCart) {
       const parsedCart = JSON.parse(storedCart);
       const updatedCart = parsedCart.map((item: CartItem) => ({
@@ -449,9 +449,13 @@ export default function MenuPage() {
     const bookingCode = sessionStorage.getItem("bookingCode");
     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
+    
+    // Pisahkan tableNumber menjadi nomor meja saja
+    const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
+  
     const orderDetails = {
       customerName,
-      tableNumber,
+      tableNumber: cleanTableNumber, // Hanya nomor meja
       items: cart.map((item) => {
         const activeDiscount = item.menu.discounts.find((d) => d.discount.isActive);
         return {
@@ -468,11 +472,61 @@ export default function MenuPage() {
       gratuityAmount,
       discountAmount: totalDiscountAmount,
       finalTotal: totalAfterAll,
-      paymentMethod: paymentOption === "ewallet" ? "ewallet" : undefined, // Kosong untuk "cash"
-      bookingCode: bookingCode || undefined,
+      paymentMethod: paymentOption === "ewallet" ? "ewallet" : undefined,
+      bookingCode: bookingCode || undefined, // Kirim bookingCode terpisah
       reservationData: bookingCode ? reservationData : undefined,
     };
-    console.log("Order Details Before Sending:", orderDetails); // Tambahkan log
+    console.log("Order Details Before Sending:", orderDetails);
+    try {
+      const response = await fetch("/api/placeOrder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderDetails),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
+      }
+      const data = await response.json();
+      return data.order;
+    } catch (error) {
+      console.error("Error creating order:", error);
+      return null;
+    }
+  };
+  
+  const createOrderWithMethod = async (method: "cash" | "ewallet") => {
+    const bookingCode = sessionStorage.getItem("bookingCode");
+    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
+    
+    // Pisahkan tableNumber menjadi nomor meja saja
+    const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
+  
+    const orderDetails = {
+      customerName,
+      tableNumber: cleanTableNumber, // Hanya nomor meja
+      items: cart.map((item) => {
+        const activeDiscount = item.menu.discounts.find((d) => d.discount.isActive);
+        return {
+          menuId: item.menu.id,
+          quantity: item.quantity,
+          note: item.note,
+          modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
+          discountId: activeDiscount ? activeDiscount.discount.id : undefined,
+        };
+      }),
+      total: subtotal,
+      discountId: selectedDiscountId || undefined,
+      taxAmount,
+      gratuityAmount,
+      discountAmount: totalDiscountAmount,
+      finalTotal: totalAfterAll,
+      paymentMethod: method === "ewallet" ? "ewallet" : undefined,
+      bookingCode: bookingCode || undefined, // Kirim bookingCode terpisah
+      reservationData: bookingCode ? reservationData : undefined,
+    };
+    console.log("Order Details Before Sending:", orderDetails);
     try {
       const response = await fetch("/api/placeOrder", {
         method: "POST",
@@ -621,51 +675,6 @@ export default function MenuPage() {
       return `RESV-${day}/${month}/${year}-${random}`;
     }
     return kode;
-  };
-  const createOrderWithMethod = async (method: "cash" | "ewallet") => {
-    const bookingCode = sessionStorage.getItem("bookingCode");
-    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
-    const orderDetails = {
-      customerName,
-      tableNumber,
-      items: cart.map((item) => {
-        const activeDiscount = item.menu.discounts.find((d) => d.discount.isActive);
-        return {
-          menuId: item.menu.id,
-          quantity: item.quantity,
-          note: item.note,
-          modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
-          discountId: activeDiscount ? activeDiscount.discount.id : undefined,
-        };
-      }),
-      total: subtotal,
-      discountId: selectedDiscountId || undefined,
-      taxAmount,
-      gratuityAmount,
-      discountAmount: totalDiscountAmount,
-      finalTotal: totalAfterAll,
-      paymentMethod: method === "ewallet" ? "ewallet" : undefined, // Kosong untuk "cash"
-      bookingCode: bookingCode || undefined,
-      reservationData: bookingCode ? reservationData : undefined,
-    };
-    console.log("Order Details Before Sending:", orderDetails);
-    try {
-      const response = await fetch("/api/placeOrder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderDetails),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
-      }
-      const data = await response.json();
-      return data.order;
-    } catch (error) {
-      console.error("Error creating order:", error);
-      return null;
-    }
   };
   const captureAndDownloadReservationDetails = (kodeBooking: string, namaCustomer: string) => {
     const element = document.getElementById("reservationDetails");

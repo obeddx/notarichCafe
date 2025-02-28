@@ -19,6 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           },
           discount: true,
+          reservasi: true, // Tambahkan relasi ini
         },
       });
 
@@ -76,6 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           },
           discount: true,
+          reservasi: true, // Tambahkan relasi ini
         },
       });
 
@@ -112,10 +114,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const finalTotal = subtotal + totalModifierCost - totalDiscountAmount + taxAmount + gratuityAmount;
 
       const updatedOrder = await prisma.$transaction(async (prisma) => {
-        // Tentukan status baru: hanya menjadi "Sedang Diproses" jika sebelumnya "pending" atau "paid"
         const newStatus = (order.status === "pending" || order.status === "paid") ? "Sedang Diproses" : order.status;
 
-        // Update order
         const updatedOrder = await prisma.order.update({
           where: { id: orderId },
           data: {
@@ -159,16 +159,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               },
             },
             discount: true,
+            reservasi: true, // Tambahkan relasi ini
           },
         });
 
-        // Kurangi stok hanya jika status berubah menjadi "Sedang Diproses"
         if (newStatus === "Sedang Diproses") {
           for (const orderItem of order.orderItems) {
             if (orderItem.menu.type === "BUNDLE") {
-              // Jika menu merupakan bundle, gunakan relasi bundleCompositions
-              // Perhitungan: untuk setiap komposisi dalam bundle, 
-              // usedAmount = comp.amount * (menu ingredient amount) * orderItem.quantity
               for (const comp of orderItem.menu.bundleCompositions) {
                 for (const menuIng of comp.menu.ingredients) {
                   const ingredient = menuIng.ingredient;
@@ -183,7 +180,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
               }
             } else {
-              // Untuk menu NORMAL, gunakan perhitungan biasa
               for (const menuIng of orderItem.menu.ingredients) {
                 const ingredient = menuIng.ingredient;
                 const usedAmount = (Number(menuIng.amount) || 0) * orderItem.quantity;
@@ -196,8 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 });
               }
             }
-            
-            // Proses modifier (sama untuk kedua tipe menu)
+
             for (const modifier of orderItem.modifiers) {
               const modifierIngredients = modifier.modifier.ingredients;
               for (const modIng of modifierIngredients) {
@@ -213,11 +208,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               }
             }
           }
-      
-        return updatedOrder;
-    }});
+        }
 
-      // Kirim event WebSocket untuk real-time update
+        return updatedOrder;
+      });
+
       if (res.socket && (res.socket as any).server) {
         const io = (res.socket as any).server.io;
         if (io) {

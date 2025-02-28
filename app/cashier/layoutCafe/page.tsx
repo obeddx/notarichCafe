@@ -21,9 +21,11 @@ interface Order {
   createdAt: string;
   orderItems: OrderItem[];
   customerName: string;
-  bookingCode?: string;
   paymentStatus?: string;
-  reservasiId?: number;
+  reservasi?: { // Tambahkan relasi ini
+    id: number;
+    kodeBooking: string;
+  };
 }
 interface OrderItem {
   id: number;
@@ -295,7 +297,7 @@ const Bookinge = () => {
     
     const hasActiveOrders = tableOrders.some((order) => 
       order.status !== "Selesai" || 
-      (order.bookingCode && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+      (order.reservasi?.kodeBooking && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
     );
     
     const isTableReset = tableOrders.length === 0;
@@ -320,11 +322,11 @@ const Bookinge = () => {
       
       const activeOrders = tableOrders.filter((order: Order) => 
         order.status !== "Selesai" || 
-        (order.bookingCode && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+        (order.reservasi?.kodeBooking && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
       );
       const completedOrders = tableOrders.filter((order: Order) => 
         order.status === "Selesai" && 
-        !(order.bookingCode && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+        !(order.reservasi?.kodeBooking && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
       );
   
       setSelectedTableOrders(activeOrders);
@@ -372,80 +374,73 @@ const Bookinge = () => {
     order: Order;
     isCompleted?: boolean;
     onComplete?: () => void;
-  }) => {
-    // Parse bookingCode dari tableNumber
-    const bookingCodeFromTable = order.tableNumber.includes("-") 
-      ? order.tableNumber.split(" - ")[1] 
-      : null;
-  
-    return (
-      <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <p className="font-semibold">Order ID: {order.id}</p>
-            {bookingCodeFromTable && (
-              <p className="text-sm text-gray-600">Kode Booking: {bookingCodeFromTable}</p>
-            )}
-            <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
-            <p className="text-sm text-gray-600">
-              {new Date(order.createdAt).toLocaleDateString("id-ID", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          </div>
-          <span
-            className={`px-3 py-1 rounded-full text-sm ${
-              order.status === "pending"
-                ? "bg-yellow-500"
-                : order.status === "Sedang Diproses"
-                ? "bg-blue-500"
-                : "bg-green-500"
-            } text-white`}
-          >
-            {order.status}
-          </span>
+  }) => (
+    <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <p className="font-semibold">Order ID: {order.id}</p>
+          {order.reservasi?.kodeBooking && (
+            <p className="text-sm text-gray-600">Kode Booking: {order.reservasi.kodeBooking}</p>
+          )}
+          <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
+          <p className="text-sm text-gray-600">
+            {new Date(order.createdAt).toLocaleDateString("id-ID", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
         </div>
-        <div className="border-t pt-3 mt-3">
-          <h3 className="font-semibold mb-2">Item Pesanan:</h3>
-          <div className="grid gap-2">
-            {order.orderItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
-                <Image
-                  src={item.menu.image}
-                  alt={item.menu.name}
-                  width={48}
-                  height={48}
-                  className="object-cover rounded"
-                />
-                <div className="flex-1">
-                  <p className="font-medium">{item.menu.name}</p>
-                  <p className="text-sm text-gray-600">
-                    {item.quantity} x Rp {item.menu.price.toLocaleString()}
-                  </p>
-                  {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
-                  {item.modifiers && item.modifiers.length > 0 && (
-                    <div className="text-sm text-gray-500">
-                      Modifier:
-                      {item.modifiers.map((modifier) => (
-                        <p key={modifier.id}>
-                          - {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
+        <span
+          className={`px-3 py-1 rounded-full text-sm ${
+            order.status === "pending"
+              ? "bg-yellow-500"
+              : order.status === "Sedang Diproses"
+              ? "bg-blue-500"
+              : "bg-green-500"
+          } text-white`}
+        >
+          {order.status}
+        </span>
+      </div>
+      <div className="border-t pt-3 mt-3">
+        <h3 className="font-semibold mb-2">Item Pesanan:</h3>
+        <div className="grid gap-2">
+          {order.orderItems.map((item) => (
+            <div key={item.id} className="flex items-center gap-3">
+              <Image
+                src={item.menu.image}
+                alt={item.menu.name}
+                width={48}
+                height={48}
+                className="object-cover rounded"
+              />
+              <div className="flex-1">
+                <p className="font-medium">{item.menu.name}</p>
+                <p className="text-sm text-gray-600">
+                  {item.quantity} x Rp {item.menu.price.toLocaleString()}
+                </p>
+                {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
+                {item.modifiers && item.modifiers.length > 0 && (
+                  <div className="text-sm text-gray-500">
+                    Modifier:
+                    {item.modifiers.map((modifier) => (
+                      <p key={modifier.id}>
+                        - {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
   const fetchOrders = async () => {
     setLoading(true);

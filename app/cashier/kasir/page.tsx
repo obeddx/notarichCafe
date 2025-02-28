@@ -73,6 +73,10 @@ export interface Order {
   orderItems: OrderItem[];
   discount?: Discount;
   paymentStatus?: string;
+  reservasi?: { // Tambahkan relasi ini
+    id: number;
+    kodeBooking: string;
+  };
 }
 
 interface Ingredient {
@@ -1394,7 +1398,6 @@ function OrderItemComponent({
   const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(order.discountId || null);
 
-  // Cek apakah status order adalah "paid" (untuk e-wallet)
   const isPaidOrder = order.status === "paid";
 
   const calculateTotals = (discountId: number | null) => {
@@ -1474,6 +1477,9 @@ function OrderItemComponent({
       <div className="flex justify-between items-center">
         <div>
           <h4 className="text-sm font-medium">Order ID: {order.id}</h4>
+          {order.reservasi?.kodeBooking && (
+            <p className="text-sm text-white">Kode Booking: {order.reservasi.kodeBooking}</p>
+          )}
           <p className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200 px-4 py-2 rounded shadow-md">
             Customer: {order.customerName}
           </p>
@@ -1514,12 +1520,11 @@ function OrderItemComponent({
         ))}
       </ul>
 
-      {/* Tampilan untuk status "paid" (e-wallet) */}
       {order.status === "paid" && (
         <div className="mt-4 space-y-2">
           <p className="text-green-600 font-semibold">Status Payment: Paid via E-Wallet</p>
           <button
-            onClick={() => confirmPayment?.(Number(order.id), "e-wallet", order.paymentId, selectedDiscountId)}
+            onClick={() => confirmPayment?.(Number(order.id), "ewallet", order.paymentId, selectedDiscountId)}
             className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
           >
             💰 Konfirmasi Pembayaran
@@ -1541,7 +1546,6 @@ function OrderItemComponent({
         </div>
       )}
 
-      {/* Tampilan untuk status "pending" (tunai atau belum dibayar) */}
       {order.status === "pending" && confirmPayment && (
         <div className="mt-4 space-y-2">
           <select
@@ -1563,7 +1567,7 @@ function OrderItemComponent({
           >
             <option value="tunai">Tunai</option>
             <option value="kartu">Kartu Kredit/Debit</option>
-            <option value="e-wallet">E-Wallet</option>
+            <option value="ewallet">E-Wallet</option>
           </select>
           {paymentMethod !== "tunai" && (
             <input

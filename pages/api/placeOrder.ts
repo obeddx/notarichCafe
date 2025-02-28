@@ -45,13 +45,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const orderDetails: OrderDetails = req.body;
-    console.log("Received Order Details in API:", orderDetails); // Tambahkan log
+    console.log("Received Order Details in API:", orderDetails);
 
     if (!orderDetails.tableNumber || !orderDetails.items.length) {
       return res.status(400).json({ message: "Invalid order data" });
     }
-
-    console.log("Order Details Received:", orderDetails);
 
     const menuIds = orderDetails.items.map((item) => item.menuId);
     const menus = await prisma.menu.findMany({
@@ -65,10 +63,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const tax = await prisma.tax.findFirst({ where: { isActive: true } });
     const gratuity = await prisma.gratuity.findFirst({ where: { isActive: true } });
-    const paymentMethod = orderDetails.paymentMethod || null; // Pastikan null jika undefined
-    console.log("Processed paymentMethod:", paymentMethod); // Tambahkan log
-    const orderStatus = "pending"; // Tetap pending untuk awal
+    const paymentMethod = orderDetails.paymentMethod || null;
+    console.log("Processed paymentMethod:", paymentMethod);
+    const orderStatus = "pending";
     const paymentStatus = orderDetails.paymentMethod === "ewallet" ? "paid" : "pending";
+
     const newOrder = await prisma.$transaction(async (prisma) => {
       const orderItemsData = await Promise.all(
         orderDetails.items.map(async (item) => {
@@ -161,10 +160,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const baseTotal = totalAfterMenuDiscount - (totalDiscountAmount - totalMenuDiscountAmount);
       const finalTotal = baseTotal + taxAmount + gratuityAmount;
 
-      // Status order: "paid" untuk e-wallet, "pending" untuk lainnya
-      const orderStatus = "pending"; // Selalu "pending" saat order dibuat
-      const paymentStatus = orderDetails.paymentMethod === "ewallet" ? "paid" : "pending";
-
       let reservasiId: number | null = null;
       if (orderDetails.bookingCode && orderDetails.reservationData) {
         const reservation = await prisma.reservasi.upsert({
@@ -175,7 +170,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             nomorKontak: orderDetails.reservationData.nomorKontak,
             tanggalReservasi: new Date(orderDetails.reservationData.selectedDateTime),
             durasiPemesanan: orderDetails.reservationData.durasiJam * 60 + orderDetails.reservationData.durasiMenit,
-            nomorMeja: orderDetails.tableNumber.split(" - ")[0],
+            nomorMeja: orderDetails.tableNumber, // Hanya nomor meja
             kodeBooking: orderDetails.bookingCode,
             status: "RESERVED",
           },
@@ -183,11 +178,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         reservasiId = reservation.id;
       }
 
-
       const newOrder = await prisma.order.create({
         data: {
           customerName: orderDetails.customerName,
-          tableNumber: orderDetails.tableNumber,
+          tableNumber: orderDetails.tableNumber, // Hanya nomor meja
           total: totalBeforeDiscount,
           discountId: orderDiscountId || null,
           discountAmount: totalDiscountAmount,
@@ -196,7 +190,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           finalTotal,
           status: orderStatus,
           paymentMethod,
-          paymentStatus, // Tambahkan field ini
+          paymentStatus,
           reservasiId,
           orderItems: {
             create: orderItemsData,
@@ -212,7 +206,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           discount: true,
         },
       });
-    
+
       return newOrder;
     });
 
@@ -237,7 +231,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error("WebSocket server belum diinisialisasi");
       }
     }
-    
+
     res.status(200).json({
       success: true,
       message: "Order placed successfully",
