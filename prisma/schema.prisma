@@ -309,7 +309,6 @@ model Reservasi {
   id               Int              @id @default(autoincrement())
   namaCustomer     String
   nomorKontak      String
-  jumlahTamu       Int
   tanggalReservasi DateTime
   nomorMeja        String?
   durasiPemesanan  Int              @default(60)

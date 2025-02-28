@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import SidebarCashier from "@/components/sidebarCashier";
 import toast from "react-hot-toast";
 import { Inter } from "next/font/google";
-import Image from "next/image"; // Impor next/image
+import Image from "next/image";
 import { X } from "lucide-react";
+import io from "socket.io-client";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,8 +21,10 @@ interface Order {
   createdAt: string;
   orderItems: OrderItem[];
   customerName: string;
+  bookingCode?: string;
+  paymentStatus?: string;
+  reservasiId?: number;
 }
-
 interface OrderItem {
   id: number;
   menuId: number;
@@ -94,12 +97,10 @@ const Bookinge = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [menus, setMenus] = useState<Menu[]>([]);
 
-  // Fungsi untuk menghasilkan uniqueKey
   const generateUniqueKey = (menuId: number, modifierIds: { [categoryId: number]: number | null }) => {
     return `${menuId}-${JSON.stringify(modifierIds)}`;
   };
 
-  // Fungsi untuk menambahkan item ke keranjang
   const addToCart = (menu: Menu, modifierIds: { [categoryId: number]: number | null } = {}) => {
     setSelectedMenuItems((prevCart) => {
       const uniqueKey = generateUniqueKey(menu.id, modifierIds);
@@ -134,7 +135,6 @@ const Bookinge = () => {
     });
   };
 
-  // Effect untuk menyinkronkan keranjang ke API saat modal terbuka
   useEffect(() => {
     if (isOrderModalOpen) {
       fetch("/api/cart", {
@@ -145,7 +145,6 @@ const Bookinge = () => {
     }
   }, [selectedMenuItems, isOrderModalOpen]);
 
-  // Effect untuk mengambil data menu
   useEffect(() => {
     const fetchMenus = async () => {
       try {
@@ -159,7 +158,6 @@ const Bookinge = () => {
     fetchMenus();
   }, []);
 
-  // Fungsi untuk mengambil data meja
   const fetchMeja = async () => {
     try {
       const response = await fetch("/api/nomeja");
@@ -173,7 +171,6 @@ const Bookinge = () => {
     }
   };
 
-  // Fungsi untuk menandai meja sebagai terisi
   const markTableAsOccupied = async (tableNumber: string) => {
     try {
       const response = await fetch("/api/nomeja", {
@@ -194,7 +191,6 @@ const Bookinge = () => {
     }
   };
 
-  // Fungsi untuk mereset meja
   const resetTable = async (tableNumber: string) => {
     try {
       const response = await fetch("/api/nomeja", {
@@ -216,12 +212,10 @@ const Bookinge = () => {
     }
   };
 
-  // Fungsi untuk toggle sidebar
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  // Effect untuk memuat data awal dari localStorage
   useEffect(() => {
     const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
     if (savedMarkedTables) {
@@ -229,18 +223,51 @@ const Bookinge = () => {
     }
   }, []);
 
-  // Effect untuk fetch data saat komponen dimuat
   useEffect(() => {
     fetchData();
     fetchMeja();
+
+    const socket = io("http://localhost:3000", {
+      path: "/api/socket",
+    });
+
+    socket.on("connect", () => console.log("Connected to WebSocket server"));
+
+    socket.on("ordersUpdated", (newOrder: Order) => {
+      console.log("New order received via WebSocket:", newOrder);
+      setAllOrders((prevOrders) => [...prevOrders, newOrder]);
+      if (
+        newOrder.tableNumber === selectedTableNumber || 
+        newOrder.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
+      ) {
+        fetchTableOrders(selectedTableNumber);
+      }
+    });
+
+    socket.on("paymentStatusUpdated", (updatedOrder: Order) => {
+      console.log("Payment status updated:", updatedOrder);
+      setAllOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
+        )
+      );
+      if (
+        updatedOrder.tableNumber === selectedTableNumber || 
+        updatedOrder.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
+      ) {
+        fetchTableOrders(selectedTableNumber);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
-  // Effect untuk menyimpan ke localStorage saat manuallyMarkedTables berubah
   useEffect(() => {
     localStorage.setItem("manuallyMarkedTables", JSON.stringify(manuallyMarkedTables));
   }, [manuallyMarkedTables]);
 
-  // Fungsi untuk mengambil data pesanan dan meja
   const fetchData = async () => {
     try {
       const [mejaRes, ordersRes] = await Promise.all([fetch("/api/nomeja"), fetch("/api/orders")]);
@@ -254,34 +281,52 @@ const Bookinge = () => {
     }
   };
 
-  // Fungsi untuk menentukan warna meja
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
+    
     if (manuallyMarkedTables.includes(tableNumberStr)) {
       return "bg-[#D02323]";
     }
-    const tableOrders = allOrders.filter((order) => order.tableNumber === tableNumberStr);
-    const hasActiveOrders = tableOrders.some((order) => order.status !== "Selesai");
+    
+    const tableOrders = allOrders.filter((order) => 
+      order.tableNumber === tableNumberStr || 
+      order.tableNumber.startsWith(`Meja ${tableNumberStr} -`)
+    );
+    
+    const hasActiveOrders = tableOrders.some((order) => 
+      order.status !== "Selesai" || 
+      (order.bookingCode && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+    );
+    
     const isTableReset = tableOrders.length === 0;
     return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
   };
 
-  // Fungsi untuk mengambil pesanan meja tertentu
   const fetchTableOrders = async (tableNumber: string) => {
     try {
       setSelectedTableNumber(tableNumber);
       setIsPopupVisible(true);
       setSelectedTableOrders([]);
       setSelectedCompletedOrders([]);
-
-      const response = await fetch(`/api/orders?tableNumber=${tableNumber}`);
+  
+      const response = await fetch(`/api/orders`);
       if (!response.ok) throw new Error("Gagal mengambil data pesanan");
-
+  
       const data = await response.json();
-      const tableOrders = data.orders.filter((order: Order) => order.tableNumber === tableNumber.toString());
-      const activeOrders = tableOrders.filter((order: Order) => order.status !== "Selesai");
-      const completedOrders = tableOrders.filter((order: Order) => order.status === "Selesai");
-
+      const tableOrders = data.orders.filter((order: Order) => 
+        order.tableNumber === tableNumber || 
+        order.tableNumber.startsWith(`Meja ${tableNumber} -`)
+      );
+      
+      const activeOrders = tableOrders.filter((order: Order) => 
+        order.status !== "Selesai" || 
+        (order.bookingCode && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+      );
+      const completedOrders = tableOrders.filter((order: Order) => 
+        order.status === "Selesai" && 
+        !(order.bookingCode && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+      );
+  
       setSelectedTableOrders(activeOrders);
       setSelectedCompletedOrders(completedOrders);
     } catch (error) {
@@ -290,7 +335,6 @@ const Bookinge = () => {
     }
   };
 
-  // Fungsi untuk menandai pesanan sebagai selesai
   const markOrderAsCompleted = async (orderId: number) => {
     try {
       const res = await fetch("/api/completeOrder", {
@@ -302,12 +346,16 @@ const Bookinge = () => {
       if (res.ok) {
         const [ordersRes, tableRes] = await Promise.all([
           fetch("/api/orders"),
-          fetch(`/api/orders?tableNumber=${selectedTableNumber}`),
+          fetch(`/api/orders`),
         ]);
         setAllOrders((await ordersRes.json()).orders);
         const tableData = await tableRes.json();
-        setSelectedTableOrders(tableData.orders.filter((o: Order) => o.status !== "Selesai"));
-        setSelectedCompletedOrders(tableData.orders.filter((o: Order) => o.status === "Selesai"));
+        const filteredOrders = tableData.orders.filter((order: Order) => 
+          order.tableNumber === selectedTableNumber || 
+          order.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
+        );
+        setSelectedTableOrders(filteredOrders.filter((o: Order) => o.status !== "Selesai"));
+        setSelectedCompletedOrders(filteredOrders.filter((o: Order) => o.status === "Selesai"));
         toast.success("Pesanan berhasil diselesaikan!");
       } else {
         throw new Error("Gagal menyelesaikan pesanan");
@@ -318,80 +366,87 @@ const Bookinge = () => {
     }
   };
 
-  // Komponen OrderCard
   const OrderCard = ({
     order,
-    
   }: {
     order: Order;
     isCompleted?: boolean;
     onComplete?: () => void;
-  }) => (
-    <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <p className="font-semibold">Order ID: {order.id}</p>
-          <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
-          <p className="text-sm text-gray-600">
-            {new Date(order.createdAt).toLocaleDateString("id-ID", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
+  }) => {
+    // Parse bookingCode dari tableNumber
+    const bookingCodeFromTable = order.tableNumber.includes("-") 
+      ? order.tableNumber.split(" - ")[1] 
+      : null;
+  
+    return (
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <p className="font-semibold">Order ID: {order.id}</p>
+            {bookingCodeFromTable && (
+              <p className="text-sm text-gray-600">Kode Booking: {bookingCodeFromTable}</p>
+            )}
+            <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
+            <p className="text-sm text-gray-600">
+              {new Date(order.createdAt).toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
+          <span
+            className={`px-3 py-1 rounded-full text-sm ${
+              order.status === "pending"
+                ? "bg-yellow-500"
+                : order.status === "Sedang Diproses"
+                ? "bg-blue-500"
+                : "bg-green-500"
+            } text-white`}
+          >
+            {order.status}
+          </span>
         </div>
-        <span
-          className={`px-3 py-1 rounded-full text-sm ${
-            order.status === "pending"
-              ? "bg-yellow-500"
-              : order.status === "Sedang Diproses"
-              ? "bg-blue-500"
-              : "bg-green-500"
-          } text-white`}
-        >
-          {order.status}
-        </span>
-      </div>
-      <div className="border-t pt-3 mt-3">
-        <h3 className="font-semibold mb-2">Item Pesanan:</h3>
-        <div className="grid gap-2">
-          {order.orderItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-3">
-              <Image
-                src={item.menu.image}
-                alt={item.menu.name}
-                width={48}
-                height={48}
-                className="object-cover rounded"
-              />
-              <div className="flex-1">
-                <p className="font-medium">{item.menu.name}</p>
-                <p className="text-sm text-gray-600">
-                  {item.quantity} x Rp {item.menu.price.toLocaleString()}
-                </p>
-                {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
-                {/* Tampilkan modifier jika ada */}
-                {item.modifiers && item.modifiers.length > 0 && (
-                  <div className="text-sm text-gray-500">
-                    Modifier:
-                    {item.modifiers.map((modifier) => (
-                      <p key={modifier.id}>- {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})</p>
-                    ))}
-                  </div>
-                )}
+        <div className="border-t pt-3 mt-3">
+          <h3 className="font-semibold mb-2">Item Pesanan:</h3>
+          <div className="grid gap-2">
+            {order.orderItems.map((item) => (
+              <div key={item.id} className="flex items-center gap-3">
+                <Image
+                  src={item.menu.image}
+                  alt={item.menu.name}
+                  width={48}
+                  height={48}
+                  className="object-cover rounded"
+                />
+                <div className="flex-1">
+                  <p className="font-medium">{item.menu.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {item.quantity} x Rp {item.menu.price.toLocaleString()}
+                  </p>
+                  {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
+                  {item.modifiers && item.modifiers.length > 0 && (
+                    <div className="text-sm text-gray-500">
+                      Modifier:
+                      {item.modifiers.map((modifier) => (
+                        <p key={modifier.id}>
+                          - {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-      
-    </div>
-  );
+    );
+  };
 
-  // Fungsi untuk mengambil semua pesanan
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
@@ -593,10 +648,10 @@ const Bookinge = () => {
                       </div>
                       <div className="flex flex-row mt-6 mb-2">
                         <div className="flex flex-col mx-2 gap-16">
-                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105"></div>
-                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105"></div>
-                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105"></div>
-                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105"></div>
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
                         </div>
                         <div className="flex flex-row">
                           <div className="flex flex-col items-center">
@@ -632,8 +687,8 @@ const Bookinge = () => {
                                 <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
                               </button>
                               <div className="flex flex-row gap-8 mt-4">
-                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105"></div>
-                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105"></div>
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105" />
+                                <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105" />
                               </div>
                             </div>
                             <div className="w-40 h-80 bg-gradient-to-b from-[#EDE3D7] to-[#D9D9D9] border border-gray-300 rounded-xl shadow-2xl transform transition duration-300 hover:scale-105">
@@ -684,7 +739,6 @@ const Bookinge = () => {
                 </>
               ) : (
                 <div className="p-8 text-center text-xl text-[#666]">
-                  {/* Layout Lantai 2 */}
                   <div className="flex">
                     <button
                       onClick={() => fetchTableOrders("18")}
@@ -854,7 +908,7 @@ const Bookinge = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-row xs:w-[1500px] lg:w-full w-full pl-32 border-neutral-400">
+                  <div className="flex flex-row xs:w-[1500px] lg:w-full pl-32 border-neutral-400">
                     <div className="w-1/3 flex flex-col">
                       <div className="flex flex-row items-center justify-center my-8">
                         <div className="flex flex-row justify-center items-center">
@@ -878,7 +932,7 @@ const Bookinge = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-row items-center justify-center">
+                      <div className="flex flex-row justify-center items-center">
                         <div className="flex flex-col gap-8">
                           <div className="flex flex-row justify-center items-center">
                             <div className="flex flex-col mx-20">
@@ -1041,7 +1095,7 @@ const Bookinge = () => {
                         </div>
                         <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2 mr-1" />
                         <div className="flex flex-row">
-                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-3 mr-1" />
+                          <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mr-1" />
                           <button
                             onClick={() => fetchTableOrders("26")}
                             className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(26)}`}
