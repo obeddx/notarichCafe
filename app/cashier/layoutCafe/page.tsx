@@ -1499,7 +1499,7 @@ const saveModifiersToCart = () => {
                     setSelectedMenuItems([]);
                   }}
                 >
-                  <X className="w-6 h-6 text-gray-600 hover:text-red-500" />
+                  <X className="w-6 h-6 text-gray-600 hover:text-green-500" />
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1575,7 +1575,7 @@ const saveModifiersToCart = () => {
                               <p className="text-sm text-gray-600 line-through">
                                 Rp {originalPrice.toLocaleString()}
                               </p>
-                              <p className="text-sm text-red-600 font-semibold">
+                              <p className="text-sm text-green-600 font-semibold">
                                 Rp {discountedPrice.toLocaleString()}
                               </p>
                             </>

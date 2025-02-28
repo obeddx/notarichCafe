@@ -73,7 +73,7 @@ export interface Order {
   orderItems: OrderItem[];
   discount?: Discount;
   paymentStatus?: string;
-  reservasi?: { // Tambahkan relasi ini
+  reservasi?: {
     id: number;
     kodeBooking: string;
   };
@@ -140,6 +140,10 @@ export default function KasirPage() {
     items: { menuId: number; quantity: number; note: string; modifierIds?: number[] }[];
     total: number;
   } | null>(null);
+  const [isModifierPopupOpen, setIsModifierPopupOpen] = useState(false);
+  const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
+  const [selectedModifiers, setSelectedModifiers] = useState<number[]>([]);
+  const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
 
   const unreadCount = notifications.filter((notif) => !notif.isRead).length;
 
@@ -183,23 +187,21 @@ export default function KasirPage() {
     fetch("/api/socket")
       .then(() => console.log("API /api/socket dipanggil"))
       .catch((err) => console.error("Error memanggil API /api/socket:", err));
-  
+
     const socketIo = io(SOCKET_URL, {
       path: "/api/socket",
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 5000,
     });
-  
+
     socketIo.on("connect", () => console.log("Terhubung ke WebSocket server:", socketIo.id));
-    
-    // Listener untuk pembaruan pesanan baru
+
     socketIo.on("ordersUpdated", (newOrder: any) => {
       console.log("Pesanan baru diterima:", newOrder);
       fetchOrders();
     });
-  
-    // Listener untuk pembaruan status pembayaran
+
     socketIo.on("paymentStatusUpdated", (updatedOrder: Order) => {
       console.log("Status pembayaran diperbarui:", updatedOrder);
       setOrders((prevOrders) =>
@@ -208,16 +210,17 @@ export default function KasirPage() {
         )
       );
     });
-  
+
     socketIo.on("disconnect", () => console.log("Socket terputus"));
-  
+
     setSocket(socketIo);
-  
+
     return () => {
       socketIo.disconnect();
       console.log("WebSocket disconnected");
     };
   }, []);
+
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const confirmPayment = async (
@@ -382,40 +385,28 @@ export default function KasirPage() {
     });
   };
 
-  const updateCartItemModifier = (uniqueKey: string, categoryId: number, modifierId: number | null) => {
-    setSelectedMenuItems((prevCart) => {
-      let updatedCart = [...prevCart];
-      const itemIndex = updatedCart.findIndex((item) => item.uniqueKey === uniqueKey);
+  const handleModifierToggle = (modifierId: number) => {
+    setSelectedModifiers((prev) =>
+      prev.includes(modifierId)
+        ? prev.filter((id) => id !== modifierId)
+        : [...prev, modifierId]
+    );
+  };
 
-      if (itemIndex !== -1) {
-        const item = updatedCart[itemIndex];
-        const existingModifierIds = item.modifierIds;
-        const newModifierIds = { ...existingModifierIds, [categoryId]: modifierId };
-        const newUniqueKey = generateUniqueKey(item.menu.id, newModifierIds);
-
-        const existingNewItemIndex = updatedCart.findIndex(
-          (otherItem) => otherItem.uniqueKey === newUniqueKey && otherItem !== item
-        );
-
-        if (existingNewItemIndex !== -1) {
-          updatedCart[existingNewItemIndex].quantity += item.quantity;
-          updatedCart = updatedCart.filter((_, idx) => idx !== itemIndex);
-        } else {
-          updatedCart[itemIndex] = { ...item, modifierIds: newModifierIds, uniqueKey: newUniqueKey };
+  const saveModifiersToCart = () => {
+    if (currentMenu) {
+      const modifierIds: { [categoryId: number]: number | null } = {};
+      selectedModifiers.forEach((modifierId) => {
+        const modifier = currentMenu.modifiers.find((m) => m.modifier.id === modifierId);
+        if (modifier) {
+          modifierIds[modifier.modifier.category.id] = modifierId;
         }
-      }
-
-      fetch("/api/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cartItems: updatedCart }),
-      })
-        .then((res) => res.json())
-        .then((data) => console.log("Cart updated:", data))
-        .catch((err) => console.error("Error updating cart:", err));
-
-      return updatedCart;
-    });
+      });
+      addToCart(currentMenu, modifierIds);
+    }
+    setIsModifierPopupOpen(false);
+    setSelectedModifiers([]);
+    setCurrentMenu(null);
   };
 
   const handleNewOrderPayment = async (
@@ -425,13 +416,13 @@ export default function KasirPage() {
     change?: number
   ) => {
     if (!pendingOrderData) return;
-  
+
     setLoading(true);
     try {
       if (paymentMethod === "tunai" && cashGiven !== undefined && change !== undefined) {
         await updateCartWithPayment(cashGiven.toString(), change);
       }
-  
+
       const response = await fetch("/api/placeOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -445,17 +436,15 @@ export default function KasirPage() {
           paymentMethod: paymentMethod === "e-wallet" ? "ewallet" : paymentMethod,
         }),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Gagal membuat pesanan");
       }
-  
+
       const data = await response.json();
       const newOrder = data.order;
-      console.log("New Order Created:", newOrder);
-  
-      // Jika e-wallet, langsung konfirmasi sebagai "paid"
+
       const finalPaymentMethod = paymentMethod === "e-wallet" ? "ewallet" : paymentMethod;
       await confirmPayment(
         newOrder.id,
@@ -474,7 +463,7 @@ export default function KasirPage() {
             paymentMethod: "ewallet",
             paymentStatus: "paid",
             paymentId: paymentId || newOrder.paymentId,
-            status: "paid", // Pastikan status menjadi "paid"
+            status: "paid",
           }),
         });
       }
@@ -496,7 +485,7 @@ export default function KasirPage() {
           body: JSON.stringify({ cartItems: [], cashGiven: 0, change: 0 }),
         });
       }, 5000);
-  
+
       setIsNewOrderPaymentModalOpen(false);
       fetchOrders();
     } catch (error) {
@@ -562,7 +551,7 @@ export default function KasirPage() {
     }
   };
 
-  const calculateItemPrice = (menu: Menu, modifierIds: { [categoryId: number]: number | null } = {}) => {
+  const calculateItemPrice = (menu: Menu) => {
     let basePrice = menu.price;
     const activeDiscount = menu.discounts?.find((d) => d.discount.isActive && d.discount.scope === "MENU");
     if (activeDiscount) {
@@ -581,7 +570,7 @@ export default function KasirPage() {
 
     selectedMenuItems.forEach((item) => {
       const originalPrice = item.menu.price;
-      const discountedPrice = calculateItemPrice(item.menu, item.modifierIds);
+      const discountedPrice = calculateItemPrice(item.menu);
       subtotal += originalPrice * item.quantity;
       totalMenuDiscountAmount += (originalPrice - discountedPrice) * item.quantity;
 
@@ -784,7 +773,11 @@ export default function KasirPage() {
                           )}
                         </div>
                         <button
-                          onClick={() => addToCart(menu)}
+                          onClick={() => {
+                            setCurrentMenu(menu);
+                            setSelectedModifiers([]);
+                            setIsModifierPopupOpen(true);
+                          }}
                           className="mt-2 bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
                         >
                           Tambah
@@ -797,7 +790,7 @@ export default function KasirPage() {
               <div className="mt-6 border-t pt-4">
                 <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
                 {selectedMenuItems.map((item) => {
-                  const basePriceAfterDiscount = calculateItemPrice(item.menu, item.modifierIds);
+                  const basePriceAfterDiscount = calculateItemPrice(item.menu);
                   let modifierTotal = 0;
                   Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
                     if (modifierId) {
@@ -814,40 +807,29 @@ export default function KasirPage() {
                     .filter(Boolean)
                     .join(", ");
                   const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
-                  const modifierGroups = item.menu.modifiers.reduce((acc, mod) => {
-                    const categoryId = mod.modifier.category.id;
-                    if (!acc[categoryId]) {
-                      acc[categoryId] = { category: mod.modifier.category, modifiers: [] };
-                    }
-                    acc[categoryId].modifiers.push(mod);
-                    return acc;
-                  }, {} as { [key: number]: { category: { id: number; name: string }; modifiers: Modifier[] } });
 
                   return (
-                    <div key={item.uniqueKey} className="flex flex-col justify-between items-center mb-3 p-2 bg-gray-50 rounded">
-                      <div className="flex justify-between w-full">
+                    <div key={item.uniqueKey} className="flex justify-between items-center mb-3 p-2 bg-gray-50 rounded">
+                      <div className="flex-1">
                         <p className="font-medium">{itemNameWithModifiers}</p>
-                        <p className="text-orange-600 font-semibold">
-                          Rp{itemPrice.toLocaleString()} x {item.quantity}
+                        <p className="text-sm text-gray-600">
+                          Rp {itemPrice.toLocaleString()} x {item.quantity}
                         </p>
+                        <input
+                          type="text"
+                          placeholder="Catatan..."
+                          value={item.note}
+                          onChange={(e) => {
+                            setSelectedMenuItems((prev) =>
+                              prev.map((prevItem) =>
+                                prevItem.uniqueKey === item.uniqueKey ? { ...prevItem, note: e.target.value } : prevItem
+                              )
+                            );
+                          }}
+                          className="text-sm mt-1 p-1 border rounded w-full"
+                        />
                       </div>
-                      <p className="text-right text-gray-700 font-semibold w-full">
-                        Total: Rp{itemTotalPrice.toLocaleString()}
-                      </p>
-                      <input
-                        type="text"
-                        placeholder="Catatan..."
-                        value={item.note}
-                        onChange={(e) => {
-                          setSelectedMenuItems((prev) =>
-                            prev.map((prevItem) =>
-                              prevItem.uniqueKey === item.uniqueKey ? { ...prevItem, note: e.target.value } : prevItem
-                            )
-                          );
-                        }}
-                        className="text-sm mt-1 p-1 border rounded w-full"
-                      />
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => removeFromCart(item.uniqueKey)}
                           className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
@@ -861,31 +843,6 @@ export default function KasirPage() {
                         >
                           +
                         </button>
-                      </div>
-                      <div className="mt-2 w-full">
-                        {Object.entries(modifierGroups).map(([categoryId, group]) => (
-                          <div key={categoryId} className="mb-2">
-                            <label className="block text-sm font-medium">{group.category.name}:</label>
-                            <select
-                              value={item.modifierIds[parseInt(categoryId)] || 0}
-                              onChange={(e) =>
-                                updateCartItemModifier(
-                                  item.uniqueKey,
-                                  parseInt(categoryId),
-                                  e.target.value === "0" ? null : parseInt(e.target.value)
-                                )
-                              }
-                              className="w-full p-2 border rounded-md"
-                            >
-                              <option value={0}>Tanpa {group.category.name} (Rp0)</option>
-                              {group.modifiers.map((mod) => (
-                                <option key={mod.modifier.id} value={mod.modifier.id}>
-                                  {mod.modifier.name} (Rp{mod.modifier.price.toLocaleString()})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        ))}
                       </div>
                     </div>
                   );
@@ -904,18 +861,14 @@ export default function KasirPage() {
                   </div>
                   <div className="mt-2">
                     <label className="block text-sm font-medium mb-1">Diskon Total:</label>
-                    <select
-                      value={selectedDiscountIdNewOrder || ""}
-                      onChange={(e) => setSelectedDiscountIdNewOrder(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full p-2 border rounded-md"
+                    <button
+                      onClick={() => setIsDiscountPopupOpen(true)}
+                      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
                     >
-                      <option value="">Tidak ada diskon</option>
-                      {discounts.filter(d => d.scope === "TOTAL").map((discount) => (
-                        <option key={discount.id} value={discount.id}>
-                          {discount.name} ({discount.type === "PERCENTAGE" ? `${discount.value}%` : `Rp${discount.value}`})
-                        </option>
-                      ))}
-                    </select>
+                      {selectedDiscountIdNewOrder
+                        ? discounts.find((d) => d.id === selectedDiscountIdNewOrder)?.name || "Pilih Diskon"
+                        : "Pilih Diskon"}
+                    </button>
                   </div>
                   <button
                     onClick={() => {
@@ -1167,6 +1120,114 @@ export default function KasirPage() {
             </div>
           </div>
         )}
+
+        {isModifierPopupOpen && currentMenu && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Tambah Modifier - {currentMenu.name}
+                </h2>
+                <button
+                  onClick={() => setIsModifierPopupOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-3">
+                  {currentMenu.modifiers.length > 0 ? (
+                    currentMenu.modifiers.map((mod) => (
+                      <div
+                        key={mod.modifier.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedModifiers.includes(mod.modifier.id)}
+                            onChange={() => handleModifierToggle(mod.modifier.id)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-gray-700">{mod.modifier.name}</span>
+                        </div>
+                        <span className="text-gray-600 text-sm">
+                          +Rp {mod.modifier.price.toLocaleString()}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
+                  )}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button
+                  onClick={saveModifiersToCart}
+                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+                >
+                  Simpan Modifier ({selectedModifiers.length} dipilih)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isDiscountPopupOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
+                <button
+                  onClick={() => setIsDiscountPopupOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-3">
+                  {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
+                    discounts
+                      .filter((d) => d.scope === "TOTAL")
+                      .map((discount) => (
+                        <div
+                          key={discount.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedDiscountIdNewOrder === discount.id}
+                              onChange={() => setSelectedDiscountIdNewOrder(discount.id)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-gray-700">{discount.name}</span>
+                          </div>
+                          <span className="text-gray-600 text-sm">
+                            {discount.type === "PERCENTAGE"
+                              ? `${discount.value}%`
+                              : `Rp ${discount.value.toLocaleString()}`}
+                          </span>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
+                  )}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button
+                  onClick={() => setIsDiscountPopupOpen(false)}
+                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+                >
+                  Simpan Diskon
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <style jsx global>{`
@@ -1397,6 +1458,7 @@ function OrderItemComponent({
   const [change, setChange] = useState<number>(0);
   const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(order.discountId || null);
+  const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
 
   const isPaidOrder = order.status === "paid";
 
@@ -1548,18 +1610,14 @@ function OrderItemComponent({
 
       {order.status === "pending" && confirmPayment && (
         <div className="mt-4 space-y-2">
-          <select
-            value={selectedDiscountId || ""}
-            onChange={(e) => setSelectedDiscountId(e.target.value ? Number(e.target.value) : null)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+          <button
+            onClick={() => setIsDiscountPopupOpen(true)}
+            className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
           >
-            <option value="">Tidak ada diskon</option>
-            {discounts.filter(d => d.scope === "TOTAL").map((discount) => (
-              <option key={discount.id} value={discount.id}>
-                {discount.name} ({discount.type === "PERCENTAGE" ? `${discount.value}%` : `Rp${discount.value}`})
-              </option>
-            ))}
-          </select>
+            {selectedDiscountId
+              ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
+              : "Pilih Diskon"}
+          </button>
           <select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
@@ -1708,9 +1766,65 @@ function OrderItemComponent({
           </div>
         </div>
       )}
+
+      {isDiscountPopupOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
+              <button
+                onClick={() => setIsDiscountPopupOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 p-4 overflow-y-auto">
+              <div className="space-y-3">
+                {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
+                  discounts
+                    .filter((d) => d.scope === "TOTAL")
+                    .map((discount) => (
+                      <div
+                        key={discount.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedDiscountId === discount.id}
+                            onChange={() => setSelectedDiscountId(discount.id)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-gray-700">{discount.name}</span>
+                        </div>
+                        <span className="text-gray-600 text-sm">
+                          {discount.type === "PERCENTAGE"
+                            ? `${discount.value}%`
+                            : `Rp ${discount.value.toLocaleString()}`}
+                        </span>
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
+                )}
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+              <button
+                onClick={() => setIsDiscountPopupOpen(false)}
+                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+              >
+                Simpan Diskon
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 function StatusBadge({ status }: { status: string }) {
   let color = "bg-[#979797]";
   if (status === "pending") color = "bg-[#FF8A00]";
