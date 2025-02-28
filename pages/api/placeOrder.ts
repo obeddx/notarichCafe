@@ -8,6 +8,7 @@ interface OrderItem {
   quantity: number;
   note?: string;
   modifierIds?: number[];
+  discountId?: number; // Tambahkan discountId per item
 }
 
 interface ReservationData {
@@ -34,7 +35,7 @@ interface OrderDetails {
   discountAmount?: number;
   finalTotal?: number;
   bookingCode?: string;
-  reservationData?: ReservationData; // Tambahkan data reservasi dari client
+  reservationData?: ReservationData;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -65,43 +66,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const gratuity = await prisma.gratuity.findFirst({ where: { isActive: true } });
 
     const newOrder = await prisma.$transaction(async (prisma) => {
-      const orderItemsData = orderDetails.items.map((item) => {
-        const menu = menus.find((m) => m.id === item.menuId);
-        if (!menu) throw new Error(`Menu with ID ${item.menuId} not found`);
-        let price = menu.price;
+      const orderItemsData = await Promise.all(
+        orderDetails.items.map(async (item) => {
+          const menu = menus.find((m) => m.id === item.menuId);
+          if (!menu) throw new Error(`Menu with ID ${item.menuId} not found`);
+          let price = menu.price;
 
-        let modifierCost = 0;
-        if (Array.isArray(item.modifierIds) && item.modifierIds.length > 0) {
-          const modifiers = menu.modifiers.filter((m) => item.modifierIds!.includes(m.modifier.id));
-          modifierCost = modifiers.reduce((sum, mod) => sum + (mod.modifier.price || 0), 0);
-        }
-        price += modifierCost;
+          let modifierCost = 0;
+          if (Array.isArray(item.modifierIds) && item.modifierIds.length > 0) {
+            const modifiers = menu.modifiers.filter((m) => item.modifierIds!.includes(m.modifier.id));
+            modifierCost = modifiers.reduce((sum, mod) => sum + (mod.modifier.price || 0), 0);
+          }
+          price += modifierCost;
 
-        const subtotal = price * item.quantity;
+          const subtotal = price * item.quantity;
 
-        let discountAmount = 0;
-        const menuDiscount = menu.discounts.find((d) => d.discount.isActive);
-        if (menuDiscount) {
-          const discount = menuDiscount.discount;
-          discountAmount =
-            discount.type === "PERCENTAGE"
-              ? (discount.value / 100) * menu.price * item.quantity
-              : discount.value * item.quantity;
-        }
+          let discountAmount = 0;
+          let discountIdUsed = item.discountId;
+          if (item.discountId) {
+            const discount = await prisma.discount.findUnique({
+              where: { id: item.discountId },
+            });
+            if (discount && discount.isActive && discount.scope === "MENU") {
+              discountAmount =
+                discount.type === "PERCENTAGE"
+                  ? (discount.value / 100) * menu.price * item.quantity
+                  : discount.value * item.quantity;
+            } else {
+              console.warn(`Discount ID ${item.discountId} invalid or not MENU scope`);
+              discountIdUsed = null;
+            }
+          }
 
-        return {
-          menuId: item.menuId,
-          quantity: item.quantity,
-          note: item.note || "",
-          price,
-          discountAmount,
-          modifiers: {
-            create: (item.modifierIds || []).map((modifierId) => ({
-              modifierId,
-            })),
-          },
-        };
-      });
+          return {
+            menuId: item.menuId,
+            quantity: item.quantity,
+            note: item.note || "",
+            price,
+            discountAmount,
+            modifiers: {
+              create: (item.modifierIds || []).map((modifierId) => ({
+                modifierId,
+              })),
+            },
+          };
+        })
+      );
 
       const totalBeforeDiscount = orderItemsData.reduce(
         (acc, item) => acc + item.price * item.quantity,
@@ -117,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const gratuityAmount = gratuity ? (gratuity.value / 100) * totalAfterMenuDiscount : 0;
 
       let totalDiscountAmount = totalMenuDiscountAmount;
+      let orderDiscountId = orderDetails.discountId;
       if (orderDetails.discountId) {
         const discount = await prisma.discount.findUnique({
           where: { id: orderDetails.discountId },
@@ -130,7 +141,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           console.log(`Applied TOTAL discount: ${discount.name}, Amount: ${additionalDiscount}`);
         } else {
           console.warn(`Discount ID ${orderDetails.discountId} invalid or not TOTAL scope`);
+          orderDiscountId = null;
         }
+      }
+
+      // Jika semua item memiliki discountId yang sama, gunakan itu sebagai order.discountId
+      const itemDiscountIds = orderDetails.items
+        .map((item) => item.discountId)
+        .filter((id): id is number => id !== undefined);
+      const uniqueDiscountIds = [...new Set(itemDiscountIds)];
+      if (uniqueDiscountIds.length === 1 && !orderDiscountId) {
+        orderDiscountId = uniqueDiscountIds[0];
+        console.log(`Set order.discountId to ${orderDiscountId} based on item discounts`);
       }
 
       const baseTotal = totalAfterMenuDiscount - (totalDiscountAmount - totalMenuDiscountAmount);
@@ -161,7 +183,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           customerName: orderDetails.customerName,
           tableNumber: orderDetails.tableNumber,
           total: totalBeforeDiscount,
-          discountId: orderDetails.discountId || null,
+          discountId: orderDiscountId || null,
           discountAmount: totalDiscountAmount,
           taxAmount,
           gratuityAmount,

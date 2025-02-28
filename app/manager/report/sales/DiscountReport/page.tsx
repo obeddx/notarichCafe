@@ -1,4 +1,3 @@
-// pages/manager/report/sales/discount-report/DiscountReport.tsx
 "use client";
 import { useState, useEffect, ChangeEvent } from "react";
 import SalesLayout from "@/components/SalesLayout";
@@ -49,13 +48,13 @@ const DiscountReport = () => {
         }
         url = `/api/discount-report?period=${periodQuery}&date=${queryDate}`;
       }
-      
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data discount report");
       const result = await res.json();
       setData(result);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching discount report:", error);
       setData([]);
     } finally {
       setLoading(false);
@@ -68,26 +67,21 @@ const DiscountReport = () => {
 
   const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
 
-  // Hitung total
   const totalCount = data.reduce((acc, item) => acc + item.count, 0);
   const totalGrossDiscount = data.reduce((acc, item) => acc + item.grossDiscount, 0);
-  const totalNetDiscount = data.reduce((acc, item) => acc + item.netDiscount, 0);
 
-  // Data untuk ekspor
-  const exportData = data.map(item => ({
-    "Name": item.name,
-    "Discount": item.discount,
-    "Count": item.count,
-    "Gross Discount": item.grossDiscount,
-    "Net Discount": item.netDiscount,
+  const exportData = data.map((item) => ({
+    Name: item.name,
+    Discount: item.discount,
+    Count: item.count,
+    "Gross Discount": formatCurrency(item.grossDiscount),
   }));
 
   exportData.push({
-    "Name": "Total",
-    "Discount": "",
-    "Count": totalCount,
-    "Gross Discount": totalGrossDiscount,
-    "Net Discount": totalNetDiscount,
+    Name: "Total",
+    Discount: "",
+    Count: totalCount,
+    "Gross Discount": formatCurrency(totalGrossDiscount),
   });
 
   const exportColumns = [
@@ -95,7 +89,6 @@ const DiscountReport = () => {
     { header: "Discount", key: "Discount" },
     { header: "Count", key: "Count" },
     { header: "Gross Discount", key: "Gross Discount" },
-    { header: "Net Discount", key: "Net Discount" },
   ];
 
   return (
@@ -165,7 +158,9 @@ const DiscountReport = () => {
         </button>
       </div>
 
-      {data.length > 0 ? (
+      {loading ? (
+        <p className="text-center text-gray-600">Memuat data...</p>
+      ) : data.length > 0 ? (
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -174,7 +169,6 @@ const DiscountReport = () => {
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Discount</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Count</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Gross Discount</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-700">Net Discount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -184,7 +178,6 @@ const DiscountReport = () => {
                   <td className="px-6 py-4 text-sm text-gray-900">{item.discount}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 text-right">{item.count}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.grossDiscount)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.netDiscount)}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold">
@@ -192,13 +185,12 @@ const DiscountReport = () => {
                 <td className="px-6 py-4 text-sm text-gray-900"></td>
                 <td className="px-6 py-4 text-sm text-gray-900 text-right">{totalCount}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalGrossDiscount)}</td>
-                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalNetDiscount)}</td>
               </tr>
             </tbody>
           </table>
         </div>
       ) : (
-        <p className="text-center text-gray-600">Tidak ada data.</p>
+        <p className="text-center text-gray-600">Tidak ada data diskon untuk periode ini.</p>
       )}
     </div>
   );

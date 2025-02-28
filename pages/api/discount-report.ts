@@ -1,4 +1,3 @@
-// pages/api/discount-report.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
@@ -9,7 +8,6 @@ interface AggregatedDiscount {
   discount: string;
   count: number;
   grossDiscount: number;
-  netDiscount: number;
 }
 
 function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
@@ -50,10 +48,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     let startDate: Date, endDate: Date;
-    
+
     if (req.query.startDate) {
       startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate 
+      endDate = req.query.endDate
         ? new Date(req.query.endDate as string)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
@@ -63,14 +61,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ({ startDate, endDate } = getStartAndEndDates(period, date));
     }
 
-    // Ambil semua order dengan diskon dalam periode tertentu
+    console.log("Fetching discount data for period:", { startDate, endDate });
+
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
           gte: startDate,
           lt: endDate,
         },
-        discountId: { not: null }, // Hanya ambil order yang memiliki diskon
+        OR: [
+          { discountId: { not: null } },
+          { discountAmount: { gt: 0 } },
+        ],
       },
       include: {
         discount: true,
@@ -82,42 +84,65 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Agregasi data per diskon
-    const aggregatedData: Record<number, AggregatedDiscount> = {};
+    console.log("Orders found:", orders.length);
+
+    const aggregatedData: Record<string, AggregatedDiscount> = {};
 
     for (const order of orders) {
-      const discountId = order.discountId!;
-      if (!aggregatedData[discountId]) {
-        aggregatedData[discountId] = {
-          name: order.discount!.name,
-          discount: order.discount!.type === "PERCENTAGE" ? `${order.discount!.value}%` : `Rp ${order.discount!.value}`,
+      const discountId = order.discountId;
+      const discountKey = discountId ? discountId.toString() : "manual";
+
+      // Ambil data diskon dari tabel Discount jika discountId ada
+      let discountData = null;
+      if (discountId) {
+        discountData = await prisma.discount.findUnique({
+          where: { id: discountId },
+        });
+        if (!discountData) {
+          console.warn(`No discount found for discountId: ${discountId} in order ${order.id}`);
+        }
+      }
+
+      // Debugging detail pesanan
+      console.log("Order Details:", {
+        id: order.id,
+        discountId: order.discountId,
+        discountAmount: order.discountAmount,
+        discountData: discountData ? { name: discountData.name, value: discountData.value, type: discountData.type } : null,
+      });
+
+      if (!aggregatedData[discountKey]) {
+        aggregatedData[discountKey] = {
+          name: discountData ? discountData.name : "Manual Discount",
+          discount: discountData
+            ? discountData.type === "PERCENTAGE"
+              ? `${discountData.value}%`
+              : `${discountData.value}`
+            : `${order.discountAmount || 0}`,
           count: 0,
           grossDiscount: 0,
-          netDiscount: 0,
         };
       }
 
-      aggregatedData[discountId].count += 1;
+      aggregatedData[discountKey].count += 1;
+      const grossDiscount = Number(order.discountAmount || 0);
+      aggregatedData[discountKey].grossDiscount += grossDiscount;
 
-      // Gross Discount: Total diskon sebelum penyesuaian (berdasarkan nilai diskon)
-      const discountValue = order.discount!.type === "PERCENTAGE"
-        ? (order.discount!.value / 100) * order.orderItems.reduce((acc, item) => acc + Number(item.menu.price) * item.quantity, 0)
-        : order.discount!.value;
-      aggregatedData[discountId].grossDiscount += discountValue;
-
-      // Net Discount: Total diskon aktual dari order (discountAmount)
-      aggregatedData[discountId].netDiscount += Number(order.discountAmount || 0);
+      console.log(`Aggregated: Key: ${discountKey}, Name: ${aggregatedData[discountKey].name}, Discount: ${aggregatedData[discountKey].discount}, Gross: ${grossDiscount}`);
     }
 
-    // Konversi ke array dan urutkan berdasarkan netDiscount
-    const result = Object.values(aggregatedData).sort((a, b) => b.netDiscount - a.netDiscount);
+    const result = Object.values(aggregatedData).sort((a, b) => b.grossDiscount - a.grossDiscount);
+
+    console.log("Aggregated Discount Data:", result);
 
     res.status(200).json(result);
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ 
+    console.error("Error in discount-report API:", error);
+    res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : "Unknown error",
     });
+  } finally {
+    await prisma.$disconnect();
   }
 }

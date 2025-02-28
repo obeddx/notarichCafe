@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import Image from "next/image";
-import { ShoppingCart, X } from "lucide-react";
+import { ShoppingCart, X, ChevronDown } from "lucide-react"; // Tambahkan ChevronDown
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
@@ -9,6 +9,7 @@ import { jsPDF } from "jspdf";
 import io from "socket.io-client";
 import html2canvas from "html2canvas";
 
+// Interface definitions remain unchanged
 interface Ingredient {
   id: number;
   name: string;
@@ -141,7 +142,7 @@ export default function MenuPage() {
       setTableNumber(`Meja ${finalTableNumber} - ${bookingCode}`);
       sessionStorage.setItem("reservation", "true");
       sessionStorage.setItem("bookingCode", bookingCode);
-      setPaymentOption("ewallet"); // Default ke E-Wallet untuk reservasi
+      setPaymentOption("ewallet");
       setCustomerName(JSON.parse(sessionStorage.getItem("reservationData") || "{}").namaCustomer || "");
     } else {
       setTableNumber(finalTableNumber);
@@ -163,7 +164,6 @@ export default function MenuPage() {
     if (tableNumber !== "Unknown") {
       const sendTableNumber = async () => {
         try {
-          // Membersihkan tableNumber untuk hanya mengirim nomor meja
           const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
           const response = await fetch("/api/nomeja", {
             method: "POST",
@@ -436,12 +436,16 @@ export default function MenuPage() {
     const orderDetails = {
       customerName,
       tableNumber,
-      items: cart.map((item) => ({
-        menuId: item.menu.id,
-        quantity: item.quantity,
-        note: item.note,
-        modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
-      })),
+      items: cart.map((item) => {
+        const activeDiscount = item.menu.discounts.find((d) => d.discount.isActive);
+        return {
+          menuId: item.menu.id,
+          quantity: item.quantity,
+          note: item.note,
+          modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
+          discountId: activeDiscount ? activeDiscount.discount.id : undefined,
+        };
+      }),
       total: subtotal,
       discountId: selectedDiscountId || undefined,
       taxAmount,
@@ -450,7 +454,7 @@ export default function MenuPage() {
       finalTotal: totalAfterAll,
       paymentMethod: paymentOption,
       bookingCode: bookingCode || undefined,
-      reservationData: bookingCode ? reservationData : undefined, // Kirim semua data reservasi jika ada bookingCode
+      reservationData: bookingCode ? reservationData : undefined,
     };
     try {
       const response = await fetch("/api/placeOrder", {
@@ -483,6 +487,13 @@ export default function MenuPage() {
     setCart([]);
     setSelectedDiscountId(null);
     sessionStorage.removeItem(`cart_table_${tableNumber}`);
+  };
+
+  const scrollToSummary = () => {
+    const summaryElement = document.getElementById("cart-summary");
+    if (summaryElement) {
+      summaryElement.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   const generateReceiptPDF = () => {
@@ -574,7 +585,6 @@ export default function MenuPage() {
     doc.save("receipt.pdf");
   };
 
-  // Fungsi untuk format tanggal
   const formatTanggalForKode = (date: string) => {
     const validDate = new Date(date);
     if (isNaN(validDate.getTime())) return "-";
@@ -586,7 +596,6 @@ export default function MenuPage() {
     return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
-  // Fungsi untuk format kode booking
   const formatKodeBooking = (kode: string) => {
     const regex = /^RESV-(\d{2})(\d{2})(\d{4})-(\w{6})$/;
     const match = kode.match(regex);
@@ -597,7 +606,6 @@ export default function MenuPage() {
     return kode;
   };
 
-  // Fungsi untuk capture dan download Reservation Details
   const captureAndDownloadReservationDetails = (kodeBooking: string, namaCustomer: string) => {
     const element = document.getElementById("reservationDetails");
     if (!element) {
@@ -617,169 +625,167 @@ export default function MenuPage() {
     });
   };
 
-  // Di dalam renderPaymentMethodModal
-const renderPaymentMethodModal = () => {
-  const isReservation = sessionStorage.getItem("reservation") === "true";
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold text-orange-600 mb-4">Pilih Metode Pembayaran</h2>
-        {!isReservation && (
+  const renderPaymentMethodModal = () => {
+    const isReservation = sessionStorage.getItem("reservation") === "true";
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg w-full max-w-md">
+          <h2 className="text-2xl font-bold text-orange-600 mb-4">Pilih Metode Pembayaran</h2>
+          {!isReservation && (
+            <button
+              onClick={async () => {
+                setPaymentOption("cash");
+                setShowPaymentMethodModal(false);
+                const order = await createOrder();
+                if (order) {
+                  setOrderRecord(order);
+                  toast.success("Order placed successfully!");
+                  setShowReceiptModal(true);
+                } else {
+                  setOrderError("Failed to create order. Please try again.");
+                  toast.error("Failed to create order. Please try again.");
+                }
+              }}
+              className="w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition mb-4"
+            >
+              Tunai
+            </button>
+          )}
           <button
             onClick={async () => {
-              setPaymentOption("cash");
+              setPaymentOption("ewallet");
               setShowPaymentMethodModal(false);
-              const order = await createOrder();
-              if (order) {
-                setOrderRecord(order);
-                toast.success("Order placed successfully!");
-                setShowReceiptModal(true);
-              } else {
-                setOrderError("Failed to create order. Please try again.");
-                toast.error("Failed to create order. Please try again.");
+
+              const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
+
+              const itemDetails = cart.map((item) => {
+                const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+                let modifierTotal = 0;
+                const modifierNames: string[] = [];
+                Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+                  if (modifierId) {
+                    const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                    if (modifier) {
+                      modifierTotal += modifier.price * item.quantity;
+                      modifierNames.push(modifier.name);
+                    }
+                  }
+                });
+                const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
+                return {
+                  id: item.menu.id.toString(),
+                  price: itemBasePrice + (modifierTotal / item.quantity),
+                  quantity: item.quantity,
+                  name: itemNameWithModifiers,
+                };
+              });
+
+              if (taxAmount > 0) {
+                itemDetails.push({ id: "tax", price: taxAmount, quantity: 1, name: "Pajak" });
+              }
+              if (gratuityAmount > 0) {
+                itemDetails.push({ id: "gratuity", price: gratuityAmount, quantity: 1, name: "Gratuity" });
+              }
+
+              const payload = {
+                orderId: "ORDER-" + new Date().getTime(),
+                total: totalAfterAll,
+                customerName,
+                customerEmail: "customer@example.com",
+                customerPhone: "",
+                item_details: itemDetails,
+              };
+
+              try {
+                const response = await fetch("/api/payment/generateSnapToken", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const data = await response.json();
+                if (data.success && data.snapToken) {
+                  setSnapToken(data.snapToken);
+
+                  const loadMidtransScript = (): Promise<void> => {
+                    return new Promise((resolve, reject) => {
+                      if (window.snap) {
+                        resolve();
+                      } else {
+                        const script = document.createElement("script");
+                        script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+                        script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "YOUR_CLIENT_KEY");
+                        script.onload = () => resolve();
+                        script.onerror = () => reject(new Error("Gagal memuat Midtrans Snap"));
+                        document.body.appendChild(script);
+                      }
+                    });
+                  };
+
+                  await loadMidtransScript();
+
+                  const handlePaymentSuccess = async (result: MidtransResult) => {
+                    const order = await createOrder();
+                    if (order) {
+                      await fetch("/api/updatePaymentStatus", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          orderId: order.id,
+                          paymentMethod: "e-wallet",
+                          paymentStatus: "paid",
+                          paymentId: result.transaction_id,
+                        }),
+                      });
+
+                      const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+                      if (isReservation) {
+                        reservationData.meja = tableNumber.split(" - ")[0];
+                        setShowReservationDetails(true);
+                        setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
+                      }
+
+                      toast.success("Order placed successfully!");
+                      generateReceiptPDF();
+                      setCart([]);
+                      sessionStorage.removeItem(`cart_table_${tableNumber}`);
+                    } else {
+                      setOrderError("Failed to create order after payment.");
+                      toast.error("Failed to create order after payment.");
+                    }
+                  };
+
+                  window.snap.pay(data.snapToken, {
+                    onSuccess: handlePaymentSuccess,
+                    onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
+                    onError: (result: MidtransResult) => {
+                      console.error("Pembayaran error:", result);
+                      toast.error("Gagal melakukan pembayaran e-Wallet.");
+                    },
+                    onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                  });
+                } else {
+                  console.error("Gagal mendapatkan snap token:", data);
+                  toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
+                }
+              } catch (error) {
+                console.error("Error generating snap token or loading Midtrans:", error);
+                toast.error("Terjadi kesalahan saat memproses pembayaran.");
               }
             }}
-            className="w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition mb-4"
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
           >
-            Tunai
+            E-Wallet
           </button>
-        )}
-        <button
-          onClick={async () => {
-            setPaymentOption("ewallet");
-            setShowPaymentMethodModal(false);
-
-            const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
-
-            const itemDetails = cart.map((item) => {
-              const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
-              let modifierTotal = 0;
-              const modifierNames: string[] = [];
-              Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
-                if (modifierId) {
-                  const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-                  if (modifier) {
-                    modifierTotal += modifier.price * item.quantity;
-                    modifierNames.push(modifier.name);
-                  }
-                }
-              });
-              const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
-              return {
-                id: item.menu.id.toString(),
-                price: itemBasePrice + (modifierTotal / item.quantity),
-                quantity: item.quantity,
-                name: itemNameWithModifiers,
-              };
-            });
-
-            if (taxAmount > 0) {
-              itemDetails.push({ id: "tax", price: taxAmount, quantity: 1, name: "Pajak" });
-            }
-            if (gratuityAmount > 0) {
-              itemDetails.push({ id: "gratuity", price: gratuityAmount, quantity: 1, name: "Gratuity" });
-            }
-
-            const payload = {
-              orderId: "ORDER-" + new Date().getTime(),
-              total: totalAfterAll,
-              customerName,
-              customerEmail: "customer@example.com",
-              customerPhone: "",
-              item_details: itemDetails,
-            };
-
-            try {
-              const response = await fetch("/api/payment/generateSnapToken", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const data = await response.json();
-              if (data.success && data.snapToken) {
-                setSnapToken(data.snapToken);
-
-                // Pastikan script Midtrans dimuat sebelum memanggil pay
-                const loadMidtransScript = (): Promise<void> => {
-                  return new Promise((resolve, reject) => {
-                    if (window.snap) {
-                      resolve();
-                    } else {
-                      const script = document.createElement("script");
-                      script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-                      script.setAttribute("data-client-key", process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "YOUR_CLIENT_KEY");
-                      script.onload = () => resolve();
-                      script.onerror = () => reject(new Error("Gagal memuat Midtrans Snap"));
-                      document.body.appendChild(script);
-                    }
-                  });
-                };
-
-                await loadMidtransScript();
-
-                const handlePaymentSuccess = async (result: MidtransResult) => {
-                  const order = await createOrder();
-                  if (order) {
-                    await fetch("/api/updatePaymentStatus", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        orderId: order.id,
-                        paymentMethod: "e-wallet",
-                        paymentStatus: "paid",
-                        paymentId: result.transaction_id,
-                      }),
-                    });
-
-                    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-                    if (isReservation) {
-                      reservationData.meja = tableNumber.split(" - ")[0];
-                      setShowReservationDetails(true);
-                      setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
-                    }
-
-                    toast.success("Order placed successfully!");
-                    generateReceiptPDF();
-                    setCart([]);
-                    sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                  } else {
-                    setOrderError("Failed to create order after payment.");
-                    toast.error("Failed to create order after payment.");
-                  }
-                };
-
-                window.snap.pay(data.snapToken, {
-                  onSuccess: handlePaymentSuccess,
-                  onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
-                  onError: (result: MidtransResult) => {
-                    console.error("Pembayaran error:", result);
-                    toast.error("Gagal melakukan pembayaran e-Wallet.");
-                  },
-                  onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-                });
-              } else {
-                console.error("Gagal mendapatkan snap token:", data);
-                toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
-              }
-            } catch (error) {
-              console.error("Error generating snap token or loading Midtrans:", error);
-              toast.error("Terjadi kesalahan saat memproses pembayaran.");
-            }
-          }}
-          className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
-        >
-          E-Wallet
-        </button>
-        <button
-          onClick={() => setShowPaymentMethodModal(false)}
-          className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
-        >
-          Batal
-        </button>
+          <button
+            onClick={() => setShowPaymentMethodModal(false)}
+            className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
+          >
+            Batal
+          </button>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   const renderReceiptModal = () => {
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
@@ -1012,7 +1018,7 @@ const renderPaymentMethodModal = () => {
 
       <button
         onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3"
+        className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3 z-50"
       >
         <ShoppingCart className="w-6 h-6" />
         {cart.length > 0 && (
@@ -1030,19 +1036,20 @@ const renderPaymentMethodModal = () => {
       </button>
 
       {isCartOpen && (
-        <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg p-6 overflow-y-auto z-50 flex flex-col">
-          <div className="flex justify-between items-center border-b pb-4 mb-4">
+        <div className="fixed top-0 right-0 w-full md:w-1/3 h-full bg-white shadow-lg z-50 flex flex-col">
+          <div className="flex justify-between items-center p-6 border-b border-gray-200">
             <h2 className="text-2xl font-bold text-orange-600">Your Cart</h2>
             <button onClick={() => setIsCartOpen(false)}>
               <X className="w-6 h-6 text-gray-800 hover:text-orange-600" />
             </button>
           </div>
           {cart.length === 0 ? (
-            <p className="text-center text-gray-500 flex-grow">Your cart is empty.</p>
+            <p className="text-center text-gray-500 p-6 flex-grow">Your cart is empty.</p>
           ) : (
-            <>
-              <div className="flex-grow overflow-y-auto">
-                <ul className="space-y-4">
+            <div className="flex flex-col h-full overflow-y-auto">
+              {/* Daftar Item */}
+              <div className="p-6">
+                <ul className="space-y-6">
                   {cart.map((item) => {
                     const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
                     let modifierTotal = 0;
@@ -1072,39 +1079,39 @@ const renderPaymentMethodModal = () => {
                     }, {} as { [key: number]: { category: ModifierCategory; modifiers: Modifier[] } });
 
                     return (
-                      <li key={item.uniqueKey} className="flex flex-col border-b pb-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-semibold text-gray-900">{itemNameWithModifiers}</h3>
-                          <p className="text-orange-600 font-semibold">
+                      <li key={item.uniqueKey} className="flex flex-col border-b border-gray-200 pb-4">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-lg font-semibold text-gray-900 leading-tight">{itemNameWithModifiers}</h3>
+                          <p className="text-orange-600 font-semibold text-sm">
                             Rp{itemPrice.toLocaleString()} x {item.quantity}
                           </p>
                         </div>
-                        <p className="text-right text-gray-700 font-semibold">
+                        <p className="text-right text-gray-700 font-semibold text-sm mt-1">
                           Total: Rp{itemTotalPrice.toLocaleString()}
                         </p>
                         <div className="flex justify-between items-center mt-2">
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => removeFromCart(item.uniqueKey)}
-                              className="px-4 py-2 bg-red-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-red-700 transition"
+                              className="px-3 py-1 bg-red-500 text-white text-lg font-bold rounded-full hover:bg-red-600 transition"
                             >
                               −
                             </button>
-                            <span className="text-xl font-bold min-w-[40px] text-center text-black">
+                            <span className="text-lg font-bold min-w-[30px] text-center text-black">
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => addToCart(item.menu, item.modifierIds)}
-                              className="px-4 py-2 bg-green-500 text-white text-lg font-bold rounded-full shadow-md hover:bg-green-700 transition"
+                              className="px-3 py-1 bg-green-500 text-white text-lg font-bold rounded-full hover:bg-green-600 transition"
                             >
                               +
                             </button>
                           </div>
                         </div>
-                        <div className="mt-2">
+                        <div className="mt-2 space-y-2">
                           {Object.entries(modifierGroups).map(([categoryId, group]) => (
-                            <div key={categoryId} className="mb-2">
-                              <label className="block text-sm font-medium">{group.category.name}:</label>
+                            <div key={categoryId}>
+                              <label className="block text-sm font-medium text-gray-700">{group.category.name}:</label>
                               <select
                                 value={item.modifierIds[parseInt(categoryId)] || 0}
                                 onChange={(e) =>
@@ -1114,7 +1121,7 @@ const renderPaymentMethodModal = () => {
                                     e.target.value === "0" ? null : parseInt(e.target.value)
                                   )
                                 }
-                                className="w-full p-2 border rounded-md"
+                                className="w-full p-2 border border-gray-300 rounded-md text-sm"
                               >
                                 <option value={0}>Tanpa {group.category.name} (Rp0)</option>
                                 {group.modifiers.map((mod) => (
@@ -1128,7 +1135,7 @@ const renderPaymentMethodModal = () => {
                         </div>
                         {isNoteOpen ? (
                           <textarea
-                            className="mt-2 p-2 border rounded-lg w-full"
+                            className="mt-2 p-2 border border-gray-300 rounded-lg w-full text-sm"
                             placeholder="Add note (e.g., no sugar, extra spicy)"
                             value={item.note}
                             onChange={(e) => updateCartItemNote(item.uniqueKey, e.target.value)}
@@ -1136,7 +1143,7 @@ const renderPaymentMethodModal = () => {
                         ) : (
                           <button
                             onClick={() => toggleNoteVisibility(item.uniqueKey)}
-                            className="mt-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-full text-sm hover:bg-gray-300 transition"
+                            className="mt-2 px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm hover:bg-gray-300 transition"
                           >
                             Add Note
                           </button>
@@ -1146,44 +1153,65 @@ const renderPaymentMethodModal = () => {
                   })}
                 </ul>
               </div>
-              <div className="mb-4">
+
+              {/* Input Nama Pelanggan dan Rincian Harga */}
+              <div className="p-6 border-t border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name (Required)</label>
                 <input
                   type="text"
-                  placeholder="Customer Name (Required)"
+                  placeholder="Enter your name"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 mb-6"
                   required
                 />
+
+                <div id="cart-summary" className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4">Rincian Harga</h3>
+                  <div className="space-y-2 text-gray-700">
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>Rp{calculateCartTotals().subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Modifier:</span>
+                      <span>Rp{calculateCartTotals().totalModifierCost.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Diskon:</span>
+                      <span>Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pajak:</span>
+                      <span>Rp{calculateCartTotals().taxAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Gratuity:</span>
+                      <span>Rp{calculateCartTotals().gratuityAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-orange-600 mt-2 pt-2 border-t border-gray-300">
+                      <span>Total:</span>
+                      <span>Rp{calculateCartTotals().totalAfterAll.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleShowPaymentModal}
+                    className="mt-6 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
+                  >
+                    Pesan Sekarang
+                  </button>
+                </div>
               </div>
-              <div className="p-4 bg-gray-100 rounded-lg mt-auto">
-                <h3 className="text-xl font-bold text-gray-900">Rincian Harga:</h3>
-                <p className="text-lg text-gray-900">
-                  Subtotal: Rp{calculateCartTotals().subtotal.toLocaleString()}
-                </p>
-                <p className="text-lg text-gray-900">
-                  Modifier: Rp{calculateCartTotals().totalModifierCost.toLocaleString()}
-                </p>
-                <p className="text-lg text-gray-900">
-                  Diskon: Rp{calculateCartTotals().totalDiscountAmount.toLocaleString()}
-                </p>
-                <p className="text-lg text-gray-900">
-                  Pajak: Rp{calculateCartTotals().taxAmount.toLocaleString()}
-                </p>
-                <p className="text-lg text-gray-900">
-                  Gratuity: Rp{calculateCartTotals().gratuityAmount.toLocaleString()}
-                </p>
-                <p className="text-2xl text-orange-600 font-semibold">
-                  Total: Rp{calculateCartTotals().totalAfterAll.toLocaleString()}
-                </p>
-                <button
-                  onClick={handleShowPaymentModal}
-                  className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
-                >
-                  Pesan Sekarang
-                </button>
-              </div>
-            </>
+            </div>
+          )}
+          {/* Tombol Panah ke Bawah */}
+          {cart.length > 0 && (
+            <button
+              onClick={scrollToSummary}
+              className="fixed bottom-16 right-4 bg-orange-600 text-white p-3 rounded-full shadow-lg hover:bg-orange-700 transition z-50"
+            >
+              <ChevronDown className="w-6 h-6" />
+            </button>
           )}
         </div>
       )}
