@@ -138,14 +138,31 @@ const Booking1 = () => {
   // Menentukan warna meja berdasarkan status
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-    const isBooked = reservations.some(
-      (reservasi) => reservasi.nomorMeja === tableNumberStr && reservasi.status === "BOOKED"
+    
+    // Cek status reservasi
+    const isReservedOrOccupied = reservations.some(
+      (reservasi) => 
+        reservasi.nomorMeja === tableNumberStr && 
+        (reservasi.status === "BOOKED" || reservasi.status === "OCCUPIED")
     );
-    if (isBooked) return "bg-[#D02323]";
-    if (backendMarkedTables.includes(tableNumberStr)) return "bg-[#D02323]";
-    const tableOrders = allOrders.filter((order) => order.tableNumber === tableNumberStr);
-    const hasActiveOrders = tableOrders.some((order) => order.status !== "Selesai");
-    return hasActiveOrders ? "bg-[#D02323]" : "bg-green-800";
+    
+    // Cek status pesanan yang sudah dibayar
+    const hasPaidOrder = allOrders.some(
+      (order) => 
+        order.tableNumber === tableNumberStr && 
+        order.paymentStatus === "paid" && 
+        order.status !== "Selesai"
+    );
+  
+    // Hanya tandai merah jika sudah ada reservasi BOOKED/OCCUPIED atau pesanan sudah dibayar
+    if (isReservedOrOccupied || hasPaidOrder) return "bg-[#D02323]";
+    
+    // Jika ada pesanan aktif belum dibayar, tetap hijau
+    const hasActiveOrders = allOrders.some(
+      (order) => order.tableNumber === tableNumberStr && order.status !== "Selesai"
+    );
+    
+    return hasActiveOrders ? "bg-green-800" : "bg-green-800"; // Tetap hijau jika belum dibayar
   };
 
   // Fetch detail pesanan meja yang dipilih

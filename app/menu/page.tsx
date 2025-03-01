@@ -705,15 +705,12 @@ export default function MenuPage() {
             <button
               onClick={async () => {
                 setPaymentOption("cash");
-                console.log("Payment Option Set To:", "cash"); // Tambahkan log
-                console.log("Current paymentOption after set:", paymentOption); // Log setelah set
                 setShowPaymentMethodModal(false);
-                const order = await createOrderWithMethod("cash"); // Buat fungsi baru
-                console.log("Order Sent:", order); // Log hasil order
+                const order = await createOrderWithMethod("cash");
                 if (order) {
                   setOrderRecord(order);
                   toast.success("Order placed successfully!");
-                  setShowReceiptModal(true);
+                  setShowReceiptModal(true); // Tetap tampilkan untuk cash
                 } else {
                   setOrderError("Failed to create order. Please try again.");
                   toast.error("Failed to create order. Please try again.");
@@ -724,126 +721,143 @@ export default function MenuPage() {
               Tunai
             </button>
           )}
-          <button
-            onClick={async () => {
-              setPaymentOption("ewallet");
-              setShowPaymentMethodModal(false);
+        <button
+          onClick={async () => {
+            setPaymentOption("ewallet");
+            setShowPaymentMethodModal(false);
 
-              const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
+            const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
 
-              const itemDetails = cart.map((item) => {
-                const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
-                let modifierTotal = 0;
-                const modifierNames: string[] = [];
-                Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
-                  if (modifierId) {
-                    const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-                    if (modifier) {
-                      modifierTotal += modifier.price * item.quantity;
-                      modifierNames.push(modifier.name);
-                    }
+            const itemDetails = cart.map((item) => {
+              const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+              let modifierTotal = 0;
+              const modifierNames: string[] = [];
+              Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+                if (modifierId) {
+                  const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                  if (modifier) {
+                    modifierTotal += modifier.price * item.quantity;
+                    modifierNames.push(modifier.name);
                   }
-                });
-                const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
-                return {
-                  id: item.menu.id.toString(),
-                  price: itemBasePrice + (modifierTotal / item.quantity),
-                  quantity: item.quantity,
-                  name: itemNameWithModifiers,
-                };
+                }
               });
-
-              if (taxAmount > 0) {
-                itemDetails.push({ id: "tax", price: taxAmount, quantity: 1, name: "Pajak" });
-              }
-              if (gratuityAmount > 0) {
-                itemDetails.push({ id: "gratuity", price: gratuityAmount, quantity: 1, name: "Gratuity" });
-              }
-
-              const payload = {
-                orderId: "ORDER-" + new Date().getTime(),
-                total: totalAfterAll,
-                customerName,
-                customerEmail: "customer@example.com",
-                customerPhone: "",
-                item_details: itemDetails,
+              const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
+              return {
+                id: item.menu.id.toString(),
+                price: itemBasePrice + (modifierTotal / item.quantity),
+                quantity: item.quantity,
+                name: itemNameWithModifiers,
               };
+            });
 
-              try {
-                const response = await fetch("/api/payment/generateSnapToken", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                });
-                const data = await response.json();
-                if (data.success && data.snapToken) {
-                  setSnapToken(data.snapToken);
+            if (taxAmount > 0) {
+              itemDetails.push({ id: "tax", price: taxAmount, quantity: 1, name: "Pajak" });
+            }
+            if (gratuityAmount > 0) {
+              itemDetails.push({ id: "gratuity", price: gratuityAmount, quantity: 1, name: "Gratuity" });
+            }
 
-                  await loadMidtransScript();
+            const payload = {
+              orderId: "ORDER-" + new Date().getTime(),
+              total: totalAfterAll,
+              customerName,
+              customerEmail: "customer@example.com",
+              customerPhone: "",
+              item_details: itemDetails,
+            };
 
-                  const handlePaymentSuccess = async (result: MidtransResult) => {
-                    const order = await createOrder(); // paymentMethod akan "ewallet"
-                    if (order) {
-                      await fetch("/api/updatePaymentStatus", {
-                        method: "POST",
+            try {
+              const response = await fetch("/api/payment/generateSnapToken", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+              const data = await response.json();
+              if (data.success && data.snapToken) {
+                setSnapToken(data.snapToken);
+
+                await loadMidtransScript();
+
+                const handlePaymentSuccess = async (result: MidtransResult) => {
+                  // Membuat pesanan terlebih dahulu
+                  const order = await createOrder();
+                  if (order) {
+                    // Perbarui status pembayaran menjadi "paid" setelah pembayaran berhasil
+                    const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        orderId: order.id,
+                        paymentMethod: "ewallet",
+                        paymentStatus: "paid",
+                        paymentId: result.transaction_id,
+                        status: "paid", // Langsung ubah status pesanan menjadi "paid"
+                      }),
+                    });
+                
+                    if (!paymentUpdateResponse.ok) {
+                      throw new Error("Gagal memperbarui status pembayaran");
+                    }
+                
+                    // Update status reservasi menjadi RESERVED jika ada reservasi
+                    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+                    if (isReservation) {
+                      await fetch(`/api/reservasi`, {
+                        method: "PUT",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          orderId: order.id,
-                          paymentMethod: "ewallet",
-                          paymentStatus: "paid",
-                          paymentId: result.transaction_id,
-                          status: "paid",
+                          kodeBooking: reservationData.kodeBooking,
+                          status: "RESERVED",
                         }),
                       });
-                      const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-                      if (isReservation) {
-                        reservationData.meja = tableNumber.split(" - ")[0];
-                        setShowReservationDetails(true);
-                        setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
-                      }
-
-                      toast.success("Order placed successfully!");
-                      generateReceiptPDF();
-                      setCart([]);
-                      sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                    } else {
-                      setOrderError("Failed to create order after payment.");
-                      toast.error("Failed to create order after payment.");
+                      reservationData.meja = tableNumber.split(" - ")[0];
+                      setShowReservationDetails(true);
+                      setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
                     }
-                  };
+                
+                    toast.success("Order placed successfully!");
+                    generateReceiptPDF();
+                    setCart([]);
+                    sessionStorage.removeItem(`cart_table_${tableNumber}`);
+                    // Tidak men-set showReceiptModal ke true, sehingga pop-up tidak muncul
+                  } else {
+                    setOrderError("Failed to create order after payment.");
+                    toast.error("Failed to create order after payment.");
+                  }
+                };
 
-                  window.snap.pay(data.snapToken, {
-                    onSuccess: handlePaymentSuccess,
-                    onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
-                    onError: (result: MidtransResult) => {
-                      console.error("Pembayaran error:", result);
-                      toast.error("Gagal melakukan pembayaran e-Wallet.");
-                    },
-                    onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-                  });
-                } else {
-                  console.error("Gagal mendapatkan snap token:", data);
-                  toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
-                }
-              } catch (error) {
-                console.error("Error generating snap token or loading Midtrans:", error);
-                toast.error("Terjadi kesalahan saat memproses pembayaran.");
+                window.snap.pay(data.snapToken, {
+                  onSuccess: handlePaymentSuccess,
+                  onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
+                  onError: (result: MidtransResult) => {
+                    console.error("Pembayaran error:", result);
+                    toast.error("Gagal melakukan pembayaran e-Wallet.");
+                  },
+                  onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                });
+              } else {
+                console.error("Gagal mendapatkan snap token:", data);
+                toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
               }
-            }}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
-          >
-            E-Wallet
-          </button>
-          <button
-            onClick={() => setShowPaymentMethodModal(false)}
-            className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
-          >
-            Batal
-          </button>
-        </div>
+            } catch (error) {
+              console.error("Error generating snap token or loading Midtrans:", error);
+              toast.error("Terjadi kesalahan saat memproses pembayaran.");
+            }
+          }}
+          className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
+        >
+          E-Wallet
+        </button>
+        <button
+          onClick={() => setShowPaymentMethodModal(false)}
+          className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
+        >
+          Batal
+        </button>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const renderReceiptModal = () => {
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();

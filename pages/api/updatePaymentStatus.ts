@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         paymentMethod,
         paymentStatus,
         paymentId,
-        status: status || "pending", // Perbarui status order jika diberikan
+        status: status || "pending", // Gunakan status yang diberikan atau default ke "pending"
       },
       include: {
         orderItems: {

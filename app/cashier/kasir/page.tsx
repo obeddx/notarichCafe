@@ -147,6 +147,24 @@ export default function KasirPage() {
 
   const unreadCount = notifications.filter((notif) => !notif.isRead).length;
   const [isPaymentMethodPopupOpen, setIsPaymentMethodPopupOpen] = useState(false);
+
+
+  const resetBookingOrder = async (orderId: number) => {
+    try {
+      const response = await fetch("/api/resetBookingOrder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      if (!response.ok) throw new Error("Gagal mereset meja reservasi");
+      toast.success("Pesanan booking berhasil direset");
+      fetchOrders(); // Refresh orders after reset
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Gagal mereset meja reservasi");
+    }
+  };
+
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
@@ -184,37 +202,58 @@ export default function KasirPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/socket")
-      .then(() => console.log("API /api/socket dipanggil"))
-      .catch((err) => console.error("Error memanggil API /api/socket:", err));
-
     const socketIo = io(SOCKET_URL, {
       path: "/api/socket",
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 5000,
     });
-
+  
     socketIo.on("connect", () => console.log("Terhubung ke WebSocket server:", socketIo.id));
-
-    socketIo.on("ordersUpdated", (newOrder: any) => {
-      console.log("Pesanan baru diterima:", newOrder);
+  
+    socketIo.on("ordersUpdated", (data: any) => {
+      console.log("Pesanan baru atau dihapus:", data);
       fetchOrders();
     });
-
+  
     socketIo.on("paymentStatusUpdated", (updatedOrder: Order) => {
       console.log("Status pembayaran diperbarui:", updatedOrder);
       setOrders((prevOrders) =>
         prevOrders.map((order) =>
-          order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
+          order.id === updatedOrder.id
+            ? {
+                ...order,
+                ...updatedOrder,
+                paymentStatusText:
+                  updatedOrder.paymentStatus === "paid" && updatedOrder.paymentMethod === "ewallet"
+                    ? "Status Payment: Paid via E-Wallet"
+                    : order.paymentStatusText,
+              }
+            : order
         )
       );
     });
-
+  
+    socketIo.on("reservationDeleted", ({ reservasiId, orderId }) => {
+      console.log("Reservasi dihapus:", { reservasiId, orderId });
+      setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+    });
+  
+    socketIo.on("reservationUpdated", (updatedReservasi) => {
+      console.log("Reservasi diperbarui:", updatedReservasi);
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.reservasi?.id === updatedReservasi.id
+            ? { ...order, reservasi: updatedReservasi }
+            : order
+        )
+      );
+    });
+  
     socketIo.on("disconnect", () => console.log("Socket terputus"));
-
+  
     setSocket(socketIo);
-
+  
     return () => {
       socketIo.disconnect();
       console.log("WebSocket disconnected");
@@ -237,7 +276,7 @@ export default function KasirPage() {
       if (paymentMethod === "tunai" && cashGiven !== undefined && change !== undefined) {
         await updateCartWithPayment(cashGiven.toString(), change);
       }
-
+  
       const res = await fetch("/api/orders", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -248,22 +287,23 @@ export default function KasirPage() {
           discountId: discountId || null,
           cashGiven,
           change,
+          status: "Sedang Diproses", // Ubah status menjadi "Sedang Diproses" setelah konfirmasi
         }),
       });
-
+  
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Gagal mengonfirmasi pembayaran");
       }
-
+  
       const data = await res.json();
       const updatedOrder = data.order;
-
+  
       setOrders((prevOrders) =>
         prevOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
       );
       toast.success("✅ Pembayaran berhasil dikonfirmasi!");
-
+  
       setPaymentMethod("tunai");
       setPaymentId("");
       setCashGiven("");
@@ -454,6 +494,7 @@ export default function KasirPage() {
         cashGiven,
         change
       );
+  
       if (finalPaymentMethod === "ewallet") {
         await fetch("/api/updatePaymentStatus", {
           method: "POST",
@@ -466,24 +507,11 @@ export default function KasirPage() {
             status: "paid",
           }),
         });
+  
         // Set status pembayaran untuk E-Wallet
         setOrders((prevOrders) =>
           prevOrders.map((o) =>
             o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via E-Wallet" } : o
-          )
-        );
-      } else if (finalPaymentMethod === "tunai") {
-        // Set status pembayaran untuk Tunai
-        setOrders((prevOrders) =>
-          prevOrders.map((o) =>
-            o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via Cash" } : o
-          )
-        );
-      } else if (finalPaymentMethod === "kartu") {
-        // Set status pembayaran untuk Kartu
-        setOrders((prevOrders) =>
-          prevOrders.map((o) =>
-            o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via Card" } : o
           )
         );
       }
@@ -516,7 +544,6 @@ export default function KasirPage() {
       setLoading(false);
     }
   };
-
   const calculateChange = (given: string) => {
     const total = pendingOrderData?.total || 0;
     const givenNumber = parseFloat(given) || 0;
@@ -1017,6 +1044,7 @@ export default function KasirPage() {
               title="✅ Pesanan Selesai"
               orders={completedOrders}
               resetTable={resetTable}
+              resetBookingOrder={resetBookingOrder} // Add this prop
             />
           </div>
         )}
@@ -1365,6 +1393,7 @@ function OrderSection({
   markOrderAsCompleted,
   cancelOrder,
   resetTable,
+  resetBookingOrder, // Add this prop
   discounts,
 }: {
   title: string;
@@ -1373,6 +1402,7 @@ function OrderSection({
   markOrderAsCompleted?: (id: number) => void;
   cancelOrder?: (id: number) => void;
   resetTable?: (tableNumber: string) => void;
+  resetBookingOrder?: (orderId: number) => void; // Add this prop
   discounts?: Discount[];
 }) {
   const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
@@ -1503,15 +1533,16 @@ function OrderSection({
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                 {tableOrders.map((order: Order) => (
                   <OrderItemComponent
-                    key={order.id}
-                    order={order}
-                    confirmPayment={confirmPayment}
-                    markOrderAsCompleted={markOrderAsCompleted}
-                    cancelOrder={cancelOrder}
-                    onSelectOrder={handleOrderSelection}
-                    isSelected={selectedOrders.includes(Number(order.id))}
-                    discounts={discounts || []}
-                  />
+                  key={order.id}
+                  order={order}
+                  confirmPayment={confirmPayment}
+                  markOrderAsCompleted={markOrderAsCompleted}
+                  cancelOrder={cancelOrder}
+                  onSelectOrder={handleOrderSelection}
+                  isSelected={selectedOrders.includes(Number(order.id))}
+                  discounts={discounts || []}
+                  resetBookingOrder={resetBookingOrder} // Pass the prop
+                />
                 ))}
               </div>
             </div>
@@ -1557,6 +1588,7 @@ function OrderItemComponent({
   onSelectOrder,
   isSelected,
   discounts,
+  resetBookingOrder,
 }: {
   order: Order;
   confirmPayment?: (orderId: number, paymentMethod: string, paymentId?: string, discountId?: number | null, cashGiven?: number, change?: number) => void;
@@ -1565,6 +1597,7 @@ function OrderItemComponent({
   onSelectOrder?: (orderId: number, isChecked: boolean) => void;
   isSelected?: boolean;
   discounts: Discount[];
+  resetBookingOrder?: (orderId: number) => void;
 }) {
   const [paymentMethod, setPaymentMethod] = useState<string>(order.paymentMethod || "tunai");
   const [paymentId, setPaymentId] = useState<string>(order.paymentId || "");
@@ -1574,9 +1607,9 @@ function OrderItemComponent({
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(order.discountId || null);
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
   const [isPaymentMethodPopupOpen, setIsPaymentMethodPopupOpen] = useState(false);
-  const [paymentStatusText, setPaymentStatusText] = useState<string>(order.paymentStatusText || ""); // Inisialisasi dari order
+  const [paymentStatusText, setPaymentStatusText] = useState<string>(order.paymentStatusText || "");
 
-  const isPaidOrder = order.status === "paid";
+  const isPaidOrder = order.status === "paid" || (order.paymentStatus === "paid" && order.paymentMethod === "ewallet");
 
   const calculateTotals = (discountId: number | null) => {
     let subtotal = 0;
@@ -1666,7 +1699,6 @@ function OrderItemComponent({
       }
     }
     confirmPayment?.(Number(order.id), paymentMethod, paymentId, selectedDiscountId, Number(cashGiven), change);
-    // Set status pembayaran setelah konfirmasi berhasil
     if (paymentMethod === "ewallet") {
       setPaymentStatusText("Status Payment: Paid via E-Wallet");
     } else if (paymentMethod === "tunai") {
@@ -1724,11 +1756,13 @@ function OrderItemComponent({
         ))}
       </ul>
 
-      {order.status === "paid" && (
+      {isPaidOrder && order.status !== "Sedang Diproses" && order.status !== "Selesai" && (
         <div className="mt-4 space-y-2">
-          <p className="text-green-600 font-semibold">Status Payment: Paid via E-Wallet</p>
+          {order.paymentStatusText && (
+            <p className="text-green-600 font-semibold">{order.paymentStatusText}</p>
+          )}
           <button
-            onClick={() => confirmPayment?.(Number(order.id), "ewallet", order.paymentId, selectedDiscountId)}
+            onClick={() => confirmPayment?.(Number(order.id), order.paymentMethod || "ewallet", order.paymentId, selectedDiscountId)}
             className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
           >
             💰 Konfirmasi Pembayaran
@@ -1859,13 +1893,21 @@ function OrderItemComponent({
       )}
 
       {order.status === "Selesai" && (
-        <div className="space-y-2">
+        <div className="mt-4 space-y-2">
           <button
             onClick={() => generatePDF(order)}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md transition"
           >
             🖨️ Cetak Struk
           </button>
+          {order.reservasi?.kodeBooking && resetBookingOrder && (
+            <button
+              onClick={() => resetBookingOrder(Number(order.id))}
+              className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
+            >
+              Reset meja reservasi
+            </button>
+          )}
         </div>
       )}
 
@@ -1880,7 +1922,6 @@ function OrderItemComponent({
           <span className="text-sm">Pilih untuk merge</span>
         </div>
       )}
-
       {confirmation && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">

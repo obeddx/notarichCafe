@@ -7,7 +7,7 @@ import { Inter } from "next/font/google";
 import Image from "next/image";
 import { X } from "lucide-react";
 import io from "socket.io-client";
-
+import moment from "moment-timezone"; // Tambahkan impor ini
 const inter = Inter({ subsets: ["latin"] });
 
 interface Discount {
@@ -119,6 +119,8 @@ const Bookinge = () => {
   const [selectedModifiers, setSelectedModifiers] = useState<number[]>([]);
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
 
+ 
+
   useEffect(() => {
     const fetchDiscounts = async () => {
       try {
@@ -196,7 +198,7 @@ const Bookinge = () => {
   };
 
   const getMenuDiscountedPrice = (menu: Menu) => {
-    let originalPrice = menu.price;
+    const originalPrice = menu.price;
     let discountedPrice = originalPrice;
 
     const activeMenuDiscounts = menu.discounts.filter((d) => d.discount.isActive);
@@ -375,23 +377,17 @@ const saveModifiersToCart = () => {
   useEffect(() => {
     fetchData();
     fetchMeja();
-
+  
     const socket = io("http://localhost:3000", {
       path: "/api/socket",
     });
-
+  
     socket.on("connect", () => console.log("Connected to WebSocket server"));
-
-    socket.on("ordersUpdated", (newOrder: Order) => {
-      setAllOrders((prevOrders) => [...prevOrders, newOrder]);
-      if (
-        newOrder.tableNumber === selectedTableNumber ||
-        newOrder.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
-      ) {
-        fetchTableOrders(selectedTableNumber);
-      }
+  
+    socket.on("ordersUpdated", (data: unknown) => {
+      fetchData();
     });
-
+  
     socket.on("paymentStatusUpdated", (updatedOrder: Order) => {
       setAllOrders((prevOrders) =>
         prevOrders.map((order) =>
@@ -405,12 +401,29 @@ const saveModifiersToCart = () => {
         fetchTableOrders(selectedTableNumber);
       }
     });
-
+  
+    socket.on("reservationDeleted", ({ reservasiId: any, orderId: any }) => {
+      setAllOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+      fetchTableOrders(selectedTableNumber);
+    });
+  
+    socket.on("reservationUpdated", (updatedReservasi: any) => {
+      setAllOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.reservasi?.id === updatedReservasi.id
+            ? { ...order, reservasi: updatedReservasi }
+            : order
+        )
+      );
+      fetchTableOrders(selectedTableNumber);
+    });
+  
     return () => {
       socket.disconnect();
     };
   }, []);
 
+  
   useEffect(() => {
     localStorage.setItem("manuallyMarkedTables", JSON.stringify(manuallyMarkedTables));
   }, [manuallyMarkedTables]);
@@ -436,22 +449,15 @@ const saveModifiersToCart = () => {
       return "bg-[#D02323]";
     }
   
-    // Ambil semua pesanan untuk meja ini
-    const tableOrders = allOrders.filter((order) => 
-      order.tableNumber === tableNumberStr || 
-      order.tableNumber.startsWith(`Meja ${tableNumberStr} -`)
+    // Cek pesanan aktif atau reservasi yang belum selesai
+    const hasActiveOrBookingOrders = allOrders.some(
+      (order) =>
+        order.tableNumber === tableNumberStr &&
+        (order.status !== "Selesai" || (order.reservasi?.kodeBooking && order.paymentStatus === "paid"))
     );
   
-    // Cek apakah ada pesanan aktif atau pesanan dengan kode booking
-    const hasActiveOrBookingOrders = tableOrders.some((order) => 
-      order.status !== "Selesai" || // Pesanan aktif
-      (order.reservasi?.kodeBooking) // Pesanan dengan kode booking (apa pun statusnya)
-    );
-  
-    // Meja dianggap tersedia hanya jika tidak ada pesanan sama sekali
     return hasActiveOrBookingOrders ? "bg-[#D02323]" : "bg-green-800";
   };
-
   const fetchTableOrders = async (tableNumber: string) => {
     try {
       setSelectedTableNumber(tableNumber);
@@ -516,41 +522,20 @@ const saveModifiersToCart = () => {
     }
   };
 
-  const OrderCard = ({
-    order,
-  }: {
-    order: Order;
-    isCompleted?: boolean;
-    onComplete?: () => void;
-  }) => {
-    const resetBookingOrder = async (orderId: number) => {
-      try {
-        const response = await fetch("/api/resetBookingOrder", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId }),
-        });
-  
-        if (response.ok) {
-          toast.success("Pesanan dengan kode booking berhasil direset!");
-          fetchData(); // Perbarui data global
-          fetchTableOrders(selectedTableNumber); // Perbarui popup
-        } else {
-          throw new Error("Gagal mereset pesanan");
-        }
-      } catch (error) {
-        console.error("Error:", error);
-        toast.error("Gagal mereset pesanan");
-      }
-    };
-  
+  // Dalam OrderCard, tambahkan tanggal & waktu reservasi
+  const OrderCard = ({ order }: { order: Order; isCompleted?: boolean; onComplete?: () => void }) => {
     return (
       <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
         <div className="flex justify-between items-start mb-2">
           <div>
             <p className="font-semibold">Order ID: {order.id}</p>
             {order.reservasi?.kodeBooking && (
-              <p className="text-sm text-gray-600">Kode Booking: {order.reservasi.kodeBooking}</p>
+              <>
+                <p className="text-sm text-gray-600">Kode Booking: {order.reservasi.kodeBooking}</p>
+                <p className="text-sm text-gray-600">
+                  Tanggal & Waktu Reservasi: {moment.tz(order.reservasi.tanggalReservasi, "Asia/Jakarta").format("DD MMMM YYYY HH:mm")}
+                </p>
+              </>
             )}
             <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
             <p className="text-sm text-gray-600">
@@ -610,14 +595,7 @@ const saveModifiersToCart = () => {
           </div>
         </div>
        
-        {order.reservasi?.kodeBooking && (
-          <button
-            onClick={() => resetBookingOrder(order.id)}
-            className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
-          >
-            Reset Pesanan Booking
-          </button>
-        )}
+        
       </div>
     );
   };

@@ -26,6 +26,27 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     io.on("connection", (socket) => {
       console.log("New client connected:", socket.id);
 
+      // Tangani event dari klien atau API
+      socket.on("reservationAdded", (newReservasi) => {
+        io.emit("reservationAdded", newReservasi); // Sebarkan ke semua klien
+      });
+
+      socket.on("reservationUpdated", (updatedReservasi) => {
+        io.emit("reservationUpdated", updatedReservasi); // Sebarkan ke semua klien
+      });
+
+      socket.on("reservationDeleted", ({ reservasiId, orderIds }) => {
+        io.emit("reservationDeleted", { reservasiId, orderIds }); // Sebarkan ke semua klien
+      });
+
+      socket.on("ordersUpdated", (data) => {
+        io.emit("ordersUpdated", data); // Sebarkan ke semua klien
+      });
+
+      socket.on("paymentStatusUpdated", (updatedOrder) => {
+        io.emit("paymentStatusUpdated", updatedOrder); // Sebarkan ke semua klien
+      });
+
       socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
       });

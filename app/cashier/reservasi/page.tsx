@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import moment from "moment-timezone";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
+import io from "socket.io-client"; // Tambahkan impor ini
 interface Reservasi {
   id: number;
   namaCustomer: string;
@@ -93,8 +93,27 @@ const ReservasiSidebar = () => {
 
   useEffect(() => {
     fetchReservasis();
+    const socket = io("http://localhost:3000", { path: "/api/socket" });
+  
+    socket.on("reservationAdded", (newReservasi) => {
+      setReservasis((prev) => [...prev, newReservasi].sort((a, b) => new Date(a.tanggalReservasi).getTime() - new Date(b.tanggalReservasi).getTime()));
+    });
+  
+    socket.on("reservationDeleted", ({ reservasiId }) => {
+      setReservasis((prev) => prev.filter((r) => r.id !== reservasiId));
+    });
+  
+    socket.on("reservationUpdated", (updatedReservasi) => {
+      setReservasis((prev) =>
+        prev.map((r) => (r.id === updatedReservasi.id ? updatedReservasi : r)).sort((a, b) => new Date(a.tanggalReservasi).getTime() - new Date(b.tanggalReservasi).getTime())
+      );
+    });
+  
     const intervalId = setInterval(fetchReservasis, 10000);
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      socket.disconnect();
+    };
   }, []);
 
   const showDeleteModal = (id: number) => {
@@ -164,12 +183,12 @@ const ReservasiSidebar = () => {
       toast.error("Meja sudah direservasi pada waktu tersebut");
       return;
     }
-
+  
     if (!isValidReservationTime(editForm.tanggalReservasi)) {
       toast.error("Waktu harus antara 10:00 - 22:00 dan tidak di masa lalu");
       return;
     }
-
+  
     const totalDurasi = editForm.durasiJam * 60 + editForm.durasiMenit;
     const updatedData = {
       namaCustomer: editForm.namaCustomer,
@@ -180,7 +199,7 @@ const ReservasiSidebar = () => {
       kodeBooking: editForm.kodeBooking,
       status: editForm.status,
     };
-
+  
     try {
       const res = await fetch(`/api/reservasi/${id}`, {
         method: "PUT",
