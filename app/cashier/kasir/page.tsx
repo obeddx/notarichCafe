@@ -1574,7 +1574,7 @@ function OrderItemComponent({
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(order.discountId || null);
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
   const [isPaymentMethodPopupOpen, setIsPaymentMethodPopupOpen] = useState(false);
-  const [paymentStatusText, setPaymentStatusText] = useState<string>(""); // State baru untuk status pembayaran
+  const [paymentStatusText, setPaymentStatusText] = useState<string>(order.paymentStatusText || ""); // Inisialisasi dari order
 
   const isPaidOrder = order.status === "paid";
 
@@ -1750,80 +1750,83 @@ function OrderItemComponent({
         </div>
       )}
 
-{order.status === "pending" && confirmPayment && (
-  <div className="mt-4 space-y-2">
-    {paymentStatusText && (
-      <p className="text-green-600 font-semibold">{paymentStatusText}</p>
-    )}
-    <button
-      onClick={() => setIsDiscountPopupOpen(true)}
-      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-    >
-      {selectedDiscountId
-        ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
-        : "Pilih Diskon"}
-    </button>
-    <button
-      onClick={() => setIsPaymentMethodPopupOpen(true)}
-      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-    >
-      {paymentMethod === "tunai" ? "Tunai" : paymentMethod === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
-    </button>
-    {paymentMethod !== "tunai" && (
-      <input
-        type="text"
-        placeholder="Masukkan ID Pembayaran"
-        value={paymentId}
-        onChange={(e) => setPaymentId(e.target.value)}
-        className="w-full p-2 border border-gray-300 rounded-md"
-      />
-    )}
-    {paymentMethod === "tunai" && (
-      <>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          placeholder="Masukkan jumlah pembayaran"
-          value={cashGiven}
-          onChange={handleCashGivenChange}
-          className="w-full p-2 border border-gray-300 rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-        {change > 0 && (
-          <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
-        )}
-        {change < 0 && (
-          <p className="text-red-600">
-            Uang yang diberikan kurang: Rp {(-change).toLocaleString()}
-          </p>
-        )}
-      </>
-    )}
-    <button
-      onClick={handleConfirmPayment}
-      className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
-    >
-      💰 Konfirmasi Pembayaran
-    </button>
-    <button
-      onClick={() =>
-        setConfirmation({
-          message: "Sudah yakin untuk membatalkan pesanan?",
-          onConfirm: () => {
-            cancelOrder?.(Number(order.id));
-            setConfirmation(null);
-          },
-        })
-      }
-      className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
-    >
-      ❌ Batal Pesanan
-    </button>
-  </div>
-)}
+      {order.status === "pending" && confirmPayment && (
+        <div className="mt-4 space-y-2">
+          {paymentStatusText && (
+            <p className="text-green-600 font-semibold">{paymentStatusText}</p>
+          )}
+          <button
+            onClick={() => setIsDiscountPopupOpen(true)}
+            className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
+          >
+            {selectedDiscountId
+              ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
+              : "Pilih Diskon"}
+          </button>
+          <button
+            onClick={() => setIsPaymentMethodPopupOpen(true)}
+            className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
+          >
+            {paymentMethod === "tunai" ? "Tunai" : paymentMethod === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
+          </button>
+          {paymentMethod !== "tunai" && (
+            <input
+              type="text"
+              placeholder="Masukkan ID Pembayaran"
+              value={paymentId}
+              onChange={(e) => setPaymentId(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md"
+            />
+          )}
+          {paymentMethod === "tunai" && (
+            <>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="Masukkan jumlah pembayaran"
+                value={cashGiven}
+                onChange={handleCashGivenChange}
+                className="w-full p-2 border border-gray-300 rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              {change > 0 && (
+                <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
+              )}
+              {change < 0 && (
+                <p className="text-red-600">
+                  Uang yang diberikan kurang: Rp {(-change).toLocaleString()}
+                </p>
+              )}
+            </>
+          )}
+          <button
+            onClick={handleConfirmPayment}
+            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
+          >
+            💰 Konfirmasi Pembayaran
+          </button>
+          <button
+            onClick={() =>
+              setConfirmation({
+                message: "Sudah yakin untuk membatalkan pesanan?",
+                onConfirm: () => {
+                  cancelOrder?.(Number(order.id));
+                  setConfirmation(null);
+                },
+              })
+            }
+            className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
+          >
+            ❌ Batal Pesanan
+          </button>
+        </div>
+      )}
 
       {order.status === "Sedang Diproses" && markOrderAsCompleted && (
-        <div className="space-y-2">
+        <div className="mt-4 space-y-2">
+          {paymentStatusText && (
+            <p className="text-green-600 font-semibold">{paymentStatusText}</p>
+          )}
           <button
             onClick={() =>
               setConfirmation({
@@ -2003,7 +2006,6 @@ function OrderItemComponent({
     </div>
   );
 }
-
 function StatusBadge({ status }: { status: string }) {
   let color = "bg-[#979797]";
   if (status === "pending") color = "bg-[#FF8A00]";
