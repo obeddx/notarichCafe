@@ -384,7 +384,7 @@ const saveModifiersToCart = () => {
   
     socket.on("connect", () => console.log("Connected to WebSocket server"));
   
-    socket.on("ordersUpdated", (data: unknown) => {
+    socket.on("ordersUpdated", (data: any) => {
       fetchData();
     });
   
@@ -402,12 +402,12 @@ const saveModifiersToCart = () => {
       }
     });
   
-    socket.on("reservationDeleted", ({ reservasiId: any, orderId: any }) => {
+    socket.on("reservationDeleted", ({ reservasiId, orderId }) => {
       setAllOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
       fetchTableOrders(selectedTableNumber);
     });
   
-    socket.on("reservationUpdated", (updatedReservasi: any) => {
+    socket.on("reservationUpdated", (updatedReservasi) => {
       setAllOrders((prevOrders) =>
         prevOrders.map((order) =>
           order.reservasi?.id === updatedReservasi.id
