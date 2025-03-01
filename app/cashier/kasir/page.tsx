@@ -536,7 +536,7 @@ export default function KasirPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tableNumber }),
       });
-
+  
       if (res.ok) {
         toast.success(`✅ Meja ${tableNumber} berhasil direset!`);
         fetchOrders();

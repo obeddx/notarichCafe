@@ -12,11 +12,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      // Hapus pesanan yang berstatus "Selesai" berdasarkan nomor meja
+      // Hanya hapus pesanan dengan status "Selesai" dan tidak memiliki kode booking (reservasiId null)
       await prisma.order.deleteMany({
         where: {
-          tableNumber: tableNumber, // Hanya nomor meja
+          tableNumber: tableNumber,
           status: "Selesai",
+          reservasiId: null, // Mengecualikan pesanan dengan kode booking
         },
       });
 

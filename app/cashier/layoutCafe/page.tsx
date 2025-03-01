@@ -430,23 +430,26 @@ const saveModifiersToCart = () => {
 
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-    
+  
+    // Jika meja ditandai secara manual, tetap merah
     if (manuallyMarkedTables.includes(tableNumberStr)) {
       return "bg-[#D02323]";
     }
-    
+  
+    // Ambil semua pesanan untuk meja ini
     const tableOrders = allOrders.filter((order) => 
       order.tableNumber === tableNumberStr || 
       order.tableNumber.startsWith(`Meja ${tableNumberStr} -`)
     );
-    
-    const hasActiveOrders = tableOrders.some((order) => 
-      order.status !== "Selesai" || 
-      (order.reservasi?.kodeBooking && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+  
+    // Cek apakah ada pesanan aktif atau pesanan dengan kode booking
+    const hasActiveOrBookingOrders = tableOrders.some((order) => 
+      order.status !== "Selesai" || // Pesanan aktif
+      (order.reservasi?.kodeBooking) // Pesanan dengan kode booking (apa pun statusnya)
     );
-    
-    const isTableReset = tableOrders.length === 0;
-    return hasActiveOrders || !isTableReset ? "bg-[#D02323]" : "bg-green-800";
+  
+    // Meja dianggap tersedia hanya jika tidak ada pesanan sama sekali
+    return hasActiveOrBookingOrders ? "bg-[#D02323]" : "bg-green-800";
   };
 
   const fetchTableOrders = async (tableNumber: string) => {
@@ -519,73 +522,105 @@ const saveModifiersToCart = () => {
     order: Order;
     isCompleted?: boolean;
     onComplete?: () => void;
-  }) => (
-    <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <p className="font-semibold">Order ID: {order.id}</p>
-          {order.reservasi?.kodeBooking && (
-            <p className="text-sm text-gray-600">Kode Booking: {order.reservasi.kodeBooking}</p>
-          )}
-          <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
-          <p className="text-sm text-gray-600">
-            {new Date(order.createdAt).toLocaleDateString("id-ID", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
+  }) => {
+    const resetBookingOrder = async (orderId: number) => {
+      try {
+        const response = await fetch("/api/resetBookingOrder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        });
+  
+        if (response.ok) {
+          toast.success("Pesanan dengan kode booking berhasil direset!");
+          fetchData(); // Perbarui data global
+          fetchTableOrders(selectedTableNumber); // Perbarui popup
+        } else {
+          throw new Error("Gagal mereset pesanan");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        toast.error("Gagal mereset pesanan");
+      }
+    };
+  
+    return (
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <p className="font-semibold">Order ID: {order.id}</p>
+            {order.reservasi?.kodeBooking && (
+              <p className="text-sm text-gray-600">Kode Booking: {order.reservasi.kodeBooking}</p>
+            )}
+            <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
+            <p className="text-sm text-gray-600">
+              {new Date(order.createdAt).toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
+          <span
+            className={`px-3 py-1 rounded-full text-sm ${
+              order.status === "pending"
+                ? "bg-yellow-500"
+                : order.status === "Sedang Diproses"
+                ? "bg-blue-500"
+                : "bg-green-500"
+            } text-white`}
+          >
+            {order.status}
+          </span>
         </div>
-        <span
-          className={`px-3 py-1 rounded-full text-sm ${
-            order.status === "pending"
-              ? "bg-yellow-500"
-              : order.status === "Sedang Diproses"
-              ? "bg-blue-500"
-              : "bg-green-500"
-          } text-white`}
-        >
-          {order.status}
-        </span>
-      </div>
-      <div className="border-t pt-3 mt-3">
-        <h3 className="font-semibold mb-2">Item Pesanan:</h3>
-        <div className="grid gap-2">
-          {order.orderItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-3">
-              <Image
-                src={item.menu.image}
-                alt={item.menu.name}
-                width={48}
-                height={48}
-                className="object-cover rounded"
-              />
-              <div className="flex-1">
-                <p className="font-medium">{item.menu.name}</p>
-                <p className="text-sm text-gray-600">
-                  {item.quantity} x Rp {item.menu.price.toLocaleString()}
-                </p>
-                {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
-                {item.modifiers && item.modifiers.length > 0 && (
-                  <div className="text-sm text-gray-500">
-                    Modifier:
-                    {item.modifiers.map((modifier) => (
-                      <p key={modifier.id}>
-                        - {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})
-                      </p>
-                    ))}
-                  </div>
-                )}
+        <div className="border-t pt-3 mt-3">
+          <h3 className="font-semibold mb-2">Item Pesanan:</h3>
+          <div className="grid gap-2">
+            {order.orderItems.map((item) => (
+              <div key={item.id} className="flex items-center gap-3">
+                <Image
+                  src={item.menu.image}
+                  alt={item.menu.name}
+                  width={48}
+                  height={48}
+                  className="object-cover rounded"
+                />
+                <div className="flex-1">
+                  <p className="font-medium">{item.menu.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {item.quantity} x Rp {item.menu.price.toLocaleString()}
+                  </p>
+                  {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
+                  {item.modifiers && item.modifiers.length > 0 && (
+                    <div className="text-sm text-gray-500">
+                      Modifier:
+                      {item.modifiers.map((modifier) => (
+                        <p key={modifier.id}>
+                          - {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+       
+        {order.reservasi?.kodeBooking && (
+          <button
+            onClick={() => resetBookingOrder(order.id)}
+            className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
+          >
+            Reset Pesanan Booking
+          </button>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
