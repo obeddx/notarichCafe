@@ -73,12 +73,12 @@ export interface Order {
   orderItems: OrderItem[];
   discount?: Discount;
   paymentStatus?: string;
+  paymentStatusText?: string; // Properti baru
   reservasi?: {
     id: number;
     kodeBooking: string;
   };
 }
-
 interface Ingredient {
   id: number;
   name: string;
@@ -146,7 +146,7 @@ export default function KasirPage() {
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
 
   const unreadCount = notifications.filter((notif) => !notif.isRead).length;
-
+  const [isPaymentMethodPopupOpen, setIsPaymentMethodPopupOpen] = useState(false);
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
@@ -416,13 +416,13 @@ export default function KasirPage() {
     change?: number
   ) => {
     if (!pendingOrderData) return;
-
+  
     setLoading(true);
     try {
       if (paymentMethod === "tunai" && cashGiven !== undefined && change !== undefined) {
         await updateCartWithPayment(cashGiven.toString(), change);
       }
-
+  
       const response = await fetch("/api/placeOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -436,15 +436,15 @@ export default function KasirPage() {
           paymentMethod: paymentMethod === "e-wallet" ? "ewallet" : paymentMethod,
         }),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Gagal membuat pesanan");
       }
-
+  
       const data = await response.json();
       const newOrder = data.order;
-
+  
       const finalPaymentMethod = paymentMethod === "e-wallet" ? "ewallet" : paymentMethod;
       await confirmPayment(
         newOrder.id,
@@ -466,7 +466,28 @@ export default function KasirPage() {
             status: "paid",
           }),
         });
+        // Set status pembayaran untuk E-Wallet
+        setOrders((prevOrders) =>
+          prevOrders.map((o) =>
+            o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via E-Wallet" } : o
+          )
+        );
+      } else if (finalPaymentMethod === "tunai") {
+        // Set status pembayaran untuk Tunai
+        setOrders((prevOrders) =>
+          prevOrders.map((o) =>
+            o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via Cash" } : o
+          )
+        );
+      } else if (finalPaymentMethod === "kartu") {
+        // Set status pembayaran untuk Kartu
+        setOrders((prevOrders) =>
+          prevOrders.map((o) =>
+            o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via Card" } : o
+          )
+        );
       }
+  
       setPendingOrderData(null);
       setPendingOrderId(null);
       setSelectedMenuItems([]);
@@ -477,7 +498,7 @@ export default function KasirPage() {
       setCashGiven("");
       setChange(0);
       setSelectedDiscountIdNewOrder(null);
-
+  
       setTimeout(async () => {
         await fetch("/api/cart", {
           method: "POST",
@@ -485,7 +506,7 @@ export default function KasirPage() {
           body: JSON.stringify({ cartItems: [], cashGiven: 0, change: 0 }),
         });
       }, 5000);
-
+  
       setIsNewOrderPaymentModalOpen(false);
       fetchOrders();
     } catch (error) {
@@ -902,92 +923,81 @@ export default function KasirPage() {
           </div>
         )}
 
-        {isNewOrderPaymentModalOpen && pendingOrderData && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg w-full max-w-md">
-              <h2 className="text-2xl font-bold mb-4">Konfirmasi Pembayaran Pesanan Baru</h2>
-              <p className="text-lg mb-2">Total Bayar (termasuk pajak & gratuity): Rp {pendingOrderData.total.toLocaleString()}</p>
-              <div className="space-y-4">
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => {
-                    setPaymentMethod(e.target.value);
-                    setCashGiven("");
-                    setChange(0);
-                    updateCartWithPayment("", 0);
-                  }}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="tunai">Tunai</option>
-                  <option value="kartu">Kartu Kredit/Debit</option>
-                  <option value="e-wallet">E-Wallet</option>
-                </select>
-
-                {paymentMethod !== "tunai" && (
-                  <input
-                    type="text"
-                    placeholder="Masukkan ID Pembayaran"
-                    value={paymentId}
-                    onChange={(e) => setPaymentId(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                  />
-                )}
-
-                {paymentMethod === "tunai" && (
-                  <>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      placeholder="Masukkan jumlah pembayaran"
-                      value={cashGiven}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (/^[0-9]*\.?[0-9]*$/.test(value)) {
-                          setCashGiven(value);
-                          const newChange = calculateChange(value);
-                          updateCartWithPayment(value, newChange);
-                        }
-                      }}
-                      className="w-full p-2 border rounded-md"
-                    />
-                    {change > 0 && (
-                      <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
-                    )}
-                    {change < 0 && (
-                      <p className="text-red-600">Uang yang diberikan kurang: Rp {(-change).toLocaleString()}</p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  onClick={() => {
-                    setPendingOrderData(null);
-                    setIsNewOrderPaymentModalOpen(false);
-                    updateCartWithPayment("", 0);
-                  }}
-                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={() => {
-                    if (paymentMethod === "tunai" && (parseFloat(cashGiven) || 0) < pendingOrderData.total) {
-                      toast.error("Uang yang diberikan kurang");
-                      return;
-                    }
-                    handleNewOrderPayment(paymentMethod, paymentId, parseFloat(cashGiven) || 0, change);
-                  }}
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md"
-                >
-                  Konfirmasi Pembayaran
-                </button>
-              </div>
-            </div>
-          </div>
+{isNewOrderPaymentModalOpen && pendingOrderData && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg w-full max-w-md">
+      <h2 className="text-2xl font-bold mb-4">Konfirmasi Pembayaran Pesanan Baru</h2>
+      <p className="text-lg mb-2">Total Bayar (termasuk pajak & gratuity): Rp {pendingOrderData.total.toLocaleString()}</p>
+      <div className="space-y-4">
+        <button
+          onClick={() => setIsPaymentMethodPopupOpen(true)}
+          className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
+        >
+          {paymentMethod === "tunai" ? "Tunai" : paymentMethod === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
+        </button>
+        {paymentMethod !== "tunai" && (
+          <input
+            type="text"
+            placeholder="Masukkan ID Pembayaran"
+            value={paymentId}
+            onChange={(e) => setPaymentId(e.target.value)}
+            className="w-full p-2 border rounded-md"
+          />
         )}
+        {paymentMethod === "tunai" && (
+          <>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Masukkan jumlah pembayaran"
+              value={cashGiven}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                  setCashGiven(value);
+                  const newChange = calculateChange(value);
+                  updateCartWithPayment(value, newChange);
+                }
+              }}
+              className="w-full p-2 border rounded-md"
+            />
+            {change > 0 && (
+              <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
+            )}
+            {change < 0 && (
+              <p className="text-red-600">Uang yang diberikan kurang: Rp {(-change).toLocaleString()}</p>
+            )}
+          </>
+        )}
+      </div>
+      <div className="flex justify-end gap-2 mt-4">
+        <button
+          onClick={() => {
+            setPendingOrderData(null);
+            setIsNewOrderPaymentModalOpen(false);
+            updateCartWithPayment("", 0);
+          }}
+          className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
+        >
+          Batal
+        </button>
+        <button
+          onClick={() => {
+            if (paymentMethod === "tunai" && (parseFloat(cashGiven) || 0) < pendingOrderData.total) {
+              toast.error("Uang yang diberikan kurang");
+              return;
+            }
+            handleNewOrderPayment(paymentMethod, paymentId, parseFloat(cashGiven) || 0, change);
+          }}
+          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md"
+        >
+          Konfirmasi Pembayaran
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
         {error && <p className="text-red-500 text-center">{error}</p>}
         {loading ? (
@@ -1079,6 +1089,110 @@ export default function KasirPage() {
             </div>
           </div>
         )}
+
+{isPaymentMethodPopupOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
+        <button
+          onClick={() => setIsPaymentMethodPopupOpen(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto">
+        <div className="space-y-3">
+          {["tunai", "kartu", "e-wallet"].map((method) => (
+            <div
+              key={method}
+              className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={paymentMethod === method}
+                  onChange={() => {
+                    setPaymentMethod(method);
+                    setCashGiven("");
+                    setChange(0);
+                    updateCartWithPayment("", 0);
+                    setIsPaymentMethodPopupOpen(false);
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-gray-700">
+                  {method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+        <button
+          onClick={() => setIsPaymentMethodPopupOpen(false)}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+        >
+          Simpan Metode
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{isPaymentMethodPopupOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
+        <button
+          onClick={() => setIsPaymentMethodPopupOpen(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto">
+        <div className="space-y-3">
+          {["tunai", "kartu", "e-wallet"].map((method) => (
+            <div
+              key={method}
+              className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={paymentMethod === method}
+                  onChange={() => {
+                    setPaymentMethod(method);
+                    setCashGiven("");
+                    setChange(0);
+                    updateCartWithPayment("", 0);
+                    setIsPaymentMethodPopupOpen(false);
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-gray-700">
+                  {method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+        <button
+          onClick={() => setIsPaymentMethodPopupOpen(false)}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+        >
+          Simpan Metode
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
         {notificationModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
@@ -1459,6 +1573,8 @@ function OrderItemComponent({
   const [confirmation, setConfirmation] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(order.discountId || null);
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
+  const [isPaymentMethodPopupOpen, setIsPaymentMethodPopupOpen] = useState(false);
+  const [paymentStatusText, setPaymentStatusText] = useState<string>(""); // State baru untuk status pembayaran
 
   const isPaidOrder = order.status === "paid";
 
@@ -1531,6 +1647,32 @@ function OrderItemComponent({
     if (/^[0-9]*\.?[0-9]*$/.test(value)) {
       setCashGiven(value);
       calculateChange(value);
+    }
+  };
+
+  const handlePaymentMethodSelect = (method: string) => {
+    setPaymentMethod(method);
+    setCashGiven("");
+    setChange(0);
+    setIsPaymentMethodPopupOpen(false);
+  };
+
+  const handleConfirmPayment = () => {
+    if (paymentMethod === "tunai") {
+      const given = parseFloat(cashGiven) || 0;
+      if (given < localFinalTotal) {
+        toast.error("Uang yang diberikan kurang");
+        return;
+      }
+    }
+    confirmPayment?.(Number(order.id), paymentMethod, paymentId, selectedDiscountId, Number(cashGiven), change);
+    // Set status pembayaran setelah konfirmasi berhasil
+    if (paymentMethod === "ewallet") {
+      setPaymentStatusText("Status Payment: Paid via E-Wallet");
+    } else if (paymentMethod === "tunai") {
+      setPaymentStatusText("Status Payment: Paid via Cash");
+    } else if (paymentMethod === "kartu") {
+      setPaymentStatusText("Status Payment: Paid via Card");
     }
   };
 
@@ -1608,86 +1750,77 @@ function OrderItemComponent({
         </div>
       )}
 
-      {order.status === "pending" && confirmPayment && (
-        <div className="mt-4 space-y-2">
-          <button
-            onClick={() => setIsDiscountPopupOpen(true)}
-            className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-          >
-            {selectedDiscountId
-              ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
-              : "Pilih Diskon"}
-          </button>
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
-          >
-            <option value="tunai">Tunai</option>
-            <option value="kartu">Kartu Kredit/Debit</option>
-            <option value="ewallet">E-Wallet</option>
-          </select>
-          {paymentMethod !== "tunai" && (
-            <input
-              type="text"
-              placeholder="Masukkan ID Pembayaran"
-              value={paymentId}
-              onChange={(e) => setPaymentId(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md"
-            />
-          )}
-          {paymentMethod === "tunai" && (
-            <>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="Masukkan jumlah pembayaran"
-                value={cashGiven}
-                onChange={handleCashGivenChange}
-                className="w-full p-2 border border-gray-300 rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              {change > 0 && (
-                <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
-              )}
-              {change < 0 && (
-                <p className="text-red-600">
-                  Uang yang diberikan kurang: Rp {(-change).toLocaleString()}
-                </p>
-              )}
-            </>
-          )}
-          <button
-            onClick={() => {
-              if (paymentMethod === "tunai") {
-                const given = parseFloat(cashGiven) || 0;
-                if (given < localFinalTotal) {
-                  toast.error("Uang yang diberikan kurang");
-                  return;
-                }
-              }
-              confirmPayment(Number(order.id), paymentMethod, paymentId, selectedDiscountId, Number(cashGiven), change);
-            }}
-            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
-          >
-            💰 Konfirmasi Pembayaran
-          </button>
-          <button
-            onClick={() =>
-              setConfirmation({
-                message: "Sudah yakin untuk membatalkan pesanan?",
-                onConfirm: () => {
-                  cancelOrder?.(Number(order.id));
-                  setConfirmation(null);
-                },
-              })
-            }
-            className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
-          >
-            ❌ Batal Pesanan
-          </button>
-        </div>
-      )}
+{order.status === "pending" && confirmPayment && (
+  <div className="mt-4 space-y-2">
+    {paymentStatusText && (
+      <p className="text-green-600 font-semibold">{paymentStatusText}</p>
+    )}
+    <button
+      onClick={() => setIsDiscountPopupOpen(true)}
+      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
+    >
+      {selectedDiscountId
+        ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
+        : "Pilih Diskon"}
+    </button>
+    <button
+      onClick={() => setIsPaymentMethodPopupOpen(true)}
+      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
+    >
+      {paymentMethod === "tunai" ? "Tunai" : paymentMethod === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
+    </button>
+    {paymentMethod !== "tunai" && (
+      <input
+        type="text"
+        placeholder="Masukkan ID Pembayaran"
+        value={paymentId}
+        onChange={(e) => setPaymentId(e.target.value)}
+        className="w-full p-2 border border-gray-300 rounded-md"
+      />
+    )}
+    {paymentMethod === "tunai" && (
+      <>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          placeholder="Masukkan jumlah pembayaran"
+          value={cashGiven}
+          onChange={handleCashGivenChange}
+          className="w-full p-2 border border-gray-300 rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        {change > 0 && (
+          <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
+        )}
+        {change < 0 && (
+          <p className="text-red-600">
+            Uang yang diberikan kurang: Rp {(-change).toLocaleString()}
+          </p>
+        )}
+      </>
+    )}
+    <button
+      onClick={handleConfirmPayment}
+      className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
+    >
+      💰 Konfirmasi Pembayaran
+    </button>
+    <button
+      onClick={() =>
+        setConfirmation({
+          message: "Sudah yakin untuk membatalkan pesanan?",
+          onConfirm: () => {
+            cancelOrder?.(Number(order.id));
+            setConfirmation(null);
+          },
+        })
+      }
+      className="w-full bg-[#8A4210] hover:bg-[#975F2C] text-white py-2 rounded-md transition"
+    >
+      ❌ Batal Pesanan
+    </button>
+  </div>
+)}
 
       {order.status === "Sedang Diproses" && markOrderAsCompleted && (
         <div className="space-y-2">
@@ -1816,6 +1949,52 @@ function OrderItemComponent({
                 className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
               >
                 Simpan Diskon
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isPaymentMethodPopupOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
+              <button
+                onClick={() => setIsPaymentMethodPopupOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 p-4 overflow-y-auto">
+              <div className="space-y-3">
+                {["tunai", "kartu", "ewallet"].map((method) => (
+                  <div
+                    key={method}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={paymentMethod === method}
+                        onChange={() => handlePaymentMethodSelect(method)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-gray-700">
+                        {method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+              <button
+                onClick={() => setIsPaymentMethodPopupOpen(false)}
+                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+              >
+                Simpan Metode
               </button>
             </div>
           </div>
