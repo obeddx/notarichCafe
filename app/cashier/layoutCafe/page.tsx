@@ -1715,8 +1715,8 @@ const saveModifiersToCart = () => {
 
                   <button
                     onClick={async () => {
-                      if (!selectedTableNumberForOrder || !customerName) {
-                        toast.error("Harap isi nomor meja dan nama pelanggan");
+                      if ( !customerName) {
+                        toast.error("Harap isi nama pelanggan");
                         return;
                       }
 
@@ -1769,111 +1769,112 @@ const saveModifiersToCart = () => {
         )}
         {/* New Modifier Selection Popup */}
         {isModifierPopupOpen && currentMenu && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Tambah Modifier - {currentMenu.name}
-                </h2>
-                <button
-                  onClick={() => setIsModifierPopupOpen(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 p-4 overflow-y-auto">
-                <div className="space-y-3">
-                  {currentMenu.modifiers.length > 0 ? (
-                    currentMenu.modifiers.map((mod) => (
-                      <div
-                        key={mod.modifier.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedModifiers.includes(mod.modifier.id)}
-                            onChange={() => handleModifierToggle(mod.modifier.id)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-gray-700">{mod.modifier.name}</span>
-                        </div>
-                        <span className="text-gray-600 text-sm">
-                          +Rp {mod.modifier.price.toLocaleString()}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
-                  )}
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">
+          Tambah Modifier - {currentMenu.name}
+        </h2>
+        <button
+          onClick={() => setIsModifierPopupOpen(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto max-h-[300px]"> {/* Batasi tinggi dan tambahkan scroll */}
+        <div className="space-y-3">
+          {currentMenu.modifiers.length > 0 ? (
+            currentMenu.modifiers.map((mod) => (
+              <div
+                key={mod.modifier.id}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedModifiers.includes(mod.modifier.id)}
+                    onChange={() => handleModifierToggle(mod.modifier.id)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{mod.modifier.name}</span>
                 </div>
+                <span className="text-gray-600 text-sm">
+                  +Rp {mod.modifier.price.toLocaleString()}
+                </span>
               </div>
-              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-                <button
-                  onClick={saveModifiersToCart}
-                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+            ))
+          ) : (
+            <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
+          )}
+        </div>
+      </div>
+      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+        <button
+          onClick={saveModifiersToCart}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+        >
+          Simpan Modifier ({selectedModifiers.length} dipilih)
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{isDiscountPopupOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
+        <button
+          onClick={() => setIsDiscountPopupOpen(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto max-h-[300px]"> {/* Batasi tinggi dan tambahkan scroll */}
+        <div className="space-y-3">
+          {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
+            discounts
+              .filter((d) => d.scope === "TOTAL")
+              .map((discount) => (
+                <div
+                  key={discount.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
                 >
-                  Simpan Modifier ({selectedModifiers.length} dipilih)
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {isDiscountPopupOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
-                <button
-                  onClick={() => setIsDiscountPopupOpen(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 p-4 overflow-y-auto">
-                <div className="space-y-3">
-                  {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
-                    discounts
-                      .filter((d) => d.scope === "TOTAL")
-                      .map((discount) => (
-                        <div
-                          key={discount.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedDiscountId === discount.id}
-                              onChange={() => handleDiscountToggle(discount.id)}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-gray-700">{discount.name}</span>
-                          </div>
-                          <span className="text-gray-600 text-sm">
-                            {discount.type === "PERCENTAGE"
-                              ? `${discount.value}%`
-                              : `Rp ${discount.value.toLocaleString()}`}
-                          </span>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedDiscountId === discount.id}
+                      onChange={() => handleDiscountToggle(discount.id)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-700">{discount.name}</span>
+                  </div>
+                  <span className="text-gray-600 text-sm">
+                    {discount.type === "PERCENTAGE"
+                      ? `${discount.value}%`
+                      : `Rp ${discount.value.toLocaleString()}`}
+                  </span>
                 </div>
-              </div>
-              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-                <button
-                  onClick={saveDiscountToOrder}
-                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-                >
-                  Simpan Diskon
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+              ))
+          ) : (
+            <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
+          )}
+        </div>
+      </div>
+      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+        <button
+          onClick={saveDiscountToOrder}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+        >
+          Simpan Diskon
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       </div>
       <style jsx global>{`
         input[type="number"]::-webkit-inner-spin-button,

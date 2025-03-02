@@ -1263,113 +1263,113 @@ export default function KasirPage() {
           </div>
         )}
 
-        {isModifierPopupOpen && currentMenu && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Tambah Modifier - {currentMenu.name}
-                </h2>
-                <button
-                  onClick={() => setIsModifierPopupOpen(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 p-4 overflow-y-auto">
-                <div className="space-y-3">
-                  {currentMenu.modifiers.length > 0 ? (
-                    currentMenu.modifiers.map((mod) => (
-                      <div
-                        key={mod.modifier.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedModifiers.includes(mod.modifier.id)}
-                            onChange={() => handleModifierToggle(mod.modifier.id)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-gray-700">{mod.modifier.name}</span>
-                        </div>
-                        <span className="text-gray-600 text-sm">
-                          +Rp {mod.modifier.price.toLocaleString()}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
-                  )}
+{isModifierPopupOpen && currentMenu && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">
+          Tambah Modifier - {currentMenu.name}
+        </h2>
+        <button
+          onClick={() => setIsModifierPopupOpen(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto max-h-[300px]"> {/* Batasi tinggi dan tambahkan scroll */}
+        <div className="space-y-3">
+          {currentMenu.modifiers.length > 0 ? (
+            currentMenu.modifiers.map((mod) => (
+              <div
+                key={mod.modifier.id}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedModifiers.includes(mod.modifier.id)}
+                    onChange={() => handleModifierToggle(mod.modifier.id)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-gray-700">{mod.modifier.name}</span>
                 </div>
+                <span className="text-gray-600 text-sm">
+                  +Rp {mod.modifier.price.toLocaleString()}
+                </span>
               </div>
-              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-                <button
-                  onClick={saveModifiersToCart}
-                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-                >
-                  Simpan Modifier ({selectedModifiers.length} dipilih)
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+            ))
+          ) : (
+            <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
+          )}
+        </div>
+      </div>
+      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+        <button
+          onClick={saveModifiersToCart}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+        >
+          Simpan Modifier ({selectedModifiers.length} dipilih)
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
-        {isDiscountPopupOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
-                <button
-                  onClick={() => setIsDiscountPopupOpen(false)}
-                  className="text-gray-500 hover:text-gray-700"
+{isDiscountPopupOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+      <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
+        <button
+          onClick={() => setIsDiscountPopupOpen(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto max-h-[300px]"> {/* Batasi tinggi dan tambahkan scroll */}
+        <div className="space-y-3">
+          {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
+            discounts
+              .filter((d) => d.scope === "TOTAL")
+              .map((discount) => (
+                <div
+                  key={discount.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
                 >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 p-4 overflow-y-auto">
-                <div className="space-y-3">
-                  {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
-                    discounts
-                      .filter((d) => d.scope === "TOTAL")
-                      .map((discount) => (
-                        <div
-                          key={discount.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedDiscountIdNewOrder === discount.id}
-                              onChange={() => setSelectedDiscountIdNewOrder(discount.id)}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-gray-700">{discount.name}</span>
-                          </div>
-                          <span className="text-gray-600 text-sm">
-                            {discount.type === "PERCENTAGE"
-                              ? `${discount.value}%`
-                              : `Rp ${discount.value.toLocaleString()}`}
-                          </span>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedDiscountIdNewOrder === discount.id}
+                      onChange={() => setSelectedDiscountIdNewOrder(discount.id)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-gray-700">{discount.name}</span>
+                  </div>
+                  <span className="text-gray-600 text-sm">
+                    {discount.type === "PERCENTAGE"
+                      ? `${discount.value}%`
+                      : `Rp ${discount.value.toLocaleString()}`}
+                  </span>
                 </div>
-              </div>
-              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-                <button
-                  onClick={() => setIsDiscountPopupOpen(false)}
-                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-                >
-                  Simpan Diskon
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+              ))
+          ) : (
+            <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
+          )}
+        </div>
+      </div>
+      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+        <button
+          onClick={() => setIsDiscountPopupOpen(false)}
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
+        >
+          Simpan Diskon
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       </div>
 
       <style jsx global>{`
@@ -1758,8 +1758,11 @@ function OrderItemComponent({
 
       {isPaidOrder && order.status !== "Sedang Diproses" && order.status !== "Selesai" && (
         <div className="mt-4 space-y-2">
-          {order.paymentStatusText && (
-            <p className="text-green-600 font-semibold">{order.paymentStatusText}</p>
+          {/* Tampilkan status pembayaran */}
+          {(paymentStatusText || (order.paymentStatus === "paid" && order.paymentMethod === "ewallet")) && (
+            <p className="text-green-600 font-semibold">
+              {paymentStatusText || "Status Payment: Paid via E-Wallet"}
+            </p>
           )}
           <button
             onClick={() => confirmPayment?.(Number(order.id), order.paymentMethod || "ewallet", order.paymentId, selectedDiscountId)}
@@ -2075,6 +2078,7 @@ function generatePDF(order: Order) {
       yPosition = margin;
     }
   };
+
   const logoBase64 = "";
   const logoWidth = 20;
   const logoHeight = 20;
@@ -2216,12 +2220,18 @@ function generatePDF(order: Order) {
       doc.setFontSize(8);
     }
 
+    // Perubahan pada bagian catatan: membungkus teks otomatis agar tidak terpotong
     if (item.note) {
       checkPage();
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
-      doc.text(`Catatan: ${item.note}`, margin, yPosition);
-      yPosition += 5;
+      const noteText = `Catatan: ${item.note}`;
+      const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+      noteLines.forEach((line) => {
+        checkPage();
+        doc.text(line, margin, yPosition);
+        yPosition += 4;
+      });
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
     }
@@ -2275,46 +2285,47 @@ function generatePDF(order: Order) {
 
   checkPage();
   doc.text("Total Bayar", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
-yPosition += 5;
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
 
-doc.setFont("helvetica", "normal");
-checkPage();
-doc.text("Pembayaran", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(order.paymentMethod || "-", valueX, yPosition);
-yPosition += 3;
+  doc.setFont("helvetica", "normal");
+  checkPage();
+  doc.text("Pembayaran", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.paymentMethod || "-", valueX, yPosition);
+  yPosition += 3;
 
-checkPage();
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Uang Diberikan", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.text("Uang Diberikan", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Kembalian", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
-yPosition += 7;
+  checkPage();
+  doc.text("Kembalian", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
+  yPosition += 7;
 
-doc.setFont("helvetica", "italic");
-checkPage();
-doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
-yPosition += 5;
-checkPage();
-doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
+  doc.setFont("helvetica", "italic");
+  checkPage();
+  doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 5;
+  checkPage();
+  doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
 
-doc.save(`struk_order_${order.id}.pdf`);
+  doc.save(`struk_order_${order.id}.pdf`);
 }
+
 
 //struk2
 function generateCombinedPDF(order: Order) {
@@ -2484,8 +2495,13 @@ order.orderItems.forEach((item) => {
     checkPage();
     doc.setFont("helvetica", "italic");
     doc.setFontSize(7);
-    doc.text(`Catatan: ${item.note}`, margin, yPosition);
-    yPosition += 5;
+    const noteText = `Catatan: ${item.note}`;
+    const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+    noteLines.forEach((line) => {
+      checkPage();
+      doc.text(line, margin, yPosition);
+      yPosition += 4;
+    });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
   }
