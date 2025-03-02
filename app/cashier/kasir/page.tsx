@@ -237,6 +237,7 @@ export default function KasirPage() {
     socketIo.on("reservationDeleted", ({ reservasiId, orderId }) => {
       console.log("Reservasi dihapus:", { reservasiId, orderId });
       setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+      fetchOrders();
     });
   
     socketIo.on("reservationUpdated", (updatedReservasi) => {
@@ -248,6 +249,11 @@ export default function KasirPage() {
             : order
         )
       );
+    });
+  
+    // Tambahkan listener untuk perubahan status meja
+    socketIo.on("tableStatusUpdated", ({ tableNumber }) => {
+      fetchOrders();
     });
   
     socketIo.on("disconnect", () => console.log("Socket terputus"));

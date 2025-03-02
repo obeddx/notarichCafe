@@ -128,7 +128,7 @@ const ReservasiSidebar = () => {
       });
       if (res.ok) {
         setReservasis((prev) => prev.filter((r) => r.id !== deleteModal.reservationId));
-        toast.success("Reservasi berhasil dihapus");
+        toast.success("Reservasi dan pesanan terkait berhasil dihapus");
       } else {
         toast.error("Gagal menghapus reservasi");
       }

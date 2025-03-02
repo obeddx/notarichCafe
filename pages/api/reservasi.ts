@@ -38,7 +38,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       });
 
-      // Emit event ke WebSocket
       const socket = io(SOCKET_URL, { path: "/api/socket" });
       socket.emit("reservationAdded", newReservasi);
 
@@ -69,7 +68,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       });
 
-      // Emit event ke WebSocket
       const socket = io(SOCKET_URL, { path: "/api/socket" });
       socket.emit("reservationUpdated", updatedReservasi);
 
@@ -105,21 +103,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
+      // Hapus reservasi
       await prisma.reservasi.delete({
         where: { id: Number(id) },
       });
 
-      // Hapus entri DataMeja jika ada
+      // Hapus entri DataMeja jika ada untuk mengubah status meja menjadi tersedia
       await prisma.dataMeja.deleteMany({
         where: { nomorMeja: parseInt(reservasi.nomorMeja, 10) },
       });
 
-      // Emit event ke WebSocket
+      // Emit event ke WebSocket untuk sinkronisasi real-time
       const socket = io(SOCKET_URL, { path: "/api/socket" });
       socket.emit("reservationDeleted", { reservasiId: Number(id), orderId: relatedOrder?.id });
       socket.emit("ordersUpdated", { deletedOrderId: relatedOrder?.id });
+      socket.emit("tableStatusUpdated", { tableNumber: reservasi.nomorMeja });
 
-      return res.status(200).json({ message: "Reservasi berhasil dihapus" });
+      return res.status(200).json({ message: "Reservasi dan pesanan terkait berhasil dihapus" });
     } catch (error) {
       console.error("Error deleting reservasi:", error);
       return res.status(500).json({ message: "Terjadi kesalahan saat menghapus" });

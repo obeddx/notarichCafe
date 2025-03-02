@@ -418,6 +418,13 @@ const saveModifiersToCart = () => {
       fetchTableOrders(selectedTableNumber);
     });
   
+    // Tambahkan listener untuk perubahan status meja
+    socket.on("tableStatusUpdated", ({ tableNumber }) => {
+      setManuallyMarkedTables((prev) => prev.filter((num) => num !== tableNumber));
+      fetchData();
+      fetchMeja();
+    });
+  
     return () => {
       socket.disconnect();
     };
@@ -444,19 +451,28 @@ const saveModifiersToCart = () => {
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
   
-    // Jika meja ditandai secara manual, tetap merah
-    if (manuallyMarkedTables.includes(tableNumberStr)) {
-      return "bg-[#D02323]";
-    }
-  
-    // Cek pesanan aktif atau reservasi yang belum selesai
-    const hasActiveOrBookingOrders = allOrders.some(
-      (order) =>
-        order.tableNumber === tableNumberStr &&
-        (order.status !== "Selesai" || (order.reservasi?.kodeBooking && order.paymentStatus === "paid"))
+    // Cek apakah ada pesanan aktif (status apa pun) di meja ini
+    const hasActiveOrders = allOrders.some(
+      (order) => order.tableNumber === tableNumberStr
     );
   
-    return hasActiveOrBookingOrders ? "bg-[#D02323]" : "bg-green-800";
+    // Cek apakah ada reservasi aktif di meja ini
+    const hasActiveReservation = allOrders.some(
+      (order) => order.tableNumber === tableNumberStr && order.reservasi?.kodeBooking
+    );
+  
+    // Jika ada pesanan aktif atau reservasi aktif, warna tetap merah
+    if (hasActiveOrders || hasActiveReservation) {
+      return "bg-[#D02323]"; // Merah jika ada pesanan atau reservasi
+    }
+  
+    // Jika tidak ada pesanan dan tidak ada di manuallyMarkedTables, warna hijau
+    if (!manuallyMarkedTables.includes(tableNumberStr)) {
+      return "bg-green-800"; // Hijau hanya jika tidak ada pesanan dan belum ditandai manual
+    }
+  
+    // Default ke merah jika ditandai manual
+    return "bg-[#D02323]";
   };
   const fetchTableOrders = async (tableNumber: string) => {
     try {
@@ -473,14 +489,13 @@ const saveModifiersToCart = () => {
         order.tableNumber === tableNumber || 
         order.tableNumber.startsWith(`Meja ${tableNumber} -`)
       );
-      
+  
+      // Pesanan aktif termasuk yang memiliki reservasi
       const activeOrders = tableOrders.filter((order: Order) => 
-        order.status !== "Selesai" || 
-        (order.reservasi?.kodeBooking && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+        order.status !== "Selesai" || order.reservasi?.kodeBooking
       );
       const completedOrders = tableOrders.filter((order: Order) => 
-        order.status === "Selesai" && 
-        !(order.reservasi?.kodeBooking && order.paymentMethod === "ewallet" && order.paymentStatus === "paid")
+        order.status === "Selesai" && !order.reservasi?.kodeBooking
       );
   
       setSelectedTableOrders(activeOrders);
@@ -490,7 +505,6 @@ const saveModifiersToCart = () => {
       toast.error("Gagal memuat data pesanan");
     }
   };
-
   const markOrderAsCompleted = async (orderId: number) => {
     try {
       const res = await fetch("/api/completeOrder", {
@@ -1496,277 +1510,281 @@ const saveModifiersToCart = () => {
             </div>
           </div>
         )}
-        {isOrderModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Buat Pesanan Baru - Meja {selectedTableNumberForOrder}</h2>
+
+
+      {isOrderModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Buat Pesanan Baru - Meja {selectedTableNumberForOrder}</h2>
+        <button
+          onClick={async () => {
+            await fetch("/api/cart", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cartItems: [] }),
+            });
+            setIsOrderModalOpen(false);
+            setSelectedMenuItems([]);
+          }}
+        >
+          <X className="w-6 h-6 text-gray-600 hover:text-green-500" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <label className="block text-sm font-medium mb-1">Nomor Meja</label>
+          <input
+            type="text"
+            value={selectedTableNumberForOrder}
+            readOnly
+            className="w-full p-2 border rounded-md bg-gray-100"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Nama Pelanggan</label>
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            className="w-full p-2 border rounded-md"
+            placeholder="Masukkan nama pelanggan"
+          />
+        </div>
+      </div>
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Cari Menu</label>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full p-2 border rounded-md"
+          placeholder="Cari nama menu..."
+        />
+      </div>
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Filter Kategori</label>
+        <select
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="w-full p-2 border rounded-md"
+        >
+          <option value="">Semua Kategori</option>
+          {Array.from(new Set(menus.map((menu) => menu.category))).map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {menus
+          .filter(
+            (menu) =>
+              (!selectedCategory || menu.category === selectedCategory) &&
+              (!searchQuery || menu.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          )
+          .map((menu) => {
+            const { originalPrice, discountedPrice } = getMenuDiscountedPrice(menu);
+            return (
+              <div
+                key={menu.id}
+                className="border p-4 rounded-lg flex flex-col items-center justify-between"
+              >
+                <Image
+                  src={menu.image}
+                  alt={menu.name}
+                  width={96}
+                  height={96}
+                  className="object-cover rounded-full mb-2"
+                />
+                <h3 className="font-semibold text-center">{menu.name}</h3>
+                <div className="text-center">
+                  {discountedPrice < originalPrice ? (
+                    <>
+                      <p className="text-sm text-gray-600 line-through">
+                        Rp {originalPrice.toLocaleString()}
+                      </p>
+                      <p className="text-sm text-green-600 font-semibold">
+                        Rp {discountedPrice.toLocaleString()}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-600">
+                      Rp {originalPrice.toLocaleString()}
+                    </p>
+                  )}
+                </div>
                 <button
-                  onClick={async () => {
-                    await fetch("/api/cart", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ cartItems: [] }),
-                    });
-                    setIsOrderModalOpen(false);
-                    setSelectedMenuItems([]);
+                  onClick={() => {
+                    setCurrentMenu(menu);
+                    setSelectedModifiers([]);
+                    setIsModifierPopupOpen(true);
                   }}
+                  className="mt-2 bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
                 >
-                  <X className="w-6 h-6 text-gray-600 hover:text-green-500" />
+                  Tambah
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Nomor Meja</label>
-                  <input
-                    type="text"
-                    value={selectedTableNumberForOrder}
-                    readOnly
-                    className="w-full p-2 border rounded-md bg-gray-100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Nama Pelanggan</label>
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                    placeholder="Masukkan nama pelanggan"
-                  />
-                </div>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Cari Menu</label>
+            );
+          })}
+      </div>
+
+      <div className="mt-6 border-t pt-4">
+        <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
+        {selectedMenuItems.map((item) => {
+          const { originalPrice, discountedPrice } = getMenuDiscountedPrice(item.menu);
+          const modifierTotal = Object.values(item.modifierIds)
+            .filter((id): id is number => id !== null)
+            .reduce((acc, modifierId) => {
+              const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+              return acc + (modifier?.price || 0);
+            }, 0);
+          const modifierNames = Object.values(item.modifierIds)
+            .filter((id): id is number => id !== null)
+            .map((modifierId) => {
+              const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+              return modifier?.name;
+            })
+            .filter(Boolean)
+            .join(", ");
+          const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
+
+          return (
+            <div
+              key={item.uniqueKey}
+              className="flex justify-between items-center mb-3 p-2 bg-gray-50 rounded"
+            >
+              <div className="flex-1">
+                <p className="font-medium">{itemNameWithModifiers}</p>
+                <p className="text-sm text-gray-600">
+                  Rp {(discountedPrice + modifierTotal).toLocaleString()} x {item.quantity}
+                </p>
                 <input
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                  placeholder="Cari nama menu..."
+                  placeholder="Catatan..."
+                  value={item.note || ""}
+                  onChange={(e) => {
+                    setSelectedMenuItems((prev) =>
+                      prev.map((prevItem) =>
+                        prevItem.uniqueKey === item.uniqueKey
+                          ? { ...prevItem, note: e.target.value }
+                          : prevItem
+                      )
+                    );
+                  }}
+                  className="text-sm mt-1 p-1 border rounded w-full"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Filter Kategori</label>
-                <select
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="">Semua Kategori</option>
-                  {Array.from(new Set(menus.map((menu) => menu.category))).map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {menus
-                  .filter(
-                    (menu) =>
-                      (!selectedCategory || menu.category === selectedCategory) &&
-                      (!searchQuery || menu.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                  )
-                  .map((menu) => {
-                    const { originalPrice, discountedPrice } = getMenuDiscountedPrice(menu);
-                    return (
-                      <div
-                        key={menu.id}
-                        className="border p-4 rounded-lg flex flex-col items-center justify-between"
-                      >
-                        <Image
-                          src={menu.image}
-                          alt={menu.name}
-                          width={96}
-                          height={96}
-                          className="object-cover rounded-full mb-2"
-                        />
-                        <h3 className="font-semibold text-center">{menu.name}</h3>
-                        <div className="text-center">
-                          {discountedPrice < originalPrice ? (
-                            <>
-                              <p className="text-sm text-gray-600 line-through">
-                                Rp {originalPrice.toLocaleString()}
-                              </p>
-                              <p className="text-sm text-green-600 font-semibold">
-                                Rp {discountedPrice.toLocaleString()}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-sm text-gray-600">
-                              Rp {originalPrice.toLocaleString()}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => {
-                            setCurrentMenu(menu);
-                            setSelectedModifiers([]);
-                            setIsModifierPopupOpen(true);
-                          }}
-                          className="mt-2 bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
-                        >
-                          Tambah
-                        </button>
-                      </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedMenuItems((prev) =>
+                      prev
+                        .map((prevItem) =>
+                          prevItem.uniqueKey === item.uniqueKey
+                            ? { ...prevItem, quantity: Math.max(0, prevItem.quantity - 1) }
+                            : prevItem
+                        )
+                        .filter((prevItem) => prevItem.quantity > 0)
                     );
-                  })}
+                  }}
+                  className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+                >
+                  -
+                </button>
+                <span>{item.quantity}</span>
+                <button
+                  onClick={() => addToCart(item.menu, item.modifierIds)}
+                  className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
+                >
+                  +
+                </button>
               </div>
-
-              <div className="mt-6 border-t pt-4">
-                <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
-                {selectedMenuItems.map((item) => {
-                  const { originalPrice, discountedPrice } = getMenuDiscountedPrice(item.menu);
-                  const modifierTotal = Object.values(item.modifierIds)
-                    .filter((id): id is number => id !== null)
-                    .reduce((acc, modifierId) => {
-                      const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-                      return acc + (modifier?.price || 0);
-                    }, 0);
-                  const modifierNames = Object.values(item.modifierIds)
-                    .filter((id): id is number => id !== null)
-                    .map((modifierId) => {
-                      const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-                      return modifier?.name;
-                    })
-                    .filter(Boolean)
-                    .join(", ");
-                  const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
-
-                  return (
-                    <div
-                      key={item.uniqueKey}
-                      className="flex justify-between items-center mb-3 p-2 bg-gray-50 rounded"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium">{itemNameWithModifiers}</p>
-                        <p className="text-sm text-gray-600">
-                          Rp {(discountedPrice + modifierTotal).toLocaleString()} x {item.quantity}
-                        </p>
-                        <input
-                          type="text"
-                          placeholder="Catatan..."
-                          value={item.note || ""}
-                          onChange={(e) => {
-                            setSelectedMenuItems((prev) =>
-                              prev.map((prevItem) =>
-                                prevItem.uniqueKey === item.uniqueKey
-                                  ? { ...prevItem, note: e.target.value }
-                                  : prevItem
-                              )
-                            );
-                          }}
-                          className="text-sm mt-1 p-1 border rounded w-full"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedMenuItems((prev) =>
-                              prev
-                                .map((prevItem) =>
-                                  prevItem.uniqueKey === item.uniqueKey
-                                    ? { ...prevItem, quantity: Math.max(0, prevItem.quantity - 1) }
-                                    : prevItem
-                                )
-                                .filter((prevItem) => prevItem.quantity > 0)
-                            );
-                          }}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
-                        >
-                          -
-                        </button>
-                        <span>{item.quantity}</span>
-                        <button
-                          onClick={() => addToCart(item.menu, item.modifierIds)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div className="mt-4">
-                  <div className="text-lg">
-                    <p>Subtotal: Rp {calculateCartTotals().subtotal.toLocaleString()}</p>
-                    <p>Modifier: Rp {calculateCartTotals().totalModifierCost.toLocaleString()}</p>
-                    <p>Diskon Menu: Rp {calculateCartTotals().totalMenuDiscountAmount.toLocaleString()}</p>
-                    <p>Diskon Total: Rp {(calculateCartTotals().totalDiscountAmount - calculateCartTotals().totalMenuDiscountAmount).toLocaleString()}</p>
-                    <p>Pajak (10%): Rp {calculateCartTotals().taxAmount.toLocaleString()}</p>
-                    <p>Gratuity (2%): Rp {calculateCartTotals().gratuityAmount.toLocaleString()}</p>
-                    <p className="font-semibold">
-                      Total Bayar: Rp {calculateCartTotals().finalTotal.toLocaleString()}
-                    </p>
-                  </div>
-
-                  <div className="mt-2">
-                    <label className="block text-sm font-medium mb-1">Diskon Total:</label>
-                    <button
-                      onClick={() => setIsDiscountPopupOpen(true)}
-                      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-                    >
-                      {selectedDiscountId
-                        ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
-                        : "Pilih Diskon"}
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={async () => {
-                      if ( !customerName) {
-                        toast.error("Harap isi nama pelanggan");
-                        return;
-                      }
-
-                      try {
-                        const totals = calculateCartTotals();
-                        const response = await fetch("/api/placeOrder", {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                          },
-                          body: JSON.stringify({
-                            customerName,
-                            tableNumber: selectedTableNumberForOrder,
-                            items: selectedMenuItems.map((item) => ({
-                              menuId: item.menu.id,
-                              quantity: item.quantity,
-                              note: item.note,
-                              modifierIds: Object.values(item.modifierIds).filter(
-                                (id): id is number => id !== null
-                              ),
-                            })),
-                            total: totals.finalTotal,
-                            discountId: selectedDiscountId || null,
-                          }),
-                        });
-
-                        if (response.ok) {
-                          toast.success("Pesanan berhasil dibuat!");
-                          setIsOrderModalOpen(false);
-                          setSelectedMenuItems([]);
-                          setCustomerName("");
-                          setSelectedTableNumberForOrder("");
-                          setSelectedDiscountId(null);
-                          fetchData();
-                        } else {
-                          throw new Error("Gagal membuat pesanan");
-                        }
-                      } catch (error) {
-                        console.error("Error:", error);
-                        toast.error("Gagal membuat pesanan");
-                      }
-                    }}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md mt-4"
-                  >
-                    Simpan Pesanan
-                  </button>
-                </div> </div>
             </div>
+          );
+        })}
+
+        <div className="mt-4">
+          <div className="text-lg">
+            <p>Subtotal: Rp {calculateCartTotals().subtotal.toLocaleString()}</p>
+            <p>Modifier: Rp {calculateCartTotals().totalModifierCost.toLocaleString()}</p>
+            <p>Diskon Menu: Rp {calculateCartTotals().totalMenuDiscountAmount.toLocaleString()}</p>
+            <p>Diskon Total: Rp {(calculateCartTotals().totalDiscountAmount - calculateCartTotals().totalMenuDiscountAmount).toLocaleString()}</p>
+            <p>Pajak (10%): Rp {calculateCartTotals().taxAmount.toLocaleString()}</p>
+            <p>Gratuity (2%): Rp {calculateCartTotals().gratuityAmount.toLocaleString()}</p>
+            <p className="font-semibold">
+              Total Bayar: Rp {calculateCartTotals().finalTotal.toLocaleString()}
+            </p>
           </div>
-        )}
+
+          <div className="mt-2">
+            <label className="block text-sm font-medium mb-1">Diskon Total:</label>
+            <button
+              onClick={() => setIsDiscountPopupOpen(true)}
+              className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
+            >
+              {selectedDiscountId
+                ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
+                : "Pilih Diskon"}
+            </button>
+          </div>
+
+          <button
+            onClick={async () => {
+              if (!customerName) {
+                toast.error("Harap isi nama pelanggan");
+                return;
+              }
+
+              try {
+                const totals = calculateCartTotals();
+                const response = await fetch("/api/placeOrder", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    customerName,
+                    tableNumber: selectedTableNumberForOrder,
+                    items: selectedMenuItems.map((item) => ({
+                      menuId: item.menu.id,
+                      quantity: item.quantity,
+                      note: item.note,
+                      modifierIds: Object.values(item.modifierIds).filter(
+                        (id): id is number => id !== null
+                      ),
+                    })),
+                    total: totals.finalTotal,
+                    discountId: selectedDiscountId || null,
+                  }),
+                });
+
+                if (response.ok) {
+                  toast.success("Pesanan berhasil dibuat!");
+                  setIsOrderModalOpen(false);
+                  setSelectedMenuItems([]);
+                  setCustomerName("");
+                  setSelectedTableNumberForOrder("");
+                  setSelectedDiscountId(null);
+                  await fetchData(); // Perbarui data pesanan global
+                  await fetchTableOrders(selectedTableNumber); // Perbarui popup meja yang sedang dibuka
+                } else {
+                  throw new Error("Gagal membuat pesanan");
+                }
+              } catch (error) {
+                console.error("Error:", error);
+                toast.error("Gagal membuat pesanan");
+              }
+            }}
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md mt-4"
+          >
+            Simpan Pesanan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         {/* New Modifier Selection Popup */}
         {isModifierPopupOpen && currentMenu && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

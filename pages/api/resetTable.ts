@@ -12,21 +12,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      // Hanya hapus pesanan dengan status "Selesai" dan tidak memiliki kode booking (reservasiId null)
+      // Hanya hapus pesanan tanpa reservasi
       await prisma.order.deleteMany({
         where: {
           tableNumber: tableNumber,
-          status: "Selesai",
-          reservasiId: null, // Mengecualikan pesanan dengan kode booking
+          reservasiId: null, // Pastikan pesanan reservasi tidak dihapus
         },
       });
 
-      // Hapus data meja dari tabel DataMeja (jika ada)
-      await prisma.dataMeja.deleteMany({
+      // Hapus data meja dari tabel DataMeja jika tidak ada reservasi terkait
+      const hasReservation = await prisma.reservasi.findFirst({
         where: {
-          nomorMeja: parseInt(tableNumber, 10),
+          nomorMeja: tableNumber,
+          status: { in: ["BOOKED", "OCCUPIED"] },
         },
       });
+
+      if (!hasReservation) {
+        await prisma.dataMeja.deleteMany({
+          where: {
+            nomorMeja: parseInt(tableNumber, 10),
+          },
+        });
+      }
 
       res.status(200).json({ message: `Meja ${tableNumber} berhasil direset` });
     } catch (error) {
