@@ -1464,7 +1464,7 @@ const Bookinge = () => {
           <div>
             <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Pesanan Aktif</h3>
             {selectedTableOrders.map((order) => (
-              <OrderCard key={order.id} order={order} isPopup={true} /> // Tambahkan isPopup
+              <OrderCard key={order.id} order={order} onComplete={() => markOrderAsCompleted(order.id)} isPopup={true} />
             ))}
           </div>
         )}
@@ -1472,23 +1472,55 @@ const Bookinge = () => {
           <div>
             <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">Pesanan Selesai</h3>
             {selectedCompletedOrders.map((order) => (
-              <OrderCard key={order.id} order={order} isCompleted isPopup={true} /> // Tambahkan isPopup
+              <OrderCard key={order.id} order={order} isCompleted isPopup={true} />
             ))}
           </div>
         )}
         {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
           <div className="text-center py-8">
-            <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+            {selectedTableNumber !== "sementara" && (
+              <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+            )}
+            <div className="flex justify-center gap-4">
+              {selectedTableNumber !== "sementara" && (
+                <>
+                  {manuallyMarkedTables.includes(selectedTableNumber) || backendMarkedTables.includes(selectedTableNumber) ? (
+                    <button
+                      onClick={() => resetTable(selectedTableNumber)}
+                      className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Reset Meja
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => markTableAsOccupied(selectedTableNumber)}
+                      className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+                    >
+                      Tandai sebagai Terisi
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
-      <div className="p-4 border-t flex justify-end">
+      <div className="p-4 border-t flex justify-between gap-4">
+        <button
+          onClick={() => {
+            setSelectedTableNumberForOrder(selectedTableNumber);
+            setIsOrderModalOpen(true);
+          }}
+          className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors flex-1 text-center"
+        >
+          Pesan Sekarang
+        </button>
         <button
           onClick={() => {
             setIsPopupVisible(false);
             fetchData();
           }}
-          className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
+          className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition flex-1"
         >
           Tutup
         </button>
