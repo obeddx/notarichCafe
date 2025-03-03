@@ -1,11 +1,21 @@
+// pages/api/employee.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
+import nodemailer from "nodemailer";
 
 const prisma = new PrismaClient();
 
+// 1. Buat transporter Nodemailer di sini
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER, // Masukkan email Gmail Anda
+    pass: process.env.EMAIL_PASS, // Masukkan password / App Password Gmail
+  },
+});
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
-    // Ambil semua data Employee
     try {
       const employees = await prisma.employee.findMany({
         include: { role: true },
@@ -15,39 +25,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error(error);
       return res.status(500).json({ error: "Error fetching employees" });
     }
-  } else if (req.method === "POST") {
-    // Tambah data Employee baru
+  }
+
+  if (req.method === "POST") {
     try {
-      const { employerName, roleId, expiredDate, employeeStatus } = req.body;
+      const { firstName, lastName, email, phone, roleId, expiredDate } = req.body;
+
+      // 2. Buat employee baru di database (include role agar kita dapat role.name)
       const newEmployee = await prisma.employee.create({
         data: {
-          employerName,
+          firstName,
+          lastName,
+          email,
+          phone,
           roleId: Number(roleId),
           expiredDate: new Date(expiredDate),
-          employeeStatus,
         },
+        include: { role: true },
       });
+
+      // 3. Kirim email ke user yang di-invite (jika email diisi)
+      if (email) {
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "Selamat Datang di Notarich Cafe",
+          text: `Halo ${firstName} ${lastName}, selamat datang di keluarga Notarich Cafe dengan job sebagai ${newEmployee.role?.name}.
+Silahkan registrasi akunmu di http://localhost:3000/register ya. Terima Kasih!`,
+        });
+      }
+
+      // 4. Kembalikan data karyawan yang baru ditambahkan
       return res.status(201).json(newEmployee);
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: "Error creating employee" });
     }
-  } else if (req.method === "PUT") {
-    // Update data Employee
-    try {
-      const { id, employerName, roleId, expiredDate, employeeStatus } = req.body;
+  }
 
-      if (!id) {
-        return res.status(400).json({ error: "Employee ID is required" });
-      }
+  if (req.method === "PUT") {
+    try {
+      const { id, firstName, lastName, email, phone, roleId, expiredDate } = req.body;
 
       const updatedEmployee = await prisma.employee.update({
         where: { id: Number(id) },
         data: {
-          employerName,
+          firstName,
+          lastName,
+          email,
+          phone,
           roleId: Number(roleId),
           expiredDate: new Date(expiredDate),
-          employeeStatus,
         },
       });
       return res.status(200).json(updatedEmployee);
@@ -55,14 +83,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error(error);
       return res.status(500).json({ error: "Error updating employee" });
     }
-  } else if (req.method === "DELETE") {
-    // Hapus data Employee
+  }
+
+  if (req.method === "DELETE") {
     try {
       const { id } = req.body;
-      if (!id) {
-        return res.status(400).json({ error: "Employee ID is required" });
-      }
-
       await prisma.employee.delete({
         where: { id: Number(id) },
       });
@@ -71,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error(error);
       return res.status(500).json({ error: "Error deleting employee" });
     }
-  } else {
-    return res.status(405).json({ error: "Method not allowed" });
   }
+
+  return res.status(405).json({ error: "Method not allowed" });
 }
