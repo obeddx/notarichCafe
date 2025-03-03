@@ -171,6 +171,8 @@ model Employee {
   roleId         Int
   expiredDate    DateTime
   employeeStatus String       @default("Active")
+  inviteToken    String?
+  inviteExpiresAt    DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

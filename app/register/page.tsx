@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, FormEvent } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FcGoogle } from "react-icons/fc";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 export default function RegisterPage() {
+  // ======================
+  // STATE & HOOKS
+  // ======================
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,20 +18,50 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [generateToken, setGenerateToken] = useState(false);
+
+  // Token-related states
+  const [inviteTokenValid, setInviteTokenValid] = useState<boolean | null>(null);
+  const [inviteEmployee, setInviteEmployee] = useState<any>(null);
+  // (opsional) Menyimpan data employee terkait token (misal email bawaan)
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tokenFromURL = searchParams?.get("token");
 
-  const generateManualToken = () => {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
-    let token = "";
-    for (let i = 0; i < 50; i++) {
-      token += characters.charAt(Math.floor(Math.random() * characters.length));
+  // ======================
+  // EFFECT: Verifikasi Token
+  // ======================
+  useEffect(() => {
+    // Jika tidak ada token, berarti ini pendaftaran biasa
+    // (atau Anda bisa mewajibkan token -> handle sesuai kebutuhan)
+    if (!tokenFromURL) {
+      setInviteTokenValid(null);
+      return;
     }
-    return token;
-  };
 
+    // Verifikasi token ke API
+    const verifyToken = async () => {
+      try {
+        const res = await fetch(`/api/verify-invite?token=${tokenFromURL}`);
+        if (!res.ok) {
+          setInviteTokenValid(false);
+          return;
+        }
+        const data = await res.json();
+        setInviteTokenValid(true);
+        setInviteEmployee(data.employee);
+        // misal kita simpan data employee agar kita bisa auto isi email, dsb.
+      } catch (error) {
+        setInviteTokenValid(false);
+      }
+    };
+
+    verifyToken();
+  }, [tokenFromURL]);
+
+  // ======================
+  // VALIDASI INPUT
+  // ======================
   const validateInput = () => {
     if (username.length < 3 || username.length > 20) {
       toast.error("Username harus 3-20 karakter");
@@ -46,6 +79,9 @@ export default function RegisterPage() {
     return true;
   };
 
+  // ======================
+  // SUBMIT REGISTER
+  // ======================
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage("");
@@ -53,21 +89,23 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Generate token manual jika opsi dipilih
-      const token = generateToken ? generateManualToken() : null;
-
+      // Lakukan pendaftaran
+      // (Jika token valid, Anda bisa kirim token ke /api/register untuk disocokkan lagi)
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password, role, token }),
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          role,
+          token: tokenFromURL, // kirim token (jika ada) untuk verifikasi final
+        }),
       });
 
       const data = await res.json();
       if (res.ok) {
         toast.success("Registrasi berhasil, silakan login!");
-        if (data.token) {
-          toast.info(`Token Anda: ${data.token}`);
-        }
         setTimeout(() => router.push(`/login?role=${data.role}`), 1500);
       } else {
         setErrorMessage(data.message || "Registrasi gagal");
@@ -79,6 +117,27 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  // ======================
+  // RENDER
+  // ======================
+  // Jika tokenFromURL ada, tapi belum dipastikan valid/invalid
+  if (tokenFromURL && inviteTokenValid === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <p>Memeriksa token...</p>
+      </div>
+    );
+  }
+
+  // Jika tokenFromURL ada dan invalid
+  if (tokenFromURL && inviteTokenValid === false) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <p className="text-red-500">Token undangan tidak valid atau sudah digunakan.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-cover bg-center p-4" style={{ backgroundImage: "url('/login2.png')" }}>
@@ -93,15 +152,18 @@ export default function RegisterPage() {
           </a>
         </p>
         {errorMessage && <p className="text-center text-red-500 mb-4">{errorMessage}</p>}
+
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Username</label>
             <input type="text" className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={username} onChange={(e) => setUsername(e.target.value)} required />
           </div>
+
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Email</label>
             <input type="email" className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
+
           <div className="mb-4 relative">
             <label className="block text-sm font-medium text-gray-700">Password</label>
             <input type={showPassword ? "text" : "password"} className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -109,6 +171,11 @@ export default function RegisterPage() {
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
           </div>
+
+          {/* 
+            Jika Anda mau role di-set otomatis dari token, 
+            Anda bisa menyembunyikan ini saat token valid.
+          */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Role</label>
             <div className="flex items-center mt-1">
@@ -122,19 +189,12 @@ export default function RegisterPage() {
               </label>
             </div>
           </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Generate Token?</label>
-            <div className="flex items-center mt-1">
-              <label className="mr-4 flex items-center text-sm font-medium text-gray-700">
-                <input type="checkbox" checked={generateToken} onChange={(e) => setGenerateToken(e.target.checked)} className="mr-1" />
-                Generate Token
-              </label>
-            </div>
-          </div>
+
           <button type="submit" disabled={loading} className="w-full p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">
             {loading ? "Processing..." : "Register"}
           </button>
         </form>
+
         <div className="my-4 text-center text-gray-500">OR</div>
         <button className="text-black w-full flex items-center justify-center p-2 border rounded-lg hover:bg-gray-200 transition">
           <FcGoogle className="text-xl mr-2" /> Register with Google
