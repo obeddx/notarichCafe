@@ -30,25 +30,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Pesanan ini tidak memiliki kode booking" });
     }
 
-    // Hapus pesanan
-    await prisma.order.delete({
-      where: { id: orderId },
+    await prisma.$transaction(async (prisma) => {
+      await prisma.order.delete({
+        where: { id: orderId },
+      });
+
+      await prisma.reservasi.delete({
+        where: { id: order.reservasiId },
+      });
+
+      await prisma.dataMeja.deleteMany({
+        where: { nomorMeja: parseInt(order.tableNumber, 10) },
+      });
     });
 
-    // Hapus reservasi terkait
-    const reservasi = await prisma.reservasi.delete({
-      where: { id: order.reservasiId },
-    });
-
-    // Hapus entri DataMeja jika ada
-    await prisma.dataMeja.deleteMany({
-      where: { nomorMeja: parseInt(order.tableNumber, 10) },
-    });
-
-    // Emit event ke WebSocket untuk sinkronisasi
     const socket = io(SOCKET_URL, { path: "/api/socket" });
     socket.emit("reservationDeleted", { reservasiId: order.reservasiId, orderId });
     socket.emit("ordersUpdated", { deletedOrderId: orderId });
+    socket.emit("tableStatusUpdated", { tableNumber: order.tableNumber });
 
     res.status(200).json({ message: "Pesanan dan reservasi berhasil direset" });
   } catch (error) {

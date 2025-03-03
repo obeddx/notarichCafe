@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } else if (req.method === "DELETE") {
     try {
-      const { id } = req.query;
+      const { id } = req.body;
 
       if (!id) {
         return res.status(400).json({ message: "ID reservasi diperlukan" });
@@ -110,7 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Hapus entri DataMeja jika ada untuk mengubah status meja menjadi tersedia
       await prisma.dataMeja.deleteMany({
-        where: { nomorMeja: parseInt(reservasi.nomorMeja, 10) },
+        where: { nomorMeja: parseInt(reservasi.nomorMeja || "0", 10) },
       });
 
       // Emit event ke WebSocket untuk sinkronisasi real-time

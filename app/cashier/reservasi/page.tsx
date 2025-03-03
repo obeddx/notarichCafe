@@ -100,7 +100,12 @@ const ReservasiSidebar = () => {
     });
   
     socket.on("reservationDeleted", ({ reservasiId }) => {
-      setReservasis((prev) => prev.filter((r) => r.id !== reservasiId));
+      console.log(`Received reservationDeleted event with reservasiId: ${reservasiId}`);
+      setReservasis((prev) => {
+        const updated = prev.filter((r) => r.id !== reservasiId);
+        console.log("Updated reservasis:", updated);
+        return updated;
+      });
     });
   
     socket.on("reservationUpdated", (updatedReservasi) => {
@@ -109,12 +114,14 @@ const ReservasiSidebar = () => {
       );
     });
   
-    const intervalId = setInterval(fetchReservasis, 10000);
+    const intervalId = setInterval(() => {
+      if (!isAdding && !editingReservationId) fetchReservasis();
+    }, 10000);
     return () => {
       clearInterval(intervalId);
       socket.disconnect();
     };
-  }, []);
+  }, [isAdding, editingReservationId]);
 
   const showDeleteModal = (id: number) => {
     setDeleteModal({ visible: true, reservationId: id });
@@ -123,12 +130,15 @@ const ReservasiSidebar = () => {
   const confirmDelete = async () => {
     if (!deleteModal.reservationId) return;
     try {
-      const res = await fetch(`/api/reservasi/${deleteModal.reservationId}`, {
+      const res = await fetch(`/api/reservasi`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteModal.reservationId }),
       });
       if (res.ok) {
+        const { message } = await res.json();
+        toast.success(message);
         setReservasis((prev) => prev.filter((r) => r.id !== deleteModal.reservationId));
-        toast.success("Reservasi dan pesanan terkait berhasil dihapus");
       } else {
         toast.error("Gagal menghapus reservasi");
       }

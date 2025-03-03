@@ -181,90 +181,89 @@ export default function KasirPage() {
     }
   };
 
-  useEffect(() => {
-    const fetchMenusAndDiscounts = async () => {
-      try {
-        const menuResponse = await fetch("/api/getMenu");
-        if (!menuResponse.ok) throw new Error(`Failed to fetch menus: ${menuResponse.status}`);
-        const menuData = await menuResponse.json();
-        setMenus(menuData);
+  // Perbarui useEffect untuk WebSocket
+useEffect(() => {
+  const fetchMenusAndDiscounts = async () => {
+    try {
+      const menuResponse = await fetch("/api/getMenu");
+      if (!menuResponse.ok) throw new Error(`Failed to fetch menus: ${menuResponse.status}`);
+      const menuData = await menuResponse.json();
+      setMenus(menuData);
 
-        const discountResponse = await fetch("/api/diskon");
-        if (!discountResponse.ok) throw new Error(`Failed to fetch discounts: ${discountResponse.status}`);
-        const discountData = await discountResponse.json();
-        setDiscounts(discountData.filter((d: Discount) => d.isActive));
-      } catch (error) {
-        console.error("Error fetching menus or discounts:", error);
-      }
-    };
-    fetchMenusAndDiscounts();
+      const discountResponse = await fetch("/api/diskon");
+      if (!discountResponse.ok) throw new Error(`Failed to fetch discounts: ${discountResponse.status}`);
+      const discountData = await discountResponse.json();
+      setDiscounts(discountData.filter((d: Discount) => d.isActive));
+    } catch (error) {
+      console.error("Error fetching menus or discounts:", error);
+    }
+  };
+  fetchMenusAndDiscounts();
+  fetchOrders();
+
+  const socketIo = io(SOCKET_URL, {
+    path: "/api/socket",
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 5000,
+  });
+
+  socketIo.on("connect", () => console.log("Terhubung ke WebSocket server:", socketIo.id));
+
+  socketIo.on("ordersUpdated", (data: any) => {
+    console.log("Pesanan diperbarui di Kasir:", data);
     fetchOrders();
-  }, []);
+  });
 
-  useEffect(() => {
-    const socketIo = io(SOCKET_URL, {
-      path: "/api/socket",
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 5000,
-    });
-  
-    socketIo.on("connect", () => console.log("Terhubung ke WebSocket server:", socketIo.id));
-  
-    socketIo.on("ordersUpdated", (data: any) => {
-      console.log("Pesanan baru atau dihapus:", data);
-      fetchOrders();
-    });
-  
-    socketIo.on("paymentStatusUpdated", (updatedOrder: Order) => {
-      console.log("Status pembayaran diperbarui:", updatedOrder);
-      setOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.id === updatedOrder.id
-            ? {
-                ...order,
-                ...updatedOrder,
-                paymentStatusText:
-                  updatedOrder.paymentStatus === "paid" && updatedOrder.paymentMethod === "ewallet"
-                    ? "Status Payment: Paid via E-Wallet"
-                    : order.paymentStatusText,
-              }
-            : order
-        )
-      );
-    });
-  
-    socketIo.on("reservationDeleted", ({ reservasiId, orderId }) => {
-      console.log("Reservasi dihapus:", { reservasiId, orderId });
-      setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
-      fetchOrders();
-    });
-  
-    socketIo.on("reservationUpdated", (updatedReservasi) => {
-      console.log("Reservasi diperbarui:", updatedReservasi);
-      setOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.reservasi?.id === updatedReservasi.id
-            ? { ...order, reservasi: updatedReservasi }
-            : order
-        )
-      );
-    });
-  
-    // Tambahkan listener untuk perubahan status meja
-    socketIo.on("tableStatusUpdated", ({ tableNumber }) => {
-      fetchOrders();
-    });
-  
-    socketIo.on("disconnect", () => console.log("Socket terputus"));
-  
-    setSocket(socketIo);
-  
-    return () => {
-      socketIo.disconnect();
-      console.log("WebSocket disconnected");
-    };
-  }, []);
+  socketIo.on("paymentStatusUpdated", (updatedOrder: Order) => {
+    console.log("Status pembayaran diperbarui:", updatedOrder);
+    setOrders((prevOrders) =>
+      prevOrders.map((order) =>
+        order.id === updatedOrder.id
+          ? {
+              ...order,
+              ...updatedOrder,
+              paymentStatusText:
+                updatedOrder.paymentStatus === "paid" && updatedOrder.paymentMethod === "ewallet"
+                  ? "Status Payment: Paid via E-Wallet"
+                  : order.paymentStatusText,
+            }
+          : order
+      )
+    );
+  });
+
+  socketIo.on("reservationDeleted", ({ reservasiId, orderId }) => {
+    console.log("Reservasi dihapus di Kasir:", { reservasiId, orderId });
+    setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+    fetchOrders();
+  });
+
+  socketIo.on("reservationUpdated", (updatedReservasi) => {
+    console.log("Reservasi diperbarui:", updatedReservasi);
+    setOrders((prevOrders) =>
+      prevOrders.map((order) =>
+        order.reservasi?.id === updatedReservasi.id
+          ? { ...order, reservasi: updatedReservasi }
+          : order
+      )
+    );
+  });
+
+  socketIo.on("tableStatusUpdated", ({ tableNumber }) => {
+    console.log(`Status meja diperbarui di Kasir: ${tableNumber}`);
+    fetchOrders();
+  });
+
+  socketIo.on("disconnect", () => console.log("Socket terputus"));
+
+  setSocket(socketIo);
+
+  return () => {
+    socketIo.disconnect();
+    console.log("WebSocket disconnected");
+  };
+}, []);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -562,18 +561,38 @@ export default function KasirPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/orders/${orderId}`, {
-        method: "DELETE",
+      const order = orders.find((o) => o.id === orderId);
+      if (!order) throw new Error("Pesanan tidak ditemukan");
+  
+      const isReservation = !!order.reservasi;
+      const endpoint = isReservation ? "/api/resetBookingOrder" : "/api/resetTable";
+      const body = isReservation ? { orderId } : { tableNumber: order.tableNumber };
+  
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
-
-      if (res.ok) {
-        toast.success("✅ Pesanan berhasil dibatalkan!");
-        setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
-      } else {
-        throw new Error("Gagal membatalkan pesanan");
+  
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Gagal membatalkan pesanan");
       }
+  
+      toast.success("✅ Pesanan berhasil dibatalkan!");
+      setOrders((prevOrders) => prevOrders.filter((o) => o.id !== orderId));
+  
+      // Emit event WebSocket secara manual jika tidak ditangani oleh API
+      if (socket) {
+        if (isReservation) {
+          socket.emit("reservationDeleted", { reservasiId: order.reservasi?.id, orderId });
+        }
+        socket.emit("ordersUpdated", { deletedOrderId: orderId });
+        socket.emit("tableStatusUpdated", { tableNumber: order.tableNumber });
+      }
+      console.log(`Cancel order ${orderId} - Reservation: ${isReservation}, Table: ${order.tableNumber}`); // Debug
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error cancelling order:", error);
       setError("Gagal membatalkan pesanan. Silakan coba lagi.");
       toast.error("❌ Gagal membatalkan pesanan. Silakan coba lagi.");
     } finally {

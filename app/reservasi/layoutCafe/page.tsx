@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
+import moment from "moment-timezone"; // Impor moment dari moment-timezone
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -56,6 +57,7 @@ const Booking1 = () => {
   const [, setManuallyMarkedTables] = useState<string[]>([]);
   const [backendMarkedTables, setBackendMarkedTables] = useState<string[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
+  const [popupReservations, setPopupReservations] = useState<any[]>([]);
 
   // Fetch data reservasi
   useEffect(() => {
@@ -118,83 +120,124 @@ const Booking1 = () => {
         fetch("/api/orders"),
         fetch("/api/reservasi"),
       ]);
-
+  
       if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
       if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
       if (!reservasiRes.ok) throw new Error("Gagal mengambil data reservasi");
-
+  
       const mejaData = await mejaRes.json();
       const ordersData = await ordersRes.json();
       const reservasiData = await reservasiRes.json();
-
+  
       setBackendMarkedTables(mejaData.map((meja: { nomorMeja: number }) => meja.nomorMeja.toString()));
       setAllOrders(ordersData.orders);
-      setReservations(reservasiData);
+      if (!isPopupVisible) setReservations(reservasiData); // Hanya update jika popup tidak terbuka
     } catch (error) {
       console.error("Terjadi kesalahan:", error);
     }
   };
+  
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => {
+      if (!isPopupVisible) fetchData(); // Hanya fetch jika popup tidak terbuka
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isPopupVisible]); // Dependensi pada isPopupVisible
 
   // Menentukan warna meja berdasarkan status
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
+    const now = new Date();
+    const todayStart = new Date(now.setHours(0, 0, 0, 0));
+    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
   
-    // Cek apakah ada pesanan aktif atau reservasi di meja ini
-    const hasActiveOrders = allOrders.some(
-      (order) => order.tableNumber === tableNumberStr
-    );
+    const hasActiveReservation = reservations.some((reservasi) => {
+      const reservasiDate = new Date(reservasi.tanggalReservasi);
+      return (
+        reservasi.nomorMeja === tableNumberStr &&
+        (reservasi.status === "BOOKED" || reservasi.status === "RESERVED") && // Tambah RESERVED
+        reservasiDate >= todayStart &&
+        reservasiDate <= todayEnd
+      );
+    });
   
-    const hasActiveReservation = reservations.some(
-      (reservasi) => 
-        reservasi.nomorMeja === tableNumberStr && 
-        (reservasi.status === "BOOKED" || reservasi.status === "OCCUPIED")
-    );
+    const hasActiveOrders = allOrders.some((order) => order.tableNumber === tableNumberStr);
   
-    // Warna merah jika ada pesanan aktif atau reservasi aktif
-    if (hasActiveOrders || hasActiveReservation) {
-      return "bg-[#D02323]";
+    return hasActiveOrders || hasActiveReservation ? "bg-[#D02323]" : "bg-green-800";
+  };
+
+  const fetchTableDetails = async (tableNumber: string) => {
+    try {
+      setSelectedTableNumber(tableNumber);
+      setSelectedTableOrders([]);
+      setSelectedCompletedOrders([]);
+      setPopupReservations([]);
+      setIsPopupVisible(true);
+  
+      const response = await fetch(`/api/orders?tableNumber=${tableNumber}`);
+      const reservasiResponse = await fetch("/api/reservasi");
+      if (!response.ok || !reservasiResponse.ok) throw new Error("Gagal mengambil data");
+  
+      const orderData = await response.json();
+      const reservasiData = await reservasiResponse.json();
+  
+      console.log("Reservasi Data:", reservasiData); // Log untuk debug
+  
+      const tableOrders = orderData.orders.filter((order: Order) => order.tableNumber === tableNumber);
+      const activeOrders = tableOrders.filter((order: Order) => order.status !== "Selesai");
+      const completedOrders = tableOrders.filter((order: Order) => order.status === "Selesai");
+  
+      // Filter reservasi untuk meja yang dipilih, termasuk BOOKED dan RESERVED
+      const tableReservations = reservasiData.filter(
+        (r: any) => String(r.nomorMeja) === tableNumber && (r.status === "BOOKED" || r.status === "RESERVED")
+      );
+  
+      console.log(`Filtered Reservations for Table ${tableNumber}:`, tableReservations); // Log untuk debug
+  
+      setSelectedTableOrders(activeOrders);
+      setSelectedCompletedOrders(completedOrders);
+      setPopupReservations(tableReservations);
+    } catch (error) {
+      console.error("Error fetching table details:", error);
+      toast.error("Gagal memuat data");
+      setIsPopupVisible(false);
     }
-  
-    // Warna hijau jika tidak ada pesanan dan tidak ada reservasi
-    return "bg-green-800";
   };
 
   // Fetch detail pesanan meja yang dipilih
-  const fetchTableOrders = async (tableNumber: string) => {
-    try {
-      setSelectedTableNumber(tableNumber);
-      setIsPopupVisible(true);
-      setSelectedTableOrders([]);
-      setSelectedCompletedOrders([]);
-
-      const response = await fetch(`/api/orders?tableNumber=${tableNumber}`);
-      if (!response.ok) throw new Error("Gagal mengambil data pesanan");
-
-      const data = await response.json();
-      const tableOrders = data.orders.filter((order: Order) => order.tableNumber === tableNumber.toString());
-      const activeOrders = tableOrders.filter((order: Order) => order.status !== "Selesai");
-      const completedOrders = tableOrders.filter((order: Order) => order.status === "Selesai");
-
-      setSelectedTableOrders(activeOrders);
-      setSelectedCompletedOrders(completedOrders);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      toast.error("Gagal memuat data pesanan");
-    }
-  };
+  
 
   // Handler untuk memilih meja dan redirect ke menu
   const handleSelectTable = (tableNumber: string) => {
     const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-    if (getTableColor(Number(tableNumber)) === "bg-green-800") {
-      // Update nomor meja di reservationData
-      reservationData.meja = tableNumber;
-      sessionStorage.setItem("reservationData", JSON.stringify(reservationData));
-      router.push(`/menu?table=${tableNumber}&reservation=true&bookingCode=${reservationData.kodeBooking}`);
-      setIsPopupVisible(false);
-    } else {
-      toast.error("Meja ini sudah terisi atau dipesan.");
+    const selectedDate = new Date(reservationData.selectedDateTime);
+    const selectedDayStart = moment(selectedDate).tz("Asia/Jakarta").startOf("day").toDate();
+    const selectedDayEnd = moment(selectedDate).tz("Asia/Jakarta").endOf("day").toDate();
+  
+    const hasConflict = popupReservations.some((r) => {
+      const reservasiDate = new Date(r.tanggalReservasi);
+      return (
+        r.nomorMeja === tableNumber &&
+        (r.status === "BOOKED" || r.status === "RESERVED") &&
+        reservasiDate >= selectedDayStart &&
+        reservasiDate <= selectedDayEnd
+      );
+    });
+  
+    if (hasConflict) {
+      toast.error("Meja ini sudah dipesan pada tanggal yang dipilih.");
+      return;
     }
+  
+    reservationData.meja = tableNumber;
+    sessionStorage.setItem("reservationData", JSON.stringify(reservationData));
+    router.push(`/menu?table=${tableNumber}&reservation=true&bookingCode=${reservationData.kodeBooking}`);
+    setIsPopupVisible(false);
+  };
+  
+  const hasActiveOrders = (tableNumber: string) => {
+    return allOrders.some((order) => order.tableNumber === tableNumber);
   };
 
   return (
@@ -251,7 +294,7 @@ const Booking1 = () => {
                             <div className="flex items-center space-x-2 mb-2">
                               <div className="w-8 h-20 bg-amber-600 rounded-t-lg shadow-md" />
                               <button
-                                onClick={() => fetchTableOrders("1")}
+                                onClick={() => fetchTableDetails("1")}
                                 className={`w-12 h-20 ${getTableColor(1)} rounded-lg transform transition-all hover:scale-105 hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center pt-2">1</p>
@@ -266,7 +309,7 @@ const Booking1 = () => {
                             <div className="flex items-center space-x-2 mb-2">
                               <div className="w-8 h-20 bg-amber-600 rounded-t-lg shadow-md" />
                               <button
-                                onClick={() => fetchTableOrders("2")}
+                                onClick={() => fetchTableDetails("2")}
                                 className={`w-12 h-20 ${getTableColor(2)} rounded-lg transform transition-all hover:scale-105 hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center pt-2">2</p>
@@ -281,7 +324,7 @@ const Booking1 = () => {
                             <div className="flex items-center space-x-2 mb-2">
                               <div className="w-8 h-20 bg-amber-600 rounded-t-lg shadow-md" />
                               <button
-                                onClick={() => fetchTableOrders("3")}
+                                onClick={() => fetchTableDetails("3")}
                                 className={`w-12 h-20 ${getTableColor(3)} rounded-lg transform transition-all hover:scale-105 hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center pt-2">3</p>
@@ -299,7 +342,7 @@ const Booking1 = () => {
                             <div className="flex items-center space-x-2 mb-2">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
-                                onClick={() => fetchTableOrders("4")}
+                                onClick={() => fetchTableDetails("4")}
                                 className={`w-12 h-12 ${getTableColor(4)} rounded-lg transform transition-all hover:scale-105 hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center pt-2">4</p>
@@ -311,7 +354,7 @@ const Booking1 = () => {
                             <div className="flex items-center space-x-2 mb-2">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
-                                onClick={() => fetchTableOrders("5")}
+                                onClick={() => fetchTableDetails("5")}
                                 className={`w-12 h-12 ${getTableColor(5)} rounded-lg transform transition-all hover:scale-105 hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center pt-2">5</p>
@@ -323,7 +366,7 @@ const Booking1 = () => {
                             <div className="flex items-center space-x-2 mb-2">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
-                                onClick={() => fetchTableOrders("6")}
+                                onClick={() => fetchTableDetails("6")}
                                 className={`w-12 h-12 ${getTableColor(6)} rounded-lg transform transition-all hover:scale-105 hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center pt-2">6</p>
@@ -335,7 +378,7 @@ const Booking1 = () => {
                             <div className="flex items-center space-x-2 mb-2">
                               <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md mt-2" />
                               <button
-                                onClick={() => fetchTableOrders("7")}
+                                onClick={() => fetchTableDetails("7")}
                                 className={`w-12 h-12 ${getTableColor(7)} rounded-lg transform transition-all hover:scale-105 hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center pt-2">7</p>
@@ -358,10 +401,10 @@ const Booking1 = () => {
                             <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md" />
                           </div>
                           <div className="flex flex-row items-center">
-                            <button onClick={() => fetchTableOrders("8")} className={`w-48 h-12 ${getTableColor(8)} rounded`}>
+                            <button onClick={() => fetchTableDetails("8")} className={`w-48 h-12 ${getTableColor(8)} rounded`}>
                               <p className="font-bold text-white text-left">8</p>
                             </button>
-                            <button onClick={() => fetchTableOrders("9")} className={`w-48 h-12 ${getTableColor(9)} rounded`}>
+                            <button onClick={() => fetchTableDetails("9")} className={`w-48 h-12 ${getTableColor(9)} rounded`}>
                               <p className="font-bold text-white text-right">9</p>
                             </button>
                           </div>
@@ -387,11 +430,11 @@ const Booking1 = () => {
                         </div>
                         <div className="flex flex-row">
                           <div className="flex flex-col items-center">
-                            <button onClick={() => fetchTableOrders("10")} className={`w-10 h-40 ${getTableColor(10)} rounded-xl transform transition-all hover:scale-[1.02] hover:shadow-lg relative group`}>
+                            <button onClick={() => fetchTableDetails("10")} className={`w-10 h-40 ${getTableColor(10)} rounded-xl transform transition-all hover:scale-[1.02] hover:shadow-lg relative group`}>
                               <p className="font-bold text-white absolute top-2 left-1/2 transform -translate-x-1/2 text-center">10</p>
                               <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
                             </button>
-                            <button onClick={() => fetchTableOrders("11")} className={`w-10 h-40 ${getTableColor(11)} rounded-xl transform transition-all hover:scale-[1.02] hover:shadow-lg relative group`}>
+                            <button onClick={() => fetchTableDetails("11")} className={`w-10 h-40 ${getTableColor(11)} rounded-xl transform transition-all hover:scale-[1.02] hover:shadow-lg relative group`}>
                               <p className="font-bold text-white absolute top-2 left-1/2 transform -translate-x-1/2 text-center">11</p>
                               <div className="absolute inset-0 border-2 border-white/30 rounded-xl" />
                             </button>
@@ -406,7 +449,7 @@ const Booking1 = () => {
                           <div className="flex flex-row">
                             <div className="flex flex-col">
                               <button
-                                onClick={() => fetchTableOrders("12")}
+                                onClick={() => fetchTableDetails("12")}
                                 className={`w-32 h-10 ${getTableColor(12)} rounded-xl transform transition-all hover:scale-[1.02] hover:shadow-lg relative group`}
                               >
                                 <p className="font-bold text-white text-center">12</p>
@@ -461,37 +504,37 @@ const Booking1 = () => {
                   <>
                     <div className="flex">
                       <button
-                        onClick={() => fetchTableOrders("18")}
+                        onClick={() => fetchTableDetails("18")}
                         className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(18)}`}
                       >
                         <p className="font-bold text-white">18</p>
                       </button>
                       <button
-                        onClick={() => fetchTableOrders("19")}
+                        onClick={() => fetchTableDetails("19")}
                         className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(19)}`}
                       >
                         <p className="font-bold text-white">19</p>
                       </button>
                       <button
-                        onClick={() => fetchTableOrders("20")}
+                        onClick={() => fetchTableDetails("20")}
                         className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(20)}`}
                       >
                         <p className="font-bold text-white">20</p>
                       </button>
                       <button
-                        onClick={() => fetchTableOrders("21")}
+                        onClick={() => fetchTableDetails("21")}
                         className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(21)}`}
                       >
                         <p className="font-bold text-white">21</p>
                       </button>
                       <button
-                        onClick={() => fetchTableOrders("22")}
+                        onClick={() => fetchTableDetails("22")}
                         className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(22)}`}
                       >
                         <p className="font-bold text-white">22</p>
                       </button>
                       <button
-                        onClick={() => fetchTableOrders("23")}
+                        onClick={() => fetchTableDetails("23")}
                         className={`w-1/6 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(23)}`}
                       >
                         <p className="font-bold text-white">23</p>
@@ -501,7 +544,7 @@ const Booking1 = () => {
                       <div className="w-1/2">
                         <div className="flex flex-row">
                           <button
-                            onClick={() => fetchTableOrders("17")}
+                            onClick={() => fetchTableDetails("17")}
                             className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(17)}`}
                           >
                             <p className="font-bold text-white">17</p>
@@ -537,7 +580,7 @@ const Booking1 = () => {
                           </div>
                           <div className="flex flex-row">
                             <button
-                              onClick={() => fetchTableOrders("24")}
+                              onClick={() => fetchTableDetails("24")}
                               className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(24)} ml-10`}
                             >
                               <p className="font-bold text-white">24</p>
@@ -558,7 +601,7 @@ const Booking1 = () => {
                               <div className="flex flex-row gap-2 my-2">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
                                 <button
-                                  onClick={() => fetchTableOrders("13")}
+                                  onClick={() => fetchTableDetails("13")}
                                   className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(13)}`}
                                 >
                                   <p className="font-bold text-white">13</p>
@@ -573,7 +616,7 @@ const Booking1 = () => {
                               <div className="flex flex-row gap-2 my-2">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
                                 <button
-                                  onClick={() => fetchTableOrders("14")}
+                                  onClick={() => fetchTableDetails("14")}
                                   className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(14)}`}
                                 >
                                   <p className="font-bold text-white">14</p>
@@ -602,7 +645,7 @@ const Booking1 = () => {
                               <div className="flex flex-row gap-2 my-2">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
                                 <button
-                                  onClick={() => fetchTableOrders("15")}
+                                  onClick={() => fetchTableDetails("15")}
                                   className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(15)}`}
                                 >
                                   <p className="font-bold text-white">15</p>
@@ -617,7 +660,7 @@ const Booking1 = () => {
                               <div className="flex flex-row gap-2 my-2">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
                                 <button
-                                  onClick={() => fetchTableOrders("16")}
+                                  onClick={() => fetchTableDetails("16")}
                                   className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(16)}`}
                                 >
                                   <p className="font-bold text-white">16</p>
@@ -641,7 +684,7 @@ const Booking1 = () => {
                               <div className="flex flex-row gap-2 my-2 mr-16">
                                 <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2" />
                                 <button
-                                  onClick={() => fetchTableOrders("36")}
+                                  onClick={() => fetchTableDetails("36")}
                                   className={`w-60 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(36)}`}
                                 >
                                   <p className="font-bold text-white">36</p>
@@ -669,13 +712,13 @@ const Booking1 = () => {
                                   </div>
                                   <div className="flex flex-col items-center">
                                     <button
-                                      onClick={() => fetchTableOrders("32")}
+                                      onClick={() => fetchTableDetails("32")}
                                       className={`w-12 h-48 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(32)}`}
                                     >
                                       <p className="font-bold text-white">32</p>
                                     </button>
                                     <button
-                                      onClick={() => fetchTableOrders("31")}
+                                      onClick={() => fetchTableDetails("31")}
                                       className={`w-12 h-48 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(31)}`}
                                     >
                                       <p className="font-bold text-white">31</p>
@@ -705,7 +748,7 @@ const Booking1 = () => {
                                       <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
                                       <div className="flex flex-col items-center">
                                         <button
-                                          onClick={() => fetchTableOrders("35")}
+                                          onClick={() => fetchTableDetails("35")}
                                           className="flex items-center justify-center"
                                         >
                                           <div className={`${getTableColor(35)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
@@ -735,7 +778,7 @@ const Booking1 = () => {
                                       <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
                                       <div className="flex flex-col items-center">
                                         <button
-                                          onClick={() => fetchTableOrders("34")}
+                                          onClick={() => fetchTableDetails("34")}
                                           className="flex items-center justify-center"
                                         >
                                           <div className={`${getTableColor(34)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
@@ -765,7 +808,7 @@ const Booking1 = () => {
                                       <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mb-2" />
                                       <div className="flex flex-col items-center">
                                         <button
-                                          onClick={() => fetchTableOrders("33")}
+                                          onClick={() => fetchTableDetails("33")}
                                           className="flex items-center justify-center"
                                         >
                                           <div className={`${getTableColor(33)} w-12 h-12 rounded-full flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 hover:shadow-lg`}>
@@ -795,7 +838,7 @@ const Booking1 = () => {
                                 <div className="flex flex-row gap-2 mr-96">
                                   <div className="w-10 h-42 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 ml-12" />
                                   <button
-                                    onClick={() => fetchTableOrders("30")}
+                                    onClick={() => fetchTableDetails("30")}
                                     className={`w-12 h-64 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(30)}`}
                                   >
                                     <p className="font-bold text-white">30</p>
@@ -824,7 +867,7 @@ const Booking1 = () => {
                           <div className="flex flex-row">
                             <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-3 mr-1" />
                             <button
-                              onClick={() => fetchTableOrders("26")}
+                              onClick={() => fetchTableDetails("26")}
                               className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(26)}`}
                             >
                               <p className="font-bold text-white">26</p>
@@ -837,7 +880,7 @@ const Booking1 = () => {
                           <div className="flex flex-row">
                             <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mr-1" />
                             <button
-                              onClick={() => fetchTableOrders("27")}
+                              onClick={() => fetchTableDetails("27")}
                               className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(27)}`}
                             >
                               <p className="font-bold text-white">27</p>
@@ -850,7 +893,7 @@ const Booking1 = () => {
                           <div className="flex flex-row">
                             <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mr-1" />
                             <button
-                              onClick={() => fetchTableOrders("28")}
+                              onClick={() => fetchTableDetails("28")}
                               className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(28)}`}
                             >
                               <p className="font-bold text-white">28</p>
@@ -863,7 +906,7 @@ const Booking1 = () => {
                           <div className="flex flex-row">
                             <div className="w-10 h-8 bg-amber-500 rounded-lg shadow-md transform transition-all hover:scale-105 mt-2 mr-1" />
                             <button
-                              onClick={() => fetchTableOrders("29")}
+                              onClick={() => fetchTableDetails("29")}
                               className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(29)}`}
                             >
                               <p className="font-bold text-white">29</p>
@@ -899,7 +942,7 @@ const Booking1 = () => {
                               </div>
                               <div className="flex flex-row items-center">
                                 <button
-                                  onClick={() => fetchTableOrders("25")}
+                                  onClick={() => fetchTableDetails("25")}
                                   className={`w-28 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
                                 >
                                   <p className="font-bold text-white">25</p>
@@ -929,13 +972,13 @@ const Booking1 = () => {
                               <div className="flex gap-4">
                                 <div className="flex flex-col">
                                   <button
-                                    onClick={() => fetchTableOrders("25")}
+                                    onClick={() => fetchTableDetails("25")}
                                     className={`w-8 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
                                   >
                                     <p className="font-bold text-white">25</p>
                                   </button>
                                   <button
-                                    onClick={() => fetchTableOrders("25")}
+                                    onClick={() => fetchTableDetails("25")}
                                     className={`w-8 h-80 rounded-xl flex items-center justify-center shadow-md transform transition duration-300 hover:scale-105 gap-12 ${getTableColor(25)}`}
                                   >
                                     <p className="font-bold text-white">25</p>
@@ -1003,58 +1046,94 @@ const Booking1 = () => {
         </div>
         {/* Popup */}
         {isPopupVisible && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="bg-[#FFF5E6] p-6 border-b">
-                <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
-                  📋 Meja {selectedTableNumber}
-                </h2>
-              </div>
-              <div className="p-6 space-y-8">
-                <div className="space-y-4">
-                  {getTableColor(Number(selectedTableNumber)) === "bg-[#D02323]" ? (
-                    <div className="space-y-4">
-                      <div className="bg-red-100 border border-red-200 text-red-700 p-4 rounded-lg flex items-center gap-2">
-                        ⚠️ Meja sedang digunakan
-                      </div>
-                      <div className="bg-blue-100 text-blue-700 p-3 rounded-lg flex items-center gap-2">
-                        💺 {getCapacityMessage(selectedTableNumber)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="bg-green-100 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
-                        ✅ Meja tersedia
-                      </div>
-                      <div className="bg-blue-100 text-blue-700 p-3 rounded-lg flex items-center gap-2">
-                        💺 {getCapacityMessage(selectedTableNumber)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="p-4 border-t">
-                <button
-                  onClick={() => {
-                    setIsPopupVisible(false);
-                    fetchData();
-                  }}
-                  className="w-full bg-[#FF8A00] hover:bg-[#FF6A00] text-white py-2 px-4 rounded-lg transition"
-                >
-                  Tutup
-                </button>
-                {getTableColor(Number(selectedTableNumber)) === "bg-green-800" && (
-                  <button
-                    onClick={() => handleSelectTable(selectedTableNumber)}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition mt-3"
-                  >
-                    Pilih Meja dan Pesan Menu
-                  </button>
-                )}
-              </div>
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#FFF5E6] p-6 border-b">
+        <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
+          📋 Meja {selectedTableNumber}
+        </h2>
+      </div>
+      <div className="p-6 space-y-8">
+        <div className="space-y-4">
+          {getTableColor(Number(selectedTableNumber)) === "bg-[#D02323]" ? (
+            <div className="bg-red-100 border border-red-200 text-red-700 p-4 rounded-lg flex items-center gap-2">
+              ⚠️ Meja sedang digunakan atau dipesan hari ini
             </div>
+          ) : (
+            <div className="bg-green-100 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
+              ✅ Meja tersedia hari ini
+            </div>
+          )}
+          <div className="bg-blue-100 text-blue-700 p-3 rounded-lg flex items-center gap-2">
+            💺 {getCapacityMessage(selectedTableNumber)}
           </div>
-        )}
+          {popupReservations.length > 0 && (
+            <div className="bg-yellow-100 text-yellow-700 p-3 rounded-lg">
+              <h3 className="font-semibold">Jadwal Reservasi:</h3>
+              <ul>
+                {popupReservations.map((r) => (
+                  <li key={r.id}>
+                    {moment(r.tanggalReservasi).tz("Asia/Jakarta").format("DD MMMM YYYY HH:mm")} - {r.namaCustomer} ({r.kodeBooking})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="p-4 border-t flex justify-end gap-4">
+        <button
+          onClick={() => {
+            setIsPopupVisible(false);
+          }}
+          className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
+        >
+          Tutup
+        </button>
+        {(() => {
+          const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+          const selectedDate = reservationData.selectedDateTime ? new Date(reservationData.selectedDateTime) : null;
+
+          if (!selectedDate) return null;
+
+          const selectedDayStart = moment(selectedDate).tz("Asia/Jakarta").startOf("day").toDate();
+          const selectedDayEnd = moment(selectedDate).tz("Asia/Jakarta").endOf("day").toDate();
+
+          const hasConflict = popupReservations.some((r) => {
+            const reservasiDate = new Date(r.tanggalReservasi);
+            return (
+              (r.status === "BOOKED" || r.status === "RESERVED") &&
+              reservasiDate >= selectedDayStart &&
+              reservasiDate <= selectedDayEnd
+            );
+          });
+
+          console.log(`Table ${selectedTableNumber} - Selected Date: ${selectedDate}, Has Conflict: ${hasConflict}, Reservations:`, popupReservations);
+
+          if (!hasConflict) {
+            return (
+              <button
+                onClick={() => handleSelectTable(selectedTableNumber)}
+                className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition"
+              >
+                Pilih Meja dan Pesan Menu
+              </button>
+            );
+          } else {
+            return (
+              <button
+                onClick={() => router.push("/reservasi")}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
+              >
+                Silahkan pilih tanggal lain
+              </button>
+            );
+          }
+        })()}
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

@@ -204,6 +204,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           },
           discount: true,
+          reservasi: true, // Sertakan reservasi
         },
       });
 
@@ -226,6 +227,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const io = (res.socket as any).server.io;
       if (io) {
         io.emit("ordersUpdated", newOrder);
+        io.emit("tableStatusUpdated", { tableNumber: newOrder.tableNumber });
         console.log("Pesanan baru dikirim ke kasir melalui WebSocket:", newOrder);
       } else {
         console.error("WebSocket server belum diinisialisasi");

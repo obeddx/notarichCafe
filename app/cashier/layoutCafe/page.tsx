@@ -105,6 +105,7 @@ const Bookinge = () => {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
   const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
+  const [backendMarkedTables, setBackendMarkedTables] = useState<string[]>([]); // Tambahkan deklarasi ini
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedTableNumberForOrder, setSelectedTableNumberForOrder] = useState<string>("");
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -134,7 +135,6 @@ const Bookinge = () => {
     fetchDiscounts();
   }, []);
 
-
   const calculateCartTotals = () => {
     let subtotal = 0;
     let totalModifierCost = 0;
@@ -151,7 +151,6 @@ const Bookinge = () => {
         }, 0);
 
       let itemPrice = originalPrice;
-      // Apply menu-specific discounts
       const activeMenuDiscounts = item.menu.discounts.filter((d) => d.discount.isActive);
       if (activeMenuDiscounts.length > 0) {
         activeMenuDiscounts.forEach((d) => {
@@ -170,7 +169,6 @@ const Bookinge = () => {
 
     const subtotalWithModifiers = subtotal + totalModifierCost;
 
-    // Apply total discount if selected
     if (selectedDiscountId) {
       const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId && d.scope === "TOTAL");
       if (selectedDiscount) {
@@ -270,7 +268,7 @@ const Bookinge = () => {
     );
   };
 
-const saveModifiersToCart = () => {
+  const saveModifiersToCart = () => {
     if (currentMenu) {
       const modifierIds: { [categoryId: number]: number | null } = {};
       selectedModifiers.forEach((modifierId) => {
@@ -315,9 +313,10 @@ const saveModifiersToCart = () => {
       if (!response.ok) throw new Error("Gagal mengambil data meja");
       const data = await response.json();
       const mejaNumbers = data.map((item: { nomorMeja: number }) => item.nomorMeja.toString());
-      setManuallyMarkedTables(mejaNumbers);
+      setBackendMarkedTables(mejaNumbers); // Gunakan setBackendMarkedTables
+      console.log("Fetched meja data:", mejaNumbers);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error fetching meja:", error);
       toast.error("Gagal memuat data meja");
     }
   };
@@ -337,7 +336,7 @@ const saveModifiersToCart = () => {
         throw new Error("Gagal menyimpan data meja");
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error marking table as occupied:", error);
       toast.error("Gagal menyimpan data meja");
     }
   };
@@ -358,8 +357,31 @@ const saveModifiersToCart = () => {
         throw new Error("Gagal menghapus data meja");
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error resetting table:", error);
       toast.error("Gagal menghapus data meja");
+    }
+  };
+
+  const cancelOrder = async (orderId: number, isReservation: boolean) => {
+    try {
+      const endpoint = isReservation ? "/api/resetBookingOrder" : "/api/resetTable";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isReservation ? { orderId } : { tableNumber: selectedTableNumber }),
+      });
+      if (response.ok) {
+        toast.success(isReservation ? "Pesanan dan reservasi dibatalkan" : "Pesanan dibatalkan");
+        setSelectedTableOrders((prev) => prev.filter((o) => o.id !== orderId));
+        fetchData();
+        fetchMeja();
+        setIsPopupVisible(false);
+      } else {
+        throw new Error("Gagal membatalkan pesanan");
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast.error("Gagal membatalkan pesanan");
     }
   };
 
@@ -377,18 +399,23 @@ const saveModifiersToCart = () => {
   useEffect(() => {
     fetchData();
     fetchMeja();
-  
+
     const socket = io("http://localhost:3000", {
       path: "/api/socket",
     });
-  
+
     socket.on("connect", () => console.log("Connected to WebSocket server"));
-  
+
     socket.on("ordersUpdated", (data: any) => {
+      console.log("Orders updated via WebSocket:", data);
       fetchData();
+      if (data.deletedOrderId && selectedTableNumber) {
+        fetchTableOrders(selectedTableNumber);
+      }
     });
-  
+
     socket.on("paymentStatusUpdated", (updatedOrder: Order) => {
+      console.log("Payment status updated:", updatedOrder);
       setAllOrders((prevOrders) =>
         prevOrders.map((order) =>
           order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
@@ -401,36 +428,27 @@ const saveModifiersToCart = () => {
         fetchTableOrders(selectedTableNumber);
       }
     });
-  
+
     socket.on("reservationDeleted", ({ reservasiId, orderId }) => {
+      console.log(`Reservation deleted: reservasiId=${reservasiId}, orderId=${orderId}`);
       setAllOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
       fetchTableOrders(selectedTableNumber);
+      fetchMeja();
     });
-  
-    socket.on("reservationUpdated", (updatedReservasi) => {
-      setAllOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.reservasi?.id === updatedReservasi.id
-            ? { ...order, reservasi: updatedReservasi }
-            : order
-        )
-      );
-      fetchTableOrders(selectedTableNumber);
-    });
-  
-    // Tambahkan listener untuk perubahan status meja
+
     socket.on("tableStatusUpdated", ({ tableNumber }) => {
+      console.log(`Table status updated: ${tableNumber}`);
       setManuallyMarkedTables((prev) => prev.filter((num) => num !== tableNumber));
+      setBackendMarkedTables((prev) => prev.filter((num) => num !== tableNumber));
       fetchData();
       fetchMeja();
     });
-  
+
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [selectedTableNumber]);
 
-  
   useEffect(() => {
     localStorage.setItem("manuallyMarkedTables", JSON.stringify(manuallyMarkedTables));
   }, [manuallyMarkedTables]);
@@ -450,29 +468,23 @@ const saveModifiersToCart = () => {
 
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-  
-    // Cek apakah ada pesanan aktif (status apa pun) di meja ini
+
     const hasActiveOrders = allOrders.some(
       (order) => order.tableNumber === tableNumberStr
     );
-  
-    // Cek apakah ada reservasi aktif di meja ini
+
     const hasActiveReservation = allOrders.some(
       (order) => order.tableNumber === tableNumberStr && order.reservasi?.kodeBooking
     );
-  
-    // Jika ada pesanan aktif atau reservasi aktif, warna tetap merah
-    if (hasActiveOrders || hasActiveReservation) {
-      return "bg-[#D02323]"; // Merah jika ada pesanan atau reservasi
+
+    const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
+    const isMarkedManual = manuallyMarkedTables.includes(tableNumberStr);
+
+    if (hasActiveOrders || hasActiveReservation || isMarkedBackend || isMarkedManual) {
+      return "bg-[#D02323]";
     }
-  
-    // Jika tidak ada pesanan dan tidak ada di manuallyMarkedTables, warna hijau
-    if (!manuallyMarkedTables.includes(tableNumberStr)) {
-      return "bg-green-800"; // Hijau hanya jika tidak ada pesanan dan belum ditandai manual
-    }
-  
-    // Default ke merah jika ditandai manual
-    return "bg-[#D02323]";
+
+    return "bg-green-800";
   };
   const fetchTableOrders = async (tableNumber: string) => {
     try {
@@ -480,24 +492,22 @@ const saveModifiersToCart = () => {
       setIsPopupVisible(true);
       setSelectedTableOrders([]);
       setSelectedCompletedOrders([]);
-  
+
       const response = await fetch(`/api/orders`);
       if (!response.ok) throw new Error("Gagal mengambil data pesanan");
-  
+
       const data = await response.json();
-      const tableOrders = data.orders.filter((order: Order) => 
-        order.tableNumber === tableNumber || 
-        order.tableNumber.startsWith(`Meja ${tableNumber} -`)
+      const tableOrders = data.orders.filter((order: Order) =>
+        order.tableNumber === tableNumber || order.tableNumber.startsWith(`Meja ${tableNumber} -`)
       );
-  
-      // Pesanan aktif termasuk yang memiliki reservasi
-      const activeOrders = tableOrders.filter((order: Order) => 
+
+      const activeOrders = tableOrders.filter((order: Order) =>
         order.status !== "Selesai" || order.reservasi?.kodeBooking
       );
-      const completedOrders = tableOrders.filter((order: Order) => 
+      const completedOrders = tableOrders.filter((order: Order) =>
         order.status === "Selesai" && !order.reservasi?.kodeBooking
       );
-  
+
       setSelectedTableOrders(activeOrders);
       setSelectedCompletedOrders(completedOrders);
     } catch (error) {
@@ -505,6 +515,7 @@ const saveModifiersToCart = () => {
       toast.error("Gagal memuat data pesanan");
     }
   };
+
   const markOrderAsCompleted = async (orderId: number) => {
     try {
       const res = await fetch("/api/completeOrder", {
@@ -520,9 +531,8 @@ const saveModifiersToCart = () => {
         ]);
         setAllOrders((await ordersRes.json()).orders);
         const tableData = await tableRes.json();
-        const filteredOrders = tableData.orders.filter((order: Order) => 
-          order.tableNumber === selectedTableNumber || 
-          order.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
+        const filteredOrders = tableData.orders.filter((order: Order) =>
+          order.tableNumber === selectedTableNumber || order.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
         );
         setSelectedTableOrders(filteredOrders.filter((o: Order) => o.status !== "Selesai"));
         setSelectedCompletedOrders(filteredOrders.filter((o: Order) => o.status === "Selesai"));
@@ -531,13 +541,13 @@ const saveModifiersToCart = () => {
         throw new Error("Gagal menyelesaikan pesanan");
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error marking order as completed:", error);
       toast.error("Gagal menyelesaikan pesanan");
     }
   };
 
   // Dalam OrderCard, tambahkan tanggal & waktu reservasi
-  const OrderCard = ({ order }: { order: Order; isCompleted?: boolean; onComplete?: () => void }) => {
+  const OrderCard = ({ order, isCompleted, onComplete, isPopup }: { order: Order; isCompleted?: boolean; onComplete?: () => void; isPopup?: boolean }) => {
     return (
       <div className="bg-white rounded-lg p-4 shadow-sm border border-[#FFEED9] mb-4">
         <div className="flex justify-between items-start mb-2">
@@ -580,26 +590,16 @@ const saveModifiersToCart = () => {
           <div className="grid gap-2">
             {order.orderItems.map((item) => (
               <div key={item.id} className="flex items-center gap-3">
-                <Image
-                  src={item.menu.image}
-                  alt={item.menu.name}
-                  width={48}
-                  height={48}
-                  className="object-cover rounded"
-                />
+                <Image src={item.menu.image} alt={item.menu.name} width={48} height={48} className="object-cover rounded" />
                 <div className="flex-1">
                   <p className="font-medium">{item.menu.name}</p>
-                  <p className="text-sm text-gray-600">
-                    {item.quantity} x Rp {item.menu.price.toLocaleString()}
-                  </p>
+                  <p className="text-sm text-gray-600">{item.quantity} x Rp {item.menu.price.toLocaleString()}</p>
                   {item.note && <p className="text-sm text-gray-500">Catatan: {item.note}</p>}
                   {item.modifiers && item.modifiers.length > 0 && (
                     <div className="text-sm text-gray-500">
                       Modifier:
                       {item.modifiers.map((modifier) => (
-                        <p key={modifier.id}>
-                          - {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})
-                        </p>
+                        <p key={modifier.id}>- {modifier.modifier.name} (Rp {modifier.modifier.price.toLocaleString()})</p>
                       ))}
                     </div>
                   )}
@@ -608,8 +608,26 @@ const saveModifiersToCart = () => {
             ))}
           </div>
         </div>
-       
-        
+        {!isCompleted && !isPopup && ( // Hanya tampilkan tombol jika bukan popup
+          <div className="mt-4 flex justify-end gap-2">
+            {order.paymentStatus === "paid" && order.status !== "Selesai" && (
+              <>
+                <button
+                  onClick={onComplete}
+                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+                >
+                  Konfirmasi Pembayaran
+                </button>
+                <button
+                  onClick={() => cancelOrder(order.id, !!order.reservasiId)}
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+                >
+                  Batal Pesanan
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -1431,85 +1449,53 @@ const saveModifiersToCart = () => {
           </div>
         </div>
         {isPopupVisible && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="bg-[#FFF5E6] p-6 border-b">
-                <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
-                  📋 Daftar Pesanan - Meja {selectedTableNumber}
-                  <span className="text-lg font-normal text-[#666]">
-                    ({selectedTableOrders.length} aktif, {selectedCompletedOrders.length} selesai)
-                  </span>
-                </h2>
-              </div>
-              <div className="p-6 space-y-8">
-              {selectedTableOrders.length > 0 && (
-  <div>
-    <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Pesanan Aktif</h3>
-    {selectedTableOrders.map((order) => (
-      <OrderCard key={order.id} order={order} onComplete={() => markOrderAsCompleted(order.id)} />
-    ))}
-  </div>
-)}
-{selectedCompletedOrders.length > 0 && (
-  <div>
-    <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">Pesanan Selesai</h3>
-    {selectedCompletedOrders.map((order) => (
-      <OrderCard key={order.id} order={order} isCompleted />
-    ))}
-  </div>
-)}
-                {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
-                  <div className="text-center py-8">
-                    {selectedTableNumber !== "sementara" && (
-                      <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
-                    )}
-                    <div className="flex justify-center gap-4">
-                      {selectedTableNumber !== "sementara" && (
-                        <>
-                          {manuallyMarkedTables.includes(selectedTableNumber) ? (
-                            <button
-                              onClick={() => resetTable(selectedTableNumber)}
-                              className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                              Reset Meja
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => markTableAsOccupied(selectedTableNumber)}
-                              className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-                            >
-                              Tandai sebagai Terisi
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 border-t flex justify-between gap-4">
-                <button
-                  onClick={() => {
-                    setSelectedTableNumberForOrder(selectedTableNumber);
-                    setIsOrderModalOpen(true);
-                  }}
-                  className="bg-[#FF8A00] text-white px-4 py-2 rounded-lg hover:bg-[#FF6A00] transition-colors flex-1 text-center"
-                >
-                  Pesan Sekarang
-                </button>
-                <button
-                  onClick={() => {
-                    setIsPopupVisible(false);
-                    fetchData();
-                  }}
-                  className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition flex-1"
-                >
-                  Tutup
-                </button>
-              </div>
-            </div>
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#FFF5E6] p-6 border-b">
+        <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
+          📋 Daftar Pesanan - Meja {selectedTableNumber}
+          <span className="text-lg font-normal text-[#666]">
+            ({selectedTableOrders.length} aktif, {selectedCompletedOrders.length} selesai)
+          </span>
+        </h2>
+      </div>
+      <div className="p-6 space-y-8">
+        {selectedTableOrders.length > 0 && (
+          <div>
+            <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Pesanan Aktif</h3>
+            {selectedTableOrders.map((order) => (
+              <OrderCard key={order.id} order={order} isPopup={true} /> // Tambahkan isPopup
+            ))}
           </div>
         )}
+        {selectedCompletedOrders.length > 0 && (
+          <div>
+            <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">Pesanan Selesai</h3>
+            {selectedCompletedOrders.map((order) => (
+              <OrderCard key={order.id} order={order} isCompleted isPopup={true} /> // Tambahkan isPopup
+            ))}
+          </div>
+        )}
+        {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
+          </div>
+        )}
+      </div>
+      <div className="p-4 border-t flex justify-end">
+        <button
+          onClick={() => {
+            setIsPopupVisible(false);
+            fetchData();
+          }}
+          className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
+        >
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
 
       {isOrderModalOpen && (
