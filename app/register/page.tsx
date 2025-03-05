@@ -19,27 +19,40 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Token-related states
+  // Token-related states (invite token dari URL)
   const [inviteTokenValid, setInviteTokenValid] = useState<boolean | null>(null);
   const [inviteEmployee, setInviteEmployee] = useState<any>(null);
-  // (opsional) Menyimpan data employee terkait token (misal email bawaan)
+
+  // Opsi generate token manual
+  const [generateToken, setGenerateToken] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokenFromURL = searchParams?.get("token");
 
   // ======================
-  // EFFECT: Verifikasi Token
+  // FUNGSI: Generate Token Manual
+  // ======================
+  const generateManualToken = () => {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let token = "";
+    for (let i = 0; i < 50; i++) {
+      token += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return token;
+  };
+
+  // ======================
+  // EFFECT: Verifikasi Token dari URL
   // ======================
   useEffect(() => {
-    // Jika tidak ada token, berarti ini pendaftaran biasa
-    // (atau Anda bisa mewajibkan token -> handle sesuai kebutuhan)
+    // Jika tidak ada token di URL, berarti pendaftaran biasa
     if (!tokenFromURL) {
       setInviteTokenValid(null);
       return;
     }
 
-    // Verifikasi token ke API
+    // Verifikasi token ke API (opsional)
     const verifyToken = async () => {
       try {
         const res = await fetch(`/api/verify-invite?token=${tokenFromURL}`);
@@ -50,7 +63,7 @@ export default function RegisterPage() {
         const data = await res.json();
         setInviteTokenValid(true);
         setInviteEmployee(data.employee);
-        // misal kita simpan data employee agar kita bisa auto isi email, dsb.
+        // Contoh: Anda bisa auto-isi email dari data.employee.email
       } catch (error) {
         setInviteTokenValid(false);
       }
@@ -89,8 +102,9 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Lakukan pendaftaran
-      // (Jika token valid, Anda bisa kirim token ke /api/register untuk disocokkan lagi)
+      // Generate token manual jika user mencentang checkbox
+      const manualToken = generateToken ? generateManualToken() : null;
+
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,14 +113,19 @@ export default function RegisterPage() {
           email,
           password,
           role,
-          token: tokenFromURL, // kirim token (jika ada) untuk verifikasi final
+          // Token dari URL (jika ada)
+          token: tokenFromURL,
+          // Token manual (jika user mencentang "Generate Token")
+          manualToken,
         }),
       });
 
       const data = await res.json();
+      console.log("Response dari server:", data); // Debugging
+
       if (res.ok) {
         toast.success("Registrasi berhasil, silakan login!");
-        setTimeout(() => router.push(`/login?role=${data.role}`), 1500);
+        setTimeout(() => router.push(`/portal`), 1500);
       } else {
         setErrorMessage(data.message || "Registrasi gagal");
         toast.error(data.message || "Registrasi gagal");
@@ -172,10 +191,8 @@ export default function RegisterPage() {
             </button>
           </div>
 
-          {/* 
-            Jika Anda mau role di-set otomatis dari token, 
-            Anda bisa menyembunyikan ini saat token valid.
-          */}
+          {/* Jika Anda mau role di-set otomatis dari token, 
+              Anda bisa menyembunyikan ini saat token valid. */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Role</label>
             <div className="flex items-center mt-1">
@@ -186,6 +203,17 @@ export default function RegisterPage() {
               <label className="flex items-center text-sm font-medium text-gray-700">
                 <input type="radio" value="manager" checked={role === "manager"} onChange={(e) => setRole(e.target.value)} className="mr-1" />
                 Manager
+              </label>
+            </div>
+          </div>
+
+          {/* Checkbox Generate Token */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">Generate Token?</label>
+            <div className="flex items-center mt-1">
+              <label className="mr-4 flex items-center text-sm font-medium text-gray-700">
+                <input type="checkbox" checked={generateToken} onChange={(e) => setGenerateToken(e.target.checked)} className="mr-1" />
+                Generate Token
               </label>
             </div>
           </div>

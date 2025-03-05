@@ -9,7 +9,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  const { username, email, password, role, token } = req.body;
+  // Ambil token & manualToken
+  const { username, email, password, role, token, manualToken } = req.body;
+  // Gabungkan token: pakai token dari URL jika ada,
+  // jika tidak ada maka pakai manualToken
+  const finalToken = token || manualToken;
 
   try {
     // Hash password
@@ -22,14 +26,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email,
         password: hashedPassword,
         role,
-        token, // Simpan token di database
+        token: finalToken, // Simpan token (invite token atau manual token)
       },
     });
 
-    return res.status(201).json({ message: "Registrasi berhasil", user, role:role, });
-  } catch (error) {
+    return res.status(201).json({ message: "Registrasi berhasil", user, role });
+  } catch (error: any) {
     console.error("Error during registration:", error);
-    return res.status(500).json({ message: "Terjadi kesalahan, coba lagi nanti" });
+
+    // Contoh penanganan error unik (misal username/email sudah terpakai)
+    if (error.code === "P2002") {
+      return res.status(400).json({ message: "Email atau username sudah digunakan" });
+    }
+
+    return res.status(500).json({ message: error.message || "Terjadi kesalahan, coba lagi nanti" });
   } finally {
     await prisma.$disconnect();
   }

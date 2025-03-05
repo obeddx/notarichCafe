@@ -1,6 +1,11 @@
 "use client";
+
 import { useEffect, useState, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
+
+// 1. Import Toastify
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 interface Employee {
   id: number;
@@ -44,20 +49,28 @@ export default function EmployeeSlots() {
   const fetchEmployees = async () => {
     try {
       const res = await fetch("/api/employee");
+      if (!res.ok) {
+        throw new Error("Failed to fetch employees");
+      }
       const data = await res.json();
       setEmployees(data);
     } catch (error) {
       console.error("Fetch error:", error);
+      toast.error("Error fetching employees");
     }
   };
 
   const fetchRoles = async () => {
     try {
       const res = await fetch("/api/employeeRoles");
+      if (!res.ok) {
+        throw new Error("Failed to fetch roles");
+      }
       const data = await res.json();
       setRoles(data);
     } catch (error) {
       console.error("Fetch roles error:", error);
+      toast.error("Error fetching roles");
     }
   };
 
@@ -77,6 +90,7 @@ export default function EmployeeSlots() {
   };
 
   const resetForm = () => {
+    setEditingEmployee(null);
     setFirstName("");
     setLastName("");
     setEmail("");
@@ -107,30 +121,52 @@ export default function EmployeeSlots() {
       });
 
       if (res.ok) {
+        // Jika berhasil, panggil fetchEmployees dan tutup form
         await fetchEmployees();
         setShowForm(false);
+
+        // Tampilkan toast sukses
+        if (editingEmployee) {
+          toast.success("Employee updated successfully!");
+        } else {
+          toast.success("Employee invited successfully!");
+        }
+      } else {
+        // Jika gagal, ambil pesan error dari server (opsional)
+        const data = await res.json();
+        toast.error(data.error || "Failed to submit employee data");
       }
     } catch (error) {
       console.error("Error submitting form:", error);
+      toast.error("Error submitting form");
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this employee?")) return;
     try {
-      await fetch("/api/employee", {
+      const res = await fetch("/api/employee", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      await fetchEmployees();
+      if (res.ok) {
+        await fetchEmployees();
+        toast.success("Employee deleted successfully!");
+      } else {
+        toast.error("Failed to delete employee");
+      }
     } catch (error) {
       console.error("Error deleting employee:", error);
+      toast.error("Error deleting employee");
     }
   };
 
   return (
     <div className="flex min-h-screen bg-[#FFFAF0] text-black">
+      {/* 2. Tempatkan ToastContainer di level root komponen */}
+      <ToastContainer />
+
       <Sidebar onToggle={setSidebarOpen} isOpen={sidebarOpen} />
 
       <div className={`flex-1 p-4 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>

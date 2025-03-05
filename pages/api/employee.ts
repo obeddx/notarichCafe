@@ -15,13 +15,11 @@ const transporter = nodemailer.createTransport({
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // 1. Tambahkan method GET agar Frontend bisa memanggil GET /api/employee
   if (req.method === "GET") {
     try {
       const employees = await prisma.employee.findMany({
         include: { role: true },
       });
-      // Pastikan kembalikan array
       return res.status(200).json(employees);
     } catch (error) {
       console.error(error);
@@ -29,11 +27,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // 2. Method POST untuk membuat employee baru dengan token & expiry
   if (req.method === "POST") {
     try {
       const { firstName, lastName, email, phone, roleId, expiredDate } = req.body;
 
+      // Generate token & set expiry 5 menit (jika Anda masih perlu fitur invite)
       const inviteToken = crypto.randomBytes(16).toString("hex");
       const inviteExpiresAt = new Date();
       inviteExpiresAt.setMinutes(inviteExpiresAt.getMinutes() + 5);
@@ -52,6 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         include: { role: true },
       });
 
+      // Kirim email invite (opsional)
       if (email) {
         const registerLink = `http://localhost:3000/register?token=${inviteToken}`;
         await transporter.sendMail({
@@ -71,12 +70,45 @@ Terima Kasih!`,
     }
   }
 
-  // 3. Untuk method PUT / DELETE bisa Anda tambahkan sendiri
-  //    jika memang dibutuhkan, misal:
+  // Tambahkan handler untuk EDIT (PUT)
+  if (req.method === "PUT") {
+    try {
+      const { id, firstName, lastName, email, phone, roleId, expiredDate } = req.body;
 
-  // if (req.method === "PUT") { ... }
-  // if (req.method === "DELETE") { ... }
+      const updatedEmployee = await prisma.employee.update({
+        where: { id: Number(id) },
+        data: {
+          firstName,
+          lastName,
+          email,
+          phone,
+          roleId: Number(roleId),
+          expiredDate: new Date(expiredDate),
+        },
+        include: { role: true },
+      });
 
-  // 4. Jika method tidak di-handle, kembalikan error
+      return res.status(200).json(updatedEmployee);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: "Error updating employee" });
+    }
+  }
+
+  // Tambahkan handler untuk DELETE
+  if (req.method === "DELETE") {
+    try {
+      const { id } = req.body;
+      await prisma.employee.delete({
+        where: { id: Number(id) },
+      });
+      return res.status(200).json({ message: "Employee deleted successfully" });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: "Error deleting employee" });
+    }
+  }
+
+  // Jika method lain, kembalikan error
   return res.status(405).json({ error: "Method not allowed" });
 }
