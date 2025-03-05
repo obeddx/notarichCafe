@@ -183,6 +183,9 @@ model RoleEmployee {
   id        Int        @id @default(autoincrement())
   name      String
   employees Employee[]
+
+  appPermissions       Json?
+  backofficePermissions Json?
 }
 
 
