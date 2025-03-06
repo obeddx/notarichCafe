@@ -1865,7 +1865,10 @@ function OrderItemComponent({
             </p>
           )}
           <button
-            onClick={() => confirmPayment?.(Number(order.id), order.paymentMethod || "ewallet", order.paymentId, selectedDiscountId)}
+            onClick={() => {
+              confirmPayment?.(Number(order.id), order.paymentMethod || "ewallet", order.paymentId, selectedDiscountId);
+              printKitchenAndBarOrders(order);
+            }}
             className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
           >
             💰 Konfirmasi Pembayaran
@@ -2171,7 +2174,7 @@ function StatusBadge({ status }: { status: string }) {
  function isKitchenItem(item: OrderItem): boolean {
   // Asumsi: menu memiliki properti category bertipe string
   const category = item.menu.category.toLowerCase();
-  return category === "main course" || category === "snack";
+  return category === "main course" || category === "snack" || category === "bundle";
 }
 
 // Fungsi untuk mengecek apakah item termasuk kategori "bar"
@@ -2847,7 +2850,6 @@ function generatePDFbarKitchen(order: Order, title: string) {
   checkPage();
   doc.text("Pesanan", margin, yPosition);
   yPosition += 5;
-  // Ubah header kolom menjadi "Item" dan "Qty"
   checkPage();
   doc.text("Item", margin, yPosition);
   doc.text("Qty", pageWidth - margin, yPosition, { align: "right" });
@@ -2865,7 +2867,7 @@ function generatePDFbarKitchen(order: Order, title: string) {
     }
   };
 
-  // Tampilkan setiap menu yang dipesan dan jumlahnya
+  // Tampilkan setiap menu yang dipesan beserta modifier dan note
   order.orderItems.forEach((item) => {
     const [firstLine, secondLine] = truncateMenuName(item.menu.name);
     checkPage();
@@ -2880,10 +2882,38 @@ function generatePDFbarKitchen(order: Order, title: string) {
       doc.text(secondLine, margin, yPosition);
       yPosition += 5;
     }
+
+    // Tampilkan modifier jika ada
+    if (item.modifiers && item.modifiers.length > 0) {
+      checkPage();
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      item.modifiers.forEach((modifier) => {
+        doc.text(`- ${modifier.modifier.name} (Rp ${modifier.modifier.price.toLocaleString()})`, margin, yPosition);
+        yPosition += 4;
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+    }
+
+    // Tampilkan note jika ada
+    if (item.note) {
+      checkPage();
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      const noteText = `Catatan: ${item.note}`;
+      const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+      noteLines.forEach((line) => {
+        checkPage();
+        doc.text(line, margin, yPosition);
+        yPosition += 4;
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+    }
   });
 
-  // Menghilangkan bagian dari "Subtotal" ke bawah.
-  // Optional: Tambahkan pesan penutup jika diperlukan.
+  // Footer
   checkPage();
   yPosition += 3;
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
@@ -2897,5 +2927,4 @@ function generatePDFbarKitchen(order: Order, title: string) {
 
   doc.save(`struk_${title}.pdf`);
 }
-
 
