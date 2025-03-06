@@ -9,6 +9,7 @@ import { useNotifications, MyNotification } from "../../contexts/NotificationCon
 import CombinedPaymentForm from "@/components/combinedPaymentForm";
 import { jsPDF } from "jspdf";
 import io from "socket.io-client";
+// import { useRouter } from "next/navigation";
 
 interface Menu {
   id: number;
@@ -109,6 +110,7 @@ interface CartItem {
 const SOCKET_URL = "http://localhost:3000";
 
 export default function KasirPage() {
+  // const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +149,38 @@ export default function KasirPage() {
 
   const unreadCount = notifications.filter((notif) => !notif.isRead).length;
   const [isPaymentMethodPopupOpen, setIsPaymentMethodPopupOpen] = useState(false);
+
+  const handleResetDailyStock = async () => {
+    const confirmed = confirm("Apakah Anda yakin ingin mereset stok harian?");
+    if (!confirmed) return;
+    try {
+      const res = await fetch("/api/resetDailyStock", { method: "POST" });
+      const result = await res.json();
+      alert(result.message);
+      if (res.ok) {
+        toast.success("berhasil rekap stok cafe");
+      }
+    } catch (error) {
+      console.error("Error resetting daily stock:", error);
+    }
+  };
+
+  const handleResetDailyStockGudang = async () => {
+    const confirmed = confirm("Apakah Anda yakin ingin mereset stok harian?");
+    if (!confirmed) return;
+    try {
+      const res = await fetch("/api/resetGudangStock", {
+        method: "POST",
+      });
+      const result = await res.json();
+      alert(result.message);
+      if (res.ok) {
+        toast.success("berhasil rekap stok gudang");
+      }
+    } catch (error) {
+      console.error("Error resetting daily stock:", error);
+    }
+  };
 
 
   const resetBookingOrder = async (orderId: number) => {
@@ -1074,7 +1108,7 @@ useEffect(() => {
             />
           </div>
         )}
-        <div className="flex mt-4">
+        {/* <div className="flex mt-4">
           <button
             onClick={() => setModalOpen(true)}
             className="px-6 py-3 bg-red-500 hover:bg-red-700 text-[#FCFFFC] rounded-lg text-lg font-semibold flex items-center justify-center space-x-2 transition-all duration-300"
@@ -1089,7 +1123,47 @@ useEffect(() => {
               <span className="font-semibold">closing cafe</span>, untuk validasi stok cafe hari ini.
             </p>
           </div>
+        </div> */}
+        <div className="flex mt-4">
+
+                   <button
+                    onClick={handleResetDailyStock}
+                    className="mt-4 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
+                  >
+                    Rekap Stock Cafe
+                  </button>
+          
+                  <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4">
+                    <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold text-yellow-900">Perhatian:</span>{" "}
+                      Tekan tombol{" "}
+                      <span className="font-semibold text-red-600">Rekap Stock Gudang</span>{" "}
+                      hanya pada saat <span className="font-semibold">closing cafe</span>,
+                      untuk menyimpan rekap pengeluaran stok gudang hari ini.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleResetDailyStockGudang}
+                    className="mt-4 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
+                  >
+                    Rekap Stock Gudang
+                  </button>
+          
+                  <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4">
+                    <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold text-yellow-900">Perhatian:</span>{" "}
+                      Tekan tombol{" "}
+                      <span className="font-semibold text-red-600">Rekap Stock Gudang</span>{" "}
+                      hanya pada saat <span className="font-semibold">closing cafe</span>,
+                      untuk menyimpan rekap pengeluaran stok gudang hari ini.
+                    </p>
+                  </div>
+
         </div>
+       
 
         {modalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">

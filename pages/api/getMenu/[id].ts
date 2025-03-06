@@ -40,8 +40,20 @@ export default async function handler(
     }
   } else if (req.method === "DELETE") {
     try {
+    
       // Hapus semua data menuIngredient yang memiliki menuId sesuai
       await prisma.menuIngredient.deleteMany({
+        where: { menuId },
+      });
+
+      await prisma.menuModifier.deleteMany({
+        where: { menuId },
+      });
+      await prisma.menuDiscount.deleteMany({
+        where: { menuId },
+      });
+
+      await prisma.menuComposition.deleteMany({
         where: { menuId },
       });
 
