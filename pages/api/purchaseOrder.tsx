@@ -55,18 +55,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           totalPrice,
         },
       });
-
+  
       // Cari record Gudang yang terkait dengan ingredientId tersebut
       const gudangRecord = await prisma.gudang.findUnique({
         where: { ingredientId },
       });
-
+  
       if (gudangRecord) {
         // Tambah stockIn dengan quantity dari purchase order
         const newStockIn = gudangRecord.stockIn + quantity;
         // Hitung stock baru: stock = start + stockIn - used - wasted
         const newStock = gudangRecord.start + newStockIn - gudangRecord.used - gudangRecord.wasted;
-
+  
         await prisma.gudang.update({
           where: { ingredientId },
           data: {
@@ -77,7 +77,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } else {
         console.warn(`Gudang record not found for ingredientId: ${ingredientId}`);
       }
-
+  
+      // Hitung harga baru
+      const newPrice = totalPrice / quantity;
+  
+      // Update harga di tabel Ingredient
+      await prisma.ingredient.update({
+        where: { id: ingredientId },
+        data: { price: newPrice },
+      });
+  
       return res.status(201).json(newPurchaseOrder);
     } catch (error) {
       console.error(error);

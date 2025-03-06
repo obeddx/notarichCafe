@@ -422,3 +422,12 @@ model ModifierCategory {
   updatedAt   DateTime  @updatedAt
   modifiers   Modifier[] // Relasi ke Modifier
 }
+
+model Supplier {
+  id      Int    @id @default(autoincrement())
+  name    String
+  address String
+  phone   String
+  email   String @unique
+  isActive Boolean @default(true)
+}

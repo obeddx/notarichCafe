@@ -11,6 +11,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Ambil semua menu beserta ingredient, diskon aktif, dan modifier
     const menus = await prisma.menu.findMany({
+
+      where: {
+        type: "NORMAL", // Filter hanya menu dengan type NORMAL
+      },
       include: {
         ingredients: {
           include: {

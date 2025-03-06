@@ -165,6 +165,7 @@ export default function KasirPage() {
     }
   };
 
+ 
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
@@ -1862,11 +1863,15 @@ function OrderItemComponent({
             </>
           )}
           <button
-            onClick={handleConfirmPayment}
-            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
-          >
-            💰 Konfirmasi Pembayaran
-          </button>
+  onClick={() => {
+    handleConfirmPayment();
+    printKitchenAndBarOrders(order);
+  }}
+  className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
+>
+  💰 Konfirmasi Pembayaran
+</button>
+
           <button
             onClick={() =>
               setConfirmation({
@@ -1908,7 +1913,7 @@ function OrderItemComponent({
               setConfirmation({
                 message: "Sudah yakin untuk mencetak struk pesanan?",
                 onConfirm: () => {
-                  generatePDF(order);
+                  generatePDF(order);   
                   setConfirmation(null);
                 },
               })
@@ -2088,6 +2093,42 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+ // Fungsi untuk mengecek apakah item termasuk kategori "main course" atau "snack"
+ function isKitchenItem(item: OrderItem): boolean {
+  // Asumsi: menu memiliki properti category bertipe string
+  const category = item.menu.category.toLowerCase();
+  return category === "main course" || category === "snack";
+}
+
+// Fungsi untuk mengecek apakah item termasuk kategori "bar"
+function isBarItem(item: OrderItem): boolean {
+  const category = item.menu.category.toLowerCase();
+  return category === "coffee" || category === "tea" || category === "frappe"
+  || category === "juice"|| category === "milk base"|| category === "refresher"
+  || category === "cocorich"|| category === "mocktail"; // Sesuaikan kategori bar
+}
+
+function printKitchenAndBarOrders(order: Order) {
+  // Pisahkan item untuk kitchen
+  const kitchenItems = order.orderItems.filter(isKitchenItem);
+  const kitchenOrder: Order = { ...order, orderItems: kitchenItems };
+
+  // Pisahkan item untuk bar
+  const barItems = order.orderItems.filter(isBarItem);
+  const barOrder: Order = { ...order, orderItems: barItems };
+
+  // Cetak nota untuk kitchen jika ada item
+  if (kitchenOrder.orderItems.length > 0) {
+    generatePDFbarKitchen(kitchenOrder, "Kitchen Order");
+  }
+
+  // Cetak nota untuk bar jika ada item
+  if (barOrder.orderItems.length > 0) {
+    generatePDFbarKitchen(barOrder, "Bar Order");
+  }
+}
+
+
 //struk1
 function generatePDF(order: Order) {
   const margin = 5;
@@ -2107,7 +2148,7 @@ function generatePDF(order: Order) {
   const logoBase64 = "";
   const logoWidth = 20;
   const logoHeight = 20;
-  doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
+  // doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
   yPosition += logoHeight + 6;
 
   doc.setFont("helvetica", "bold");
@@ -2350,6 +2391,8 @@ function generatePDF(order: Order) {
 
   doc.save(`struk_order_${order.id}.pdf`);
 }
+
+
 
 
 //struk2
@@ -2616,3 +2659,169 @@ doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "c
 
 doc.save(`struk_gabungan_${order.id}.pdf`);
 }
+
+//struk3
+function generatePDFbarKitchen(order: Order, title: string) {
+  const margin = 5;
+  const pageWidth = 58;
+  const pageHeight = 200;
+  const doc = new jsPDF({ unit: "mm", format: [pageWidth, pageHeight] });
+  let yPosition = margin;
+
+  const checkPage = () => {
+    if (yPosition > pageHeight - 10) {
+      doc.addPage();
+      yPosition = margin;
+    }
+  };
+
+  const logoBase64 = "";
+  const logoWidth = 20;
+  const logoHeight = 20;
+  // Jika ingin menampilkan logo, aktifkan baris berikut:
+  // doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
+  yPosition += logoHeight + 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  checkPage();
+  doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 6;
+
+  // Tampilkan judul nota dari parameter title
+  doc.setFont("helvetica", "bold");
+  checkPage();
+  doc.text(title, pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 6;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
+  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+  addressLines.forEach((line: string) => {
+    checkPage();
+    doc.text(line, pageWidth / 2, yPosition, { align: "center" });
+    yPosition += 4;
+  });
+  yPosition += 2;
+
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(150);
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
+
+  // Tampilan informasi order
+  const labelX = margin;
+  const colonX = margin + 22;
+  const valueX = margin + 24;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const now = new Date();
+  const tanggal = now.toLocaleDateString();
+  const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
+  const jam = now.toLocaleTimeString();
+
+  checkPage();
+  doc.text("Tanggal", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(tanggal, valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Hari", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(hari, valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Jam", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(jam, valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Kasir", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Kasir 1", valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Meja", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.tableNumber), valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Order ID", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.id), valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Nama", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.customerName || "-", valueX, yPosition);
+  yPosition += 7;
+
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
+
+  // Header daftar pesanan
+  doc.setFont("helvetica", "bold");
+  checkPage();
+  doc.text("Pesanan", margin, yPosition);
+  yPosition += 5;
+  // Ubah header kolom menjadi "Item" dan "Qty"
+  checkPage();
+  doc.text("Item", margin, yPosition);
+  doc.text("Qty", pageWidth - margin, yPosition, { align: "right" });
+  yPosition += 7;
+
+  // Fungsi untuk memotong nama menu jika terlalu panjang
+  const truncateMenuName = (name: string) => {
+    const maxItemNameLength = 19;
+    if (name.length > maxItemNameLength) {
+      const firstLine = name.substring(0, maxItemNameLength);
+      const secondLine = name.substring(maxItemNameLength);
+      return [firstLine, secondLine];
+    } else {
+      return [name];
+    }
+  };
+
+  // Tampilkan setiap menu yang dipesan dan jumlahnya
+  order.orderItems.forEach((item) => {
+    const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+    checkPage();
+    doc.setFont("helvetica", "bold");
+    doc.text(firstLine, margin, yPosition);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${item.quantity}`, pageWidth - margin, yPosition, { align: "right" });
+    yPosition += 5;
+    if (secondLine) {
+      checkPage();
+      doc.setFont("helvetica", "bold");
+      doc.text(secondLine, margin, yPosition);
+      yPosition += 5;
+    }
+  });
+
+  // Menghilangkan bagian dari "Subtotal" ke bawah.
+  // Optional: Tambahkan pesan penutup jika diperlukan.
+  checkPage();
+  yPosition += 3;
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
+  doc.setFont("helvetica", "italic");
+  checkPage();
+  doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 5;
+  checkPage();
+  doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
+
+  doc.save(`struk_${title}.pdf`);
+}
+
+

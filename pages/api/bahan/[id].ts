@@ -246,7 +246,7 @@ if (updatedIngredient.type === "SEMI_FINISHED") {
         message: "Ingredient berhasil dihapus (soft delete)",
         ingredient: updatedIngredient,
         gudang: updatedGudang,
-      });
+      }); 
     } catch (error) {
       console.error("Error deleting ingredient:", error);
       return res.status(500).json({ message: "Internal server error" });

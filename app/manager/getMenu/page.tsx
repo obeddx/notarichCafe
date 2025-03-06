@@ -60,7 +60,8 @@ export default function ManagerMenusPage() {
 
   const fetchMenus = async () => {
     try {
-      const res = await fetch("/api/hitungCost");
+      const res =await fetch("/api/hitungCost?type=NORMAL");
+
       const data = await res.json();
       setMenus(data);
       setFilteredMenus(data);
