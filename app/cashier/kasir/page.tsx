@@ -14,6 +14,7 @@ import io from "socket.io-client";
 interface Menu {
   id: number;
   name: string;
+  type: string;
   description?: string;
   image: string;
   price: number;
@@ -21,6 +22,18 @@ interface Menu {
   Status: string;
   discounts: { discount: Discount }[];
   modifiers: Modifier[];
+  bundleCompositions: {
+    id: number;
+    bundleId: number;
+    menuId: number;
+    amount: number;
+    menu: {
+      id: number;
+      name: string;
+      category: string;
+      // Tambahkan field lain dari Menu jika diperlukan
+    };
+  }[];
 }
 
 interface Discount {
@@ -2170,41 +2183,53 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
- // Fungsi untuk mengecek apakah item termasuk kategori "main course" atau "snack"
- function isKitchenItem(item: OrderItem): boolean {
-  // Asumsi: menu memiliki properti category bertipe string
+function isKitchenItem(item: OrderItem): boolean {
   const category = item.menu.category.toLowerCase();
-  return category === "main course" || category === "snack" || category === "bundle";
+  if (category === "bundle") {
+    const hasKitchen = item.menu.bundleCompositions.some((bundleItem) =>
+      ["main course", "snack"].includes(bundleItem.menu.category.toLowerCase())
+    );
+    console.log(`Bundle ${item.menu.name} has Kitchen items: ${hasKitchen}`);
+    return hasKitchen;
+  }
+  return ["main course", "snack"].includes(category);
 }
 
-// Fungsi untuk mengecek apakah item termasuk kategori "bar"
 function isBarItem(item: OrderItem): boolean {
   const category = item.menu.category.toLowerCase();
-  return category === "coffee" || category === "tea" || category === "frappe"
-  || category === "juice"|| category === "milk base"|| category === "refresher"
-  || category === "cocorich"|| category === "mocktail"; // Sesuaikan kategori bar
+  if (category === "bundle") {
+    const hasBar = item.menu.bundleCompositions.some((bundleItem) =>
+      ["coffee", "tea", "frappe", "juice", "milk base", "refresher", "cocorich", "mocktail"].includes(
+        bundleItem.menu.category.toLowerCase()
+      )
+    );
+    console.log(`Bundle ${item.menu.name} has Bar items: ${hasBar}`);
+    return hasBar;
+  }
+  return ["coffee", "tea", "frappe", "juice", "milk base", "refresher", "cocorich", "mocktail"].includes(category);
 }
-
 function printKitchenAndBarOrders(order: Order) {
-  // Pisahkan item untuk kitchen
   const kitchenItems = order.orderItems.filter(isKitchenItem);
-  const kitchenOrder: Order = { ...order, orderItems: kitchenItems };
-
-  // Pisahkan item untuk bar
   const barItems = order.orderItems.filter(isBarItem);
+
+  console.log("Kitchen Items:", kitchenItems.map((item) => item.menu.name));
+  console.log("Bar Items:", barItems.map((item) => item.menu.name));
+
+  const kitchenOrder: Order = { ...order, orderItems: kitchenItems };
   const barOrder: Order = { ...order, orderItems: barItems };
 
-  // Cetak nota untuk kitchen jika ada item
-  if (kitchenOrder.orderItems.length > 0) {
+  if (kitchenItems.length > 0) {
     generatePDFbarKitchen(kitchenOrder, "Kitchen Order");
+  } else {
+    console.log("No Kitchen items to print");
   }
 
-  // Cetak nota untuk bar jika ada item
-  if (barOrder.orderItems.length > 0) {
+  if (barItems.length > 0) {
     generatePDFbarKitchen(barOrder, "Bar Order");
+  } else {
+    console.log("No Bar items to print");
   }
 }
-
 
 //struk1
 function generatePDF(order: Order) {
@@ -2752,22 +2777,11 @@ function generatePDFbarKitchen(order: Order, title: string) {
     }
   };
 
-  const logoBase64 = "";
-  const logoWidth = 20;
-  const logoHeight = 20;
-  // Jika ingin menampilkan logo, aktifkan baris berikut:
-  // doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
-  yPosition += logoHeight + 6;
-
+  // Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  checkPage();
   doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 6;
-
-  // Tampilkan judul nota dari parameter title
-  doc.setFont("helvetica", "bold");
-  checkPage();
   doc.text(title, pageWidth / 2, yPosition, { align: "center" });
   yPosition += 6;
 
@@ -2788,143 +2802,160 @@ function generatePDFbarKitchen(order: Order, title: string) {
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 5;
 
-  // Tampilan informasi order
+  // Informasi Order
   const labelX = margin;
   const colonX = margin + 22;
   const valueX = margin + 24;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
   const now = new Date();
-  const tanggal = now.toLocaleDateString();
-  const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
-  const jam = now.toLocaleTimeString();
-
-  checkPage();
   doc.text("Tanggal", labelX, yPosition);
   doc.text(":", colonX, yPosition);
-  doc.text(tanggal, valueX, yPosition);
+  doc.text(now.toLocaleDateString(), valueX, yPosition);
   yPosition += 5;
-
-  checkPage();
   doc.text("Hari", labelX, yPosition);
   doc.text(":", colonX, yPosition);
-  doc.text(hari, valueX, yPosition);
+  doc.text(now.toLocaleDateString("id-ID", { weekday: "long" }), valueX, yPosition);
   yPosition += 5;
-
-  checkPage();
   doc.text("Jam", labelX, yPosition);
   doc.text(":", colonX, yPosition);
-  doc.text(jam, valueX, yPosition);
+  doc.text(now.toLocaleTimeString(), valueX, yPosition);
   yPosition += 5;
-
-  checkPage();
   doc.text("Kasir", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text("Kasir 1", valueX, yPosition);
   yPosition += 5;
-
-  checkPage();
   doc.text("Meja", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text(String(order.tableNumber), valueX, yPosition);
   yPosition += 5;
-
-  checkPage();
   doc.text("Order ID", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text(String(order.id), valueX, yPosition);
   yPosition += 5;
-
-  checkPage();
   doc.text("Nama", labelX, yPosition);
   doc.text(":", colonX, yPosition);
   doc.text(order.customerName || "-", valueX, yPosition);
   yPosition += 7;
 
-  checkPage();
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 5;
 
-  // Header daftar pesanan
+  // Pesanan
   doc.setFont("helvetica", "bold");
-  checkPage();
   doc.text("Pesanan", margin, yPosition);
   yPosition += 5;
-  checkPage();
   doc.text("Item", margin, yPosition);
   doc.text("Qty", pageWidth - margin, yPosition, { align: "right" });
   yPosition += 7;
 
-  // Fungsi untuk memotong nama menu jika terlalu panjang
   const truncateMenuName = (name: string) => {
     const maxItemNameLength = 19;
     if (name.length > maxItemNameLength) {
       const firstLine = name.substring(0, maxItemNameLength);
       const secondLine = name.substring(maxItemNameLength);
       return [firstLine, secondLine];
-    } else {
-      return [name];
     }
+    return [name];
   };
 
-  // Tampilkan setiap menu yang dipesan beserta modifier dan note
   order.orderItems.forEach((item) => {
-    const [firstLine, secondLine] = truncateMenuName(item.menu.name);
-    checkPage();
-    doc.setFont("helvetica", "bold");
-    doc.text(firstLine, margin, yPosition);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${item.quantity}`, pageWidth - margin, yPosition, { align: "right" });
-    yPosition += 5;
-    if (secondLine) {
+    if (item.menu.type === "BUNDLE") {
+      const [bundleFirstLine, bundleSecondLine] = truncateMenuName(item.menu.name);
       checkPage();
       doc.setFont("helvetica", "bold");
-      doc.text(secondLine, margin, yPosition);
+      doc.text(`Bundle: ${bundleFirstLine}`, margin, yPosition);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${item.quantity}`, pageWidth - margin, yPosition, { align: "right" });
       yPosition += 5;
-    }
-
-    // Tampilkan modifier jika ada
-    if (item.modifiers && item.modifiers.length > 0) {
-      checkPage();
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      item.modifiers.forEach((modifier) => {
-        doc.text(`- ${modifier.modifier.name} (Rp ${modifier.modifier.price.toLocaleString()})`, margin, yPosition);
-        yPosition += 4;
-      });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-    }
-
-    // Tampilkan note jika ada
-    if (item.note) {
-      checkPage();
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7);
-      const noteText = `Catatan: ${item.note}`;
-      const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
-      noteLines.forEach((line) => {
+      if (bundleSecondLine) {
         checkPage();
-        doc.text(line, margin, yPosition);
-        yPosition += 4;
+        doc.setFont("helvetica", "bold");
+        doc.text(bundleSecondLine, margin, yPosition);
+        yPosition += 5;
+      }
+
+      const category = title.includes("Kitchen") ? "Kitchen" : "Bar";
+      const relevantBundleItems = item.menu.bundleCompositions.filter((bundleItem) => {
+        const itemCategory = bundleItem.menu.category.toLowerCase();
+        console.log(`Checking ${itemCategory} for ${category}`); // Debugging
+        if (category === "Kitchen") {
+          return ["main course", "snack"].includes(itemCategory);
+        } else {
+          return ["coffee", "tea", "frappe", "juice", "milk base", "refresher", "cocorich", "mocktail"].includes(itemCategory);
+        }
       });
+
+      if (relevantBundleItems.length > 0) {
+        relevantBundleItems.forEach((bundleItem) => {
+          const [itemFirstLine, itemSecondLine] = truncateMenuName(bundleItem.menu.name);
+          checkPage();
+          doc.setFont("helvetica", "normal");
+          doc.text(`  - ${itemFirstLine}`, margin, yPosition);
+          doc.text(`${bundleItem.amount * item.quantity}`, pageWidth - margin, yPosition, { align: "right" });
+          yPosition += 5;
+          if (itemSecondLine) {
+            checkPage();
+            doc.text(`    ${itemSecondLine}`, margin, yPosition);
+            yPosition += 5;
+          }
+        });
+      } else {
+        checkPage();
+        doc.setFont("helvetica", "italic");
+        doc.text(`(No ${category} items in this bundle)`, margin, yPosition);
+        doc.setFont("helvetica", "normal");
+        yPosition += 5;
+      }
+
+      if (item.modifiers && item.modifiers.length > 0) {
+        checkPage();
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7);
+        item.modifiers.forEach((modifier) => {
+          doc.text(`- ${modifier.modifier.name} (Rp ${modifier.modifier.price.toLocaleString()})`, margin, yPosition);
+          yPosition += 4;
+        });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+      }
+
+      if (item.note) {
+        checkPage();
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7);
+        const noteText = `Catatan: ${item.note}`;
+        const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+        noteLines.forEach((line) => {
+          checkPage();
+          doc.text(line, margin, yPosition);
+          yPosition += 4;
+        });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+      }
+    } else {
+      const [firstLine, secondLine] = truncateMenuName(item.menu.name);
+      checkPage();
+      doc.setFont("helvetica", "bold");
+      doc.text(firstLine, margin, yPosition);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.text(`${item.quantity}`, pageWidth - margin, yPosition, { align: "right" });
+      yPosition += 5;
+      if (secondLine) {
+        checkPage();
+        doc.setFont("helvetica", "bold");
+        doc.text(secondLine, margin, yPosition);
+        yPosition += 5;
+      }
     }
   });
 
-  // Footer
-  checkPage();
   yPosition += 3;
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 5;
   doc.setFont("helvetica", "italic");
-  checkPage();
   doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 5;
-  checkPage();
   doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
 
   doc.save(`struk_${title}.pdf`);
 }
-

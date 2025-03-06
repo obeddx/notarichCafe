@@ -10,7 +10,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         include: {
           orderItems: {
             include: {
-              menu: true,
+              menu: {
+                include: {
+                  // Tambahkan relasi bundleCompositions untuk mengambil menu yang termasuk dalam bundle
+                  bundleCompositions: {
+                    include: {
+                      menu: true, // Ambil data menu yang termasuk dalam bundle
+                    },
+                  },
+                },
+              },
               modifiers: {
                 include: {
                   modifier: true,
@@ -19,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           },
           discount: true,
-          reservasi: true, // Tambahkan relasi ini
+          reservasi: true, // Relasi ini sudah ada
         },
       });
 
