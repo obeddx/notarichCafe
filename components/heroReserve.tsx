@@ -10,22 +10,22 @@ export default function HowToReserve() {
         {[
           {
             image: "/booking.png",
-            title: "Step 1: Pilih Meja",
-            description: "Pilihlah meja yang Anda inginkan dari pilihan yang tersedia",
-          },
-          {
-            image: "/pesen.png",
-            title: "Step 2: Isi Datadiri",
+            title: "Step 1: Isi data diri",
             description: "Silahkan isi data diri yang dibutuhkan",
           },
           {
+            image: "/pesen.png",
+            title: "Step 2: Pilih Meja dan Pesan Menu",
+            description: "Pilih meja yang tersedia serta menu yang ingin dipesan",
+          },
+          {
             image: "/payonline.png",
-            title: "Step 3: Pilih tanggal dan waktu reservasi",
+            title: "Step 3: Bayar dengan mudah",
             description: "Bayar dengan dompet digital kesayangan Anda",
           },
           {
             image: "/servis.png",
-            title: "Step 4: Buat Reservasi",
+            title: "Step 4: Reservasi Meja dan Pesanan telah berhasil dibuat",
             description: "Nikmati Layanan Anda",
           },
         ].map((step, index) => (
