@@ -44,33 +44,23 @@ const ReservationForm = () => {
   // Handler untuk perubahan input form
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-
-    // Filter hanya angka untuk nomorKontak
-    if (name === "nomorKontak") {
-      const filteredValue = value.replace(/[^0-9]/g, ""); // Hanya izinkan angka 0-9
-      setForm((prev) => ({
+    setForm((prev) => {
+      const updatedForm = {
         ...prev,
-        [name]: filteredValue,
-      }));
-    } else {
-      setForm((prev) => {
-        const updatedForm = {
-          ...prev,
-          [name]: name === "durasiMenit" || name === "durasiJam" ? Number(value) : value,
-        };
+        [name]: name === "durasiMenit" || name === "durasiJam" ? Number(value) : value,
+      };
 
-        // Atur durasi menit ke 0 jika durasi jam adalah 2
-        if (name === "durasiJam" && updatedForm.durasiJam === 2) {
-          updatedForm.durasiMenit = 0;
-        }
-        // Atur durasi menit ke 10 jika durasi jam adalah 1 dan menit sebelumnya 0
-        if (name === "durasiJam" && updatedForm.durasiJam === 1 && updatedForm.durasiMenit === 0) {
-          updatedForm.durasiMenit = 10;
-        }
+      // Atur durasi menit ke 0 jika durasi jam adalah 2
+      if (name === "durasiJam" && updatedForm.durasiJam === 2) {
+        updatedForm.durasiMenit = 0;
+      }
+      // Atur durasi menit ke 10 jika durasi jam adalah 1 dan menit sebelumnya 0
+      if (name === "durasiJam" && updatedForm.durasiJam === 1 && updatedForm.durasiMenit === 0) {
+        updatedForm.durasiMenit = 10;
+      }
 
-        return updatedForm;
-      });
-    }
+      return updatedForm;
+    });
   };
 
   // Format tanggal untuk tampilan di Reservation Details
@@ -88,25 +78,10 @@ const ReservationForm = () => {
     return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
-  // Validasi apakah semua field wajib sudah terisi
-  const isFormValid = () => {
-    return (
-      form.namaCustomer.trim() !== "" &&
-      form.nomorKontak.trim() !== "" &&
-      form.selectedDateTime.trim() !== ""
-    );
-  };
 
   // Handler untuk submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Cek apakah semua field wajib terisi
-    if (!isFormValid()) {
-      toast.error("Harap isi semua kolom wajib: Nama, Nomor Kontak, dan Tanggal & Waktu.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     const now = new Date();
@@ -142,7 +117,7 @@ const ReservationForm = () => {
       selectedDateTime: form.selectedDateTime,
       durasiJam: form.durasiJam,
       durasiMenit: form.durasiMenit,
-      meja: form.meja,
+      meja: form.meja, // Akan diisi di layout
       kodeBooking,
     };
 
@@ -175,7 +150,7 @@ const ReservationForm = () => {
           {/* Nama Customer */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-600">
-              Nama Customer <span className="text-red-500">*</span>
+              Nama Customer
             </label>
             <div className="relative">
               <FaUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -185,6 +160,7 @@ const ReservationForm = () => {
                 value={form.namaCustomer}
                 onChange={handleChange}
                 className="border border-gray-300 p-2 pl-10 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                required
                 placeholder="Nama lengkap Anda"
               />
             </div>
@@ -193,7 +169,7 @@ const ReservationForm = () => {
           {/* Nomor Kontak */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-600">
-              Nomor Kontak (Whatsapp) <span className="text-red-500">*</span>
+              Nomor Kontak (Whatsapp)
             </label>
             <div className="relative">
               <FaPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -202,9 +178,9 @@ const ReservationForm = () => {
                 name="nomorKontak"
                 value={form.nomorKontak}
                 onChange={handleChange}
-                inputMode="numeric" // Menampilkan keyboard numerik di mobile
-                pattern="[0-9]*" // Hanya izinkan angka di input HTML
                 className="border border-gray-300 p-2 pl-10 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                pattern="[0-9]{10,15}"
+                required
                 placeholder="Contoh: 082321568365"
               />
             </div>
@@ -213,7 +189,7 @@ const ReservationForm = () => {
           {/* Tanggal & Waktu Reservasi */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-600">
-              Tanggal & Waktu Reservasi: 10:00 - 22:00 <span className="text-red-500">*</span>
+              Tanggal & Waktu Reservasi: 10:00 - 22:00
             </label>
             <div className="relative">
               <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -225,6 +201,7 @@ const ReservationForm = () => {
                 max={`9999-12-31T22:00`}
                 onChange={handleChange}
                 className="border border-gray-300 p-2 pl-10 w-full rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                required
               />
             </div>
           </div>
@@ -297,9 +274,7 @@ const ReservationForm = () => {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`bg-blue-600 text-white p-3 rounded-md w-full mt-4 hover:bg-blue-700 transition-all transform hover:scale-105 flex items-center justify-center ${
-              isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+            className="bg-blue-600 text-white p-3 rounded-md w-full mt-4 hover:bg-blue-700 transition-all transform hover:scale-105 flex items-center justify-center"
           >
             {isSubmitting ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

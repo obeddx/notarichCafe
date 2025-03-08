@@ -176,43 +176,28 @@ export default function MenuPage() {
   }, [searchParams]);
 
   // Kirim nomor meja ke server
-  // useEffect(() => {
-  //   if (tableNumber !== "Unknown") {
-  //     const sendTableNumber = async () => {
-  //       try {
-  //         const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-  //         const response = await fetch("/api/nomeja", {
-  //           method: "POST",
-  //           headers: { "Content-Type": "application/json" },
-  //           body: JSON.stringify({ tableNumber: cleanTableNumber }),
-  //         });
-  //         if (!response.ok) {
-  //           const errorData = await response.json();
-  //           throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
-  //         }
-  //         const result = await response.json();
-  //         console.log("Table number sent successfully:", result);
-  //       } catch (error) {
-  //         console.error("Error sending table number:", error);
-  //         toast.error("Gagal mengirim nomor meja ke server.");
-  //       }
-  //     };
-  //     sendTableNumber();
-  //   }
-  // }, [tableNumber]);
-
   useEffect(() => {
     if (tableNumber !== "Unknown") {
-      const checkTableStatus = async () => {
-        const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-        const response = await fetch(`/api/nomeja?tableNumber=${cleanTableNumber}`, {
-          method: "GET", // Hanya cek status, bukan tandai
-        });
-        const data = await response.json();
-        console.log("Table status:", data);
-        // Tidak perlu POST kecuali ada pesanan
+      const sendTableNumber = async () => {
+        try {
+          const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
+          const response = await fetch("/api/nomeja", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tableNumber: cleanTableNumber }),
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
+          }
+          const result = await response.json();
+          console.log("Table number sent successfully:", result);
+        } catch (error) {
+          console.error("Error sending table number:", error);
+          toast.error("Gagal mengirim nomor meja ke server.");
+        }
       };
-      checkTableStatus();
+      sendTableNumber();
     }
   }, [tableNumber]);
 
@@ -510,61 +495,11 @@ export default function MenuPage() {
     }
   };
   
-  // const createOrderWithMethod = async (method: "cash" | "ewallet") => {
-  //   const bookingCode = sessionStorage.getItem("bookingCode");
-  //   const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-  //   const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
-    
-  //   // Pisahkan tableNumber menjadi nomor meja saja
-  //   const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-  
-  //   const orderDetails = {
-  //     customerName,
-  //     tableNumber: cleanTableNumber, // Hanya nomor meja
-  //     items: cart.map((item) => {
-  //       const activeDiscount = item.menu.discounts.find((d) => d.discount.isActive);
-  //       return {
-  //         menuId: item.menu.id,
-  //         quantity: item.quantity,
-  //         note: item.note,
-  //         modifierIds: Object.values(item.modifierIds).filter((id): id is number => id !== null),
-  //         discountId: activeDiscount ? activeDiscount.discount.id : undefined,
-  //       };
-  //     }),
-  //     total: subtotal,
-  //     discountId: selectedDiscountId || undefined,
-  //     taxAmount,
-  //     gratuityAmount,
-  //     discountAmount: totalDiscountAmount,
-  //     finalTotal: totalAfterAll,
-  //     paymentMethod: method === "ewallet" ? "ewallet" : undefined,
-  //     bookingCode: bookingCode || undefined, // Kirim bookingCode terpisah
-  //     reservationData: bookingCode ? reservationData : undefined,
-  //   };
-  //   console.log("Order Details Before Sending:", orderDetails);
-  //   try {
-  //     const response = await fetch("/api/placeOrder", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify(orderDetails),
-  //     });
-  //     if (!response.ok) {
-  //       const errorData = await response.json();
-  //       throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
-  //     }
-  //     const data = await response.json();
-  //     return data.order;
-  //   } catch (error) {
-  //     console.error("Error creating order:", error);
-  //     return null;
-  //   }
-  // };
-
   const createOrderWithMethod = async (method: "cash" | "ewallet") => {
     const bookingCode = sessionStorage.getItem("bookingCode");
     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
-  
+    
     // Pisahkan tableNumber menjadi nomor meja saja
     const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
   
@@ -587,15 +522,12 @@ export default function MenuPage() {
       gratuityAmount,
       discountAmount: totalDiscountAmount,
       finalTotal: totalAfterAll,
-      paymentMethod: method === "ewallet" ? "ewallet" : "cash", // Eksplisit untuk tunai
-      paymentStatus: method === "cash" ? "pending" : undefined, // Status "pending" untuk tunai
+      paymentMethod: method === "ewallet" ? "ewallet" : undefined,
       bookingCode: bookingCode || undefined, // Kirim bookingCode terpisah
       reservationData: bookingCode ? reservationData : undefined,
     };
     console.log("Order Details Before Sending:", orderDetails);
-  
     try {
-      // Buat pesanan terlebih dahulu
       const response = await fetch("/api/placeOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -606,31 +538,9 @@ export default function MenuPage() {
         throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
       }
       const data = await response.json();
-  
-      // Jika pesanan berhasil, tandai meja
-      if (data.order) {
-        const markTableResponse = await fetch("/api/nomeja", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tableNumber: cleanTableNumber }),
-        });
-        if (!markTableResponse.ok) {
-          const errorData = await markTableResponse.json();
-          console.error("Failed to mark table:", errorData);
-          // Tidak throw error agar pesanan tetap berhasil meskipun penandaan gagal
-        }
-  
-        // Kirim notifikasi WebSocket
-        const socket = io("http://localhost:3000", { path: "/api/socket" });
-        socket.emit("orderCreated", { newOrder: data.order });
-        socket.emit("tableStatusUpdated", { tableNumber: cleanTableNumber });
-        console.log("Emitted orderCreated and tableStatusUpdated for table:", cleanTableNumber);
-      }
-  
       return data.order;
     } catch (error) {
       console.error("Error creating order:", error);
-      toast.error("Failed to create order. Please try again.");
       return null;
     }
   };
@@ -1011,63 +921,10 @@ export default function MenuPage() {
 
                 await loadMidtransScript();
 
-                // const handlePaymentSuccess = async (result: MidtransResult) => {
-                //   // Membuat pesanan terlebih dahulu
-                //   const order = await createOrder();
-                //   if (order) {
-                //     // Perbarui status pembayaran menjadi "paid" setelah pembayaran berhasil
-                //     const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
-                //       method: "POST",
-                //       headers: { "Content-Type": "application/json" },
-                //       body: JSON.stringify({
-                //         orderId: order.id,
-                //         paymentMethod: "ewallet",
-                //         paymentStatus: "paid",
-                //         paymentId: result.transaction_id,
-                //         status: "paid", // Langsung ubah status pesanan menjadi "paid"
-                //       }),
-                //     });
-                
-                //     if (!paymentUpdateResponse.ok) {
-                //       throw new Error("Gagal memperbarui status pembayaran");
-                //     }
-                
-                //     // Update status reservasi menjadi RESERVED jika ada reservasi
-                //     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-                //     if (isReservation) {
-                //       await fetch(`/api/reservasi`, {
-                //         method: "PUT",
-                //         headers: { "Content-Type": "application/json" },
-                //         body: JSON.stringify({
-                //           kodeBooking: reservationData.kodeBooking,
-                //           status: "RESERVED",
-                //         }),
-                //       });
-                //       reservationData.meja = tableNumber.split(" - ")[0];
-                //       setShowReservationDetails(true);
-                //       setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
-                //     }
-                
-                //     toast.success("Order placed successfully!");
-                //     generateReceiptPDF();
-                //     setCart([]);
-                //     sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                //     // Tidak men-set showReceiptModal ke true, sehingga pop-up tidak muncul
-                //   } else {
-                //     setOrderError("Failed to create order after payment.");
-                //     toast.error("Failed to create order after payment.");
-                //   }
-                // };
                 const handlePaymentSuccess = async (result: MidtransResult) => {
-                  const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-                
-                  try {
-                    // Membuat pesanan terlebih dahulu (status awal "pending")
-                    const order = await createOrder();
-                    if (!order) {
-                      throw new Error("Failed to create order.");
-                    }
-                
+                  // Membuat pesanan terlebih dahulu
+                  const order = await createOrder();
+                  if (order) {
                     // Perbarui status pembayaran menjadi "paid" setelah pembayaran berhasil
                     const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
                       method: "POST",
@@ -1085,20 +942,8 @@ export default function MenuPage() {
                       throw new Error("Gagal memperbarui status pembayaran");
                     }
                 
-                    // Jika pembayaran berhasil, tandai meja
-                    const markTableResponse = await fetch("/api/nomeja", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ tableNumber: cleanTableNumber }),
-                    });
-                    if (!markTableResponse.ok) {
-                      const errorData = await markTableResponse.json();
-                      console.error("Failed to mark table:", errorData);
-                    }
-                
                     // Update status reservasi menjadi RESERVED jika ada reservasi
                     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-                    const isReservation = sessionStorage.getItem("reservation") === "true";
                     if (isReservation) {
                       await fetch(`/api/reservasi`, {
                         method: "PUT",
@@ -1108,27 +953,22 @@ export default function MenuPage() {
                           status: "RESERVED",
                         }),
                       });
-                      reservationData.meja = cleanTableNumber;
+                      reservationData.meja = tableNumber.split(" - ")[0];
                       setShowReservationDetails(true);
                       setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
                     }
-                
-                    // Kirim notifikasi WebSocket
-                    const socket = io("http://localhost:3000", { path: "/api/socket" });
-                    socket.emit("orderCreated", { newOrder: { ...order, paymentStatus: "paid", status: "paid" } });
-                    socket.emit("tableStatusUpdated", { tableNumber: cleanTableNumber });
                 
                     toast.success("Order placed successfully!");
                     generateReceiptPDF();
                     setCart([]);
                     sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                  } catch (error) {
-                    console.error("Error in handlePaymentSuccess:", error);
+                    // Tidak men-set showReceiptModal ke true, sehingga pop-up tidak muncul
+                  } else {
                     setOrderError("Failed to create order after payment.");
                     toast.error("Failed to create order after payment.");
                   }
                 };
-                
+
                 window.snap.pay(data.snapToken, {
                   onSuccess: handlePaymentSuccess,
                   onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),

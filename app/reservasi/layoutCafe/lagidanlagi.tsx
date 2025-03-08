@@ -82,76 +82,55 @@ const Booking1 = () => {
           fetch("/api/orders"),
           fetch("/api/reservasi"),
         ]);
-  
+
         if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
         if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
         if (!reservasiRes.ok) throw new Error("Gagal mengambil data reservasi");
-  
+
         const mejaData = await mejaRes.json();
         const ordersData = await ordersRes.json();
         const reservasiData = await reservasiRes.json();
-  
+
         console.log("Meja data in Booking1:", JSON.stringify(mejaData, null, 2));
         console.log("Orders in Booking1:", JSON.stringify(ordersData.orders, null, 2));
         console.log("Reservations in Booking1:", JSON.stringify(reservasiData, null, 2));
-  
-        const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-        const mejaNumbers = mejaData
-          .filter((item: { nomorMeja: number; isManuallyMarked: boolean; markedAt: Date | null }) => {
-            const isMarked = item.isManuallyMarked;
-            const markedAt = item.markedAt ? new Date(item.markedAt) : null;
-            const isMarkedValid =
-              isMarked &&
-              markedAt &&
-              (today.getTime() - markedAt.getTime()) / (1000 * 60 * 60) < 24;
-            console.log(
-              `Table ${item.nomorMeja}: isManuallyMarked=${isMarked}, markedAt=${markedAt}, isMarkedValid=${isMarkedValid}`
-            );
-            return isMarkedValid;
-          })
-          .map((item: { nomorMeja: number }) => item.nomorMeja.toString());
-        setBackendMarkedTables(mejaNumbers);
-  
+
+        setBackendMarkedTables(mejaData.map((m: { nomorMeja: number }) => m.nomorMeja.toString()));
         setAllOrders(ordersData.orders);
         if (!isPopupVisible) setReservations(reservasiData);
-  
-        if (typeof window !== "undefined") {
-          const urlParams = new URLSearchParams(window.location.search);
-          let selectedDateTime = urlParams.get("selectedDateTime");
-  
-          console.log("URL Params selectedDateTime:", selectedDateTime);
-  
-          if (!selectedDateTime) {
-            const reservationData: ReservationData = JSON.parse(
-              sessionStorage.getItem("reservationData") || "{}"
-            );
-            selectedDateTime = reservationData.selectedDateTime;
-            console.log("SessionStorage reservationData:", reservationData);
-            console.log("No selectedDateTime in URL, falling back to sessionStorage:", selectedDateTime);
-          }
-  
-          if (selectedDateTime) {
-            const parsedDate = moment.tz(selectedDateTime, "Asia/Jakarta").startOf("day").toDate();
-            setSelectedDate(parsedDate);
-            console.log("Parsed selectedDate:", parsedDate.toISOString().split("T")[0]);
-          } else {
-            const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-            setSelectedDate(today);
-            console.log("No selectedDateTime found, defaulting to today:", today.toISOString().split("T")[0]);
-          }
-        }
+
+        // Parsing selectedDateTime dari URL atau sessionStorage
+if (typeof window !== "undefined") {
+  const urlParams = new URLSearchParams(window.location.search);
+  let selectedDateTime = urlParams.get("selectedDateTime");
+
+  if (!selectedDateTime) {
+    const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+    selectedDateTime = reservationData.selectedDateTime;
+    console.log("No selectedDateTime in URL, falling back to sessionStorage:", selectedDateTime);
+  }
+
+  if (selectedDateTime) {
+    // Parsing dengan format ISO dan pastikan tanggal awal hari di Asia/Jakarta
+    const parsedDate = moment(selectedDateTime, moment.ISO_8601).tz("Asia/Jakarta", true).startOf("day").toDate();
+    setSelectedDate(parsedDate);
+    console.log("Parsed selectedDate:", parsedDate.toISOString().split("T")[0]);
+  } else {
+    console.log("No selectedDateTime found in URL or sessionStorage");
+  }
+}
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Gagal memuat data");
       }
     };
-  
+
     fetchData();
-  
+
     const interval = setInterval(() => {
       if (!isPopupVisible) fetchData();
     }, 5000);
-  
+
     const socket = io("http://localhost:3000", { path: "/api/socket" });
     socket.on("connect", () => console.log("Connected to WebSocket in Booking1"));
     socket.on("ordersUpdated", (data) => {
@@ -168,7 +147,7 @@ const Booking1 = () => {
       console.log(`WebSocket tableStatusUpdated in Booking1: ${tableNumber}`);
       fetchData();
     });
-  
+
     return () => {
       clearInterval(interval);
       socket.disconnect();
@@ -192,55 +171,81 @@ const Booking1 = () => {
     return "";
   };
 
+  useEffect(() => {
+    const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
+    if (savedMarkedTables) {
+      setManuallyMarkedTables(JSON.parse(savedMarkedTables));
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "manuallyMarkedTables") {
+        setManuallyMarkedTables(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   // Menentukan warna meja berdasarkan status
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-    const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
   
     if (!selectedDate) {
-      const hasActiveOrders = allOrders.some((order) => {
-        const orderDate = moment.tz(order.createdAt, "Asia/Jakarta").startOf("day").toDate();
-        const isToday = orderDate.getTime() === today.getTime();
-        const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-        return order.tableNumber === tableNumberStr && isActiveOrder && isToday && !order.reservasiId;
-      });
-      const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
-      return hasActiveOrders || isMarkedBackend ? "bg-[#D02323]" : "bg-green-800";
+      console.log(`Table ${tableNumberStr}: No selectedDate, defaulting to green`);
+      return "bg-green-800";
     }
   
     const selectedDateStart = moment.tz(selectedDate, "Asia/Jakarta").startOf("day").toDate();
+    const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
+  
+    const hasActiveReservation = reservations.some((reservasi) => {
+      const reservasiDate = moment.tz(reservasi.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
+      const isSameDate = reservasiDate.getTime() === selectedDateStart.getTime();
+      console.log(
+        `Table ${tableNumberStr} - Reservation Check: ReservasiDate=${reservasiDate.toISOString().split("T")[0]}, SelectedDate=${selectedDateStart.toISOString().split("T")[0]}, IsSameDate=${isSameDate}, Status=${reservasi.status}, NomorMeja=${reservasi.nomorMeja}`
+      );
+      return (
+        reservasi.nomorMeja === tableNumberStr &&
+        (reservasi.status === "BOOKED" || reservasi.status === "RESERVED") &&
+        isSameDate
+      );
+    });
   
     const hasActiveOrdersToday =
       selectedDateStart.getTime() === today.getTime() &&
       allOrders.some((order) => {
         const orderDate = moment.tz(order.createdAt, "Asia/Jakarta").startOf("day").toDate();
         const isToday = orderDate.getTime() === today.getTime();
-        const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-        return order.tableNumber === tableNumberStr && isActiveOrder && isToday && !order.reservasiId;
+        const isReservationOrder = order.reservasiId !== null;
+        const isActiveOrder = ["Pending", "Paid", "Sedang Diproses", "Selesai"].includes(order.status);
+        console.log(
+          `Table ${tableNumberStr} - Order Check: Order ID=${order.id}, TableNumber=${order.tableNumber}, Status=${order.status}, IsToday=${isToday}, IsReservation=${isReservationOrder}, Active=${isActiveOrder}`
+        );
+        return (
+          order.tableNumber === tableNumberStr &&
+          isActiveOrder &&
+          isToday &&
+          !isReservationOrder
+        );
       });
   
-    const hasActiveReservation = reservations.some((reservasi) => {
+    const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
+    // Hanya anggap ditandai jika tidak ada reservasi di masa depan untuk meja ini
+    const hasFutureReservation = reservations.some((reservasi) => {
       const reservasiDate = moment.tz(reservasi.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
-      const isSameDate = reservasiDate.getTime() === selectedDateStart.getTime();
       return (
         reservasi.nomorMeja === tableNumberStr &&
-        ["BOOKED", "RESERVED"].includes(reservasi.status) &&
-        isSameDate
+        (reservasi.status === "BOOKED" || reservasi.status === "RESERVED") &&
+        reservasiDate.getTime() > today.getTime()
       );
     });
+    const isMarkedBackendRelevant = isMarkedBackend && selectedDateStart.getTime() === today.getTime() && !hasFutureReservation;
   
-    const isMarkedBackend =
-      backendMarkedTables.includes(tableNumberStr) &&
-      selectedDateStart.getTime() === today.getTime() &&
-      !reservations.some((r) => r.nomorMeja === tableNumberStr && moment(r.tanggalReservasi).isAfter(today));
-  
-    const isOccupied = hasActiveOrdersToday || hasActiveReservation || isMarkedBackend;
     console.log(
-      `Table ${tableNumberStr} FINAL: SelectedDate=${selectedDateStart.toISOString().split("T")[0]}, Today=${today.toISOString().split("T")[0]}, HasActiveOrdersToday=${hasActiveOrdersToday}, HasActiveReservation=${hasActiveReservation}, IsMarkedBackend=${isMarkedBackend}, Color=${isOccupied ? "bg-[#D02323]" : "bg-green-800"}`
+      `Table ${tableNumberStr} FINAL: SelectedDate=${selectedDateStart.toISOString().split("T")[0]}, Today=${today.toISOString().split("T")[0]}, HasActiveReservation=${hasActiveReservation}, HasActiveOrdersToday=${hasActiveOrdersToday}, IsMarkedBackend=${isMarkedBackend}, HasFutureReservation=${hasFutureReservation}, IsMarkedBackendRelevant=${isMarkedBackendRelevant}, Color=${hasActiveReservation || hasActiveOrdersToday || isMarkedBackendRelevant ? "bg-[#D02323]" : "bg-green-800"}`
     );
   
-    return isOccupied ? "bg-[#D02323]" : "bg-green-800";
+    return hasActiveReservation || hasActiveOrdersToday || isMarkedBackendRelevant ? "bg-[#D02323]" : "bg-green-800";
   };
   const fetchTableDetails = async (tableNumber: string) => {
     try {
@@ -1163,7 +1168,7 @@ const Booking1 = () => {
                   )}
                 </div>
               </div>
-              {/* <div className="p-4 border-t flex justify-end gap-4">
+              <div className="p-4 border-t flex justify-end gap-4">
   <button
     onClick={() => setIsPopupVisible(false)}
     className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
@@ -1191,14 +1196,14 @@ const Booking1 = () => {
     const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
 
     const hasActiveOrdersToday =
-  selectedDayStart.getTime() === today.getTime() &&
-  selectedTableOrders.some((order) => {
-    const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-    console.log(
-      `Popup Table ${selectedTableNumber} - Order Check: Order ID=${order.id}, Status=${order.status}, Active=${isActiveOrder}`
-    );
-    return isActiveOrder && !order.reservasiId;
-  });
+      selectedDayStart.getTime() === today.getTime() &&
+      selectedTableOrders.some((order) => {
+        const isActiveOrder = ["Pending", "Paid", "Sedang Diproses", "Selesai"].includes(order.status);
+        console.log(
+          `Popup Table ${selectedTableNumber} - Order Check: Order ID=${order.id}, Status=${order.status}, Active=${isActiveOrder}`
+        );
+        return isActiveOrder && !order.reservasiId;
+      });
 
     const isMarkedBackend = backendMarkedTables.includes(selectedTableNumber);
     // Sinkronkan dengan logika getTableColor
@@ -1231,93 +1236,6 @@ const Booking1 = () => {
 
     if (hasActiveOrdersToday || isMarkedBackendRelevant) {
       return null; // Meja onsite hanya untuk hari ini
-    } else if (hasConflict) {
-      return (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih tanggal lain
-        </button>
-      );
-    } else {
-      return (
-        <button
-          onClick={() => handleSelectTable(selectedTableNumber)}
-          className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih meja dan pesan menu
-        </button>
-      );
-    }
-  })()}
-</div> */}
-            <div className="p-4 border-t flex justify-end gap-4">
-  <button
-    onClick={() => setIsPopupVisible(false)}
-    className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
-  >
-    Tutup
-  </button>
-  {(() => {
-    const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-    const selectedDateTime = reservationData.selectedDateTime || (selectedDate ? selectedDate.toISOString() : null);
-
-    if (!selectedDateTime) {
-      console.log(`Table ${selectedTableNumber} - No selectedDateTime available`);
-      return (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Kembali ke Reservasi
-        </button>
-      );
-    }
-
-    const effectiveDate = selectedDate || new Date(selectedDateTime);
-    const selectedDayStart = moment(effectiveDate).tz("Asia/Jakarta").startOf("day").toDate();
-    const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-
-    const hasActiveOrdersToday =
-      selectedDayStart.getTime() === today.getTime() &&
-      selectedTableOrders.some((order) => {
-        const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-        console.log(
-          `Popup Table ${selectedTableNumber} - Order Check: Order ID=${order.id}, Status=${order.status}, Active=${isActiveOrder}`
-        );
-        return isActiveOrder && !order.reservasiId;
-      });
-
-    const isMarkedBackend = backendMarkedTables.includes(selectedTableNumber) && selectedDayStart.getTime() === today.getTime();
-
-    const hasConflict = popupReservations.some((r) => {
-      const reservasiDate = moment.tz(r.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
-      const isSameDate = reservasiDate.getTime() === selectedDayStart.getTime();
-      console.log(
-        `Popup Table ${selectedTableNumber} - Conflict Check: ReservasiDate=${reservasiDate.toISOString().split("T")[0]}, SelectedDate=${selectedDayStart.toISOString().split("T")[0]}, IsSameDate=${isSameDate}, Status=${r.status}`
-      );
-      return (
-        r.nomorMeja === selectedTableNumber &&
-        (r.status === "BOOKED" || r.status === "RESERVED") &&
-        isSameDate
-      );
-    });
-
-    const tableColor = getTableColor(Number(selectedTableNumber));
-    console.log(
-      `Popup Table ${selectedTableNumber} FINAL: Effective Date=${selectedDayStart.toISOString().split("T")[0]}, HasActiveOrdersToday=${hasActiveOrdersToday}, IsMarkedBackend=${isMarkedBackend}, HasConflict=${hasConflict}, TableColor=${tableColor}`
-    );
-
-    if (tableColor === "bg-[#D02323]") {
-      return hasConflict ? (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih tanggal lain
-        </button>
-      ) : null; // Tidak ada tombol jika merah tanpa konflik reservasi
     } else if (hasConflict) {
       return (
         <button

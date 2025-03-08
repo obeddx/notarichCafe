@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
-import moment from "moment-timezone";
-import io from "socket.io-client";
+import moment from "moment-timezone"; // Impor moment dari moment-timezone
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,7 +16,6 @@ interface Order {
   paymentId?: string;
   createdAt: string;
   orderItems: OrderItem[];
-  reservasiId?: number | null;
 }
 
 interface OrderItem {
@@ -75,105 +73,18 @@ const Booking1 = () => {
 
   // Fetch data reservasi
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchReservations = async () => {
       try {
-        const [mejaRes, ordersRes, reservasiRes] = await Promise.all([
-          fetch("/api/nomeja"),
-          fetch("/api/orders"),
-          fetch("/api/reservasi"),
-        ]);
-  
-        if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
-        if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
-        if (!reservasiRes.ok) throw new Error("Gagal mengambil data reservasi");
-  
-        const mejaData = await mejaRes.json();
-        const ordersData = await ordersRes.json();
-        const reservasiData = await reservasiRes.json();
-  
-        console.log("Meja data in Booking1:", JSON.stringify(mejaData, null, 2));
-        console.log("Orders in Booking1:", JSON.stringify(ordersData.orders, null, 2));
-        console.log("Reservations in Booking1:", JSON.stringify(reservasiData, null, 2));
-  
-        const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-        const mejaNumbers = mejaData
-          .filter((item: { nomorMeja: number; isManuallyMarked: boolean; markedAt: Date | null }) => {
-            const isMarked = item.isManuallyMarked;
-            const markedAt = item.markedAt ? new Date(item.markedAt) : null;
-            const isMarkedValid =
-              isMarked &&
-              markedAt &&
-              (today.getTime() - markedAt.getTime()) / (1000 * 60 * 60) < 24;
-            console.log(
-              `Table ${item.nomorMeja}: isManuallyMarked=${isMarked}, markedAt=${markedAt}, isMarkedValid=${isMarkedValid}`
-            );
-            return isMarkedValid;
-          })
-          .map((item: { nomorMeja: number }) => item.nomorMeja.toString());
-        setBackendMarkedTables(mejaNumbers);
-  
-        setAllOrders(ordersData.orders);
-        if (!isPopupVisible) setReservations(reservasiData);
-  
-        if (typeof window !== "undefined") {
-          const urlParams = new URLSearchParams(window.location.search);
-          let selectedDateTime = urlParams.get("selectedDateTime");
-  
-          console.log("URL Params selectedDateTime:", selectedDateTime);
-  
-          if (!selectedDateTime) {
-            const reservationData: ReservationData = JSON.parse(
-              sessionStorage.getItem("reservationData") || "{}"
-            );
-            selectedDateTime = reservationData.selectedDateTime;
-            console.log("SessionStorage reservationData:", reservationData);
-            console.log("No selectedDateTime in URL, falling back to sessionStorage:", selectedDateTime);
-          }
-  
-          if (selectedDateTime) {
-            const parsedDate = moment.tz(selectedDateTime, "Asia/Jakarta").startOf("day").toDate();
-            setSelectedDate(parsedDate);
-            console.log("Parsed selectedDate:", parsedDate.toISOString().split("T")[0]);
-          } else {
-            const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-            setSelectedDate(today);
-            console.log("No selectedDateTime found, defaulting to today:", today.toISOString().split("T")[0]);
-          }
-        }
+        const response = await fetch("/api/reservasi");
+        if (!response.ok) throw new Error("Gagal mengambil data reservasi");
+        const reservationsData = await response.json();
+        setReservations(reservationsData);
       } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("Gagal memuat data");
+        console.error("Error fetching reservations:", error);
       }
     };
-  
-    fetchData();
-  
-    const interval = setInterval(() => {
-      if (!isPopupVisible) fetchData();
-    }, 5000);
-  
-    const socket = io("http://localhost:3000", { path: "/api/socket" });
-    socket.on("connect", () => console.log("Connected to WebSocket in Booking1"));
-    socket.on("ordersUpdated", (data) => {
-      console.log("WebSocket ordersUpdated in Booking1:", data);
-      fetchData();
-    });
-    socket.on("paymentStatusUpdated", (updatedOrder) => {
-      console.log("WebSocket paymentStatusUpdated in Booking1:", updatedOrder);
-      setAllOrders((prev) =>
-        prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
-      );
-    });
-    socket.on("tableStatusUpdated", ({ tableNumber }) => {
-      console.log(`WebSocket tableStatusUpdated in Booking1: ${tableNumber}`);
-      fetchData();
-    });
-  
-    return () => {
-      clearInterval(interval);
-      socket.disconnect();
-    };
-  }, [isPopupVisible]);
+    fetchReservations();
+  }, []);
 
   // Fungsi untuk menentukan kapasitas meja
   const getCapacityMessage = (tableNumber: string) => {
@@ -192,56 +103,82 @@ const Booking1 = () => {
     return "";
   };
 
+  // Fetch data awal dan refresh berkala
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
+    if (savedMarkedTables) {
+      setManuallyMarkedTables(JSON.parse(savedMarkedTables));
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "manuallyMarkedTables") {
+        setManuallyMarkedTables(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [mejaRes, ordersRes, reservasiRes] = await Promise.all([
+        fetch("/api/nomeja"),
+        fetch("/api/orders"),
+        fetch("/api/reservasi"),
+      ]);
+  
+      if (!mejaRes.ok) throw new Error("Gagal mengambil data meja");
+      if (!ordersRes.ok) throw new Error("Gagal mengambil data pesanan");
+      if (!reservasiRes.ok) throw new Error("Gagal mengambil data reservasi");
+  
+      const mejaData = await mejaRes.json();
+      const ordersData = await ordersRes.json();
+      const reservasiData = await reservasiRes.json();
+  
+      setBackendMarkedTables(mejaData.map((meja: { nomorMeja: number }) => meja.nomorMeja.toString()));
+      setAllOrders(ordersData.orders);
+      if (!isPopupVisible) setReservations(reservasiData); // Hanya update jika popup tidak terbuka
+    } catch (error) {
+      console.error("Terjadi kesalahan:", error);
+    }
+  };
+  
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => {
+      if (!isPopupVisible) fetchData(); // Hanya fetch jika popup tidak terbuka
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isPopupVisible]); // Dependensi pada isPopupVisible
 
   // Menentukan warna meja berdasarkan status
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-    const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-  
-    if (!selectedDate) {
-      const hasActiveOrders = allOrders.some((order) => {
-        const orderDate = moment.tz(order.createdAt, "Asia/Jakarta").startOf("day").toDate();
-        const isToday = orderDate.getTime() === today.getTime();
-        const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-        return order.tableNumber === tableNumberStr && isActiveOrder && isToday && !order.reservasiId;
-      });
-      const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
-      return hasActiveOrders || isMarkedBackend ? "bg-[#D02323]" : "bg-green-800";
-    }
-  
-    const selectedDateStart = moment.tz(selectedDate, "Asia/Jakarta").startOf("day").toDate();
-  
-    const hasActiveOrdersToday =
-      selectedDateStart.getTime() === today.getTime() &&
-      allOrders.some((order) => {
-        const orderDate = moment.tz(order.createdAt, "Asia/Jakarta").startOf("day").toDate();
-        const isToday = orderDate.getTime() === today.getTime();
-        const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-        return order.tableNumber === tableNumberStr && isActiveOrder && isToday && !order.reservasiId;
-      });
+    const now = new Date();
+    const todayStart = new Date(now.setHours(0, 0, 0, 0));
+    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
   
     const hasActiveReservation = reservations.some((reservasi) => {
-      const reservasiDate = moment.tz(reservasi.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
-      const isSameDate = reservasiDate.getTime() === selectedDateStart.getTime();
+      const reservasiDate = new Date(reservasi.tanggalReservasi);
       return (
         reservasi.nomorMeja === tableNumberStr &&
-        ["BOOKED", "RESERVED"].includes(reservasi.status) &&
-        isSameDate
+        (reservasi.status === "BOOKED" || reservasi.status === "RESERVED") && // Tambah RESERVED
+        reservasiDate >= todayStart &&
+        reservasiDate <= todayEnd
       );
     });
   
-    const isMarkedBackend =
-      backendMarkedTables.includes(tableNumberStr) &&
-      selectedDateStart.getTime() === today.getTime() &&
-      !reservations.some((r) => r.nomorMeja === tableNumberStr && moment(r.tanggalReservasi).isAfter(today));
+    const hasActiveOrders = allOrders.some((order) => order.tableNumber === tableNumberStr);
   
-    const isOccupied = hasActiveOrdersToday || hasActiveReservation || isMarkedBackend;
-    console.log(
-      `Table ${tableNumberStr} FINAL: SelectedDate=${selectedDateStart.toISOString().split("T")[0]}, Today=${today.toISOString().split("T")[0]}, HasActiveOrdersToday=${hasActiveOrdersToday}, HasActiveReservation=${hasActiveReservation}, IsMarkedBackend=${isMarkedBackend}, Color=${isOccupied ? "bg-[#D02323]" : "bg-green-800"}`
-    );
-  
-    return isOccupied ? "bg-[#D02323]" : "bg-green-800";
+    return hasActiveOrders || hasActiveReservation ? "bg-[#D02323]" : "bg-green-800";
   };
+
   const fetchTableDetails = async (tableNumber: string) => {
     try {
       setSelectedTableNumber(tableNumber);
@@ -249,24 +186,27 @@ const Booking1 = () => {
       setSelectedCompletedOrders([]);
       setPopupReservations([]);
       setIsPopupVisible(true);
-
+  
       const response = await fetch(`/api/orders?tableNumber=${tableNumber}`);
       const reservasiResponse = await fetch("/api/reservasi");
       if (!response.ok || !reservasiResponse.ok) throw new Error("Gagal mengambil data");
-
+  
       const orderData = await response.json();
       const reservasiData = await reservasiResponse.json();
-
-      console.log("Reservations from fetchTableDetails:", JSON.stringify(reservasiData, null, 2));
-
+  
+      console.log("Reservasi Data:", reservasiData); // Log untuk debug
+  
       const tableOrders = orderData.orders.filter((order: Order) => order.tableNumber === tableNumber);
       const activeOrders = tableOrders.filter((order: Order) => order.status !== "Selesai");
       const completedOrders = tableOrders.filter((order: Order) => order.status === "Selesai");
-
+  
+      // Filter reservasi untuk meja yang dipilih, termasuk BOOKED dan RESERVED
       const tableReservations = reservasiData.filter(
-        (r: Reservation) => String(r.nomorMeja) === tableNumber && (r.status === "BOOKED" || r.status === "RESERVED")
+        (r: any) => String(r.nomorMeja) === tableNumber && (r.status === "BOOKED" || r.status === "RESERVED")
       );
-
+  
+      console.log(`Filtered Reservations for Table ${tableNumber}:`, tableReservations); // Log untuk debug
+  
       setSelectedTableOrders(activeOrders);
       setSelectedCompletedOrders(completedOrders);
       setPopupReservations(tableReservations);
@@ -277,44 +217,37 @@ const Booking1 = () => {
     }
   };
 
+  // Fetch detail pesanan meja yang dipilih
+  
+
+  // Handler untuk memilih meja dan redirect ke menu
   const handleSelectTable = (tableNumber: string) => {
     const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-    const selectedDateTime = reservationData.selectedDateTime;
-
-    if (!selectedDateTime) {
-      toast.error("Tanggal reservasi tidak ditemukan. Silakan kembali ke halaman reservasi.");
-      router.push("/reservasi");
-      return;
-    }
-
-    const selectedDate = new Date(selectedDateTime);
+    const selectedDate = new Date(reservationData.selectedDateTime);
     const selectedDayStart = moment(selectedDate).tz("Asia/Jakarta").startOf("day").toDate();
     const selectedDayEnd = moment(selectedDate).tz("Asia/Jakarta").endOf("day").toDate();
-
+  
     const hasConflict = popupReservations.some((r) => {
-      const reservasiDate = moment.tz(r.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
-      const isSameDate = reservasiDate.getTime() === selectedDayStart.getTime();
-      console.log(
-        `Popup Table ${selectedTableNumber} - Conflict Check: ReservasiDate=${reservasiDate.toISOString().split("T")[0]}, SelectedDate=${selectedDayStart.toISOString().split("T")[0]}, IsSameDate=${isSameDate}, Status=${r.status}`
-      );
+      const reservasiDate = new Date(r.tanggalReservasi);
       return (
-        r.nomorMeja === selectedTableNumber &&
+        r.nomorMeja === tableNumber &&
         (r.status === "BOOKED" || r.status === "RESERVED") &&
-        isSameDate
+        reservasiDate >= selectedDayStart &&
+        reservasiDate <= selectedDayEnd
       );
     });
-
+  
     if (hasConflict) {
       toast.error("Meja ini sudah dipesan pada tanggal yang dipilih.");
       return;
     }
-
+  
     reservationData.meja = tableNumber;
     sessionStorage.setItem("reservationData", JSON.stringify(reservationData));
     router.push(`/menu?table=${tableNumber}&reservation=true&bookingCode=${reservationData.kodeBooking}`);
     setIsPopupVisible(false);
   };
-
+  
   const hasActiveOrders = (tableNumber: string) => {
     return allOrders.some((order) => order.tableNumber === tableNumber);
   };
@@ -322,12 +255,10 @@ const Booking1 = () => {
   return (
     <div className="flex flex-col md:flex-row h-screen min-w-[1400px]">
       <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
+        {/* Main Content */}
         <div className={`flex-1 p-8 transition-all duration-300`}>
           <div className="w-full sm:px-6 lg:px-28 pt-16">
-            <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">
-              🪑 Pilih Meja Anda untuk{" "}
-              {selectedDate ? moment(selectedDate).tz("Asia/Jakarta").format("DD MMMM YYYY") : "Pilih Tanggal"}
-            </h2>
+            <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">🪑 Pilih Meja Anda</h2>
 
             {/* Floor Selection */}
             <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9] pb-4">
@@ -1125,223 +1056,96 @@ const Booking1 = () => {
             </div>
           </div>
         </div>
-
         {/* Popup */}
         {isPopupVisible && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="bg-[#FFF5E6] p-6 border-b">
-                <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
-                  📋 Meja {selectedTableNumber}
-                </h2>
-              </div>
-              <div className="p-6 Salvspace-y-8">
-                <div className="space-y-4">
-                  {getTableColor(Number(selectedTableNumber)) === "bg-[#D02323]" ? (
-                    <div className="bg-red-100 border border-red-200 text-red-700 p-4 rounded-lg flex items-center gap-2">
-                      ⚠️ Meja sedang digunakan atau dipesan hari ini
-                    </div>
-                  ) : (
-                    <div className="bg-green-100 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
-                      ✅ Meja tersedia hari ini
-                    </div>
-                  )}
-                  <div className="bg-blue-100 text-blue-700 p-3 rounded-lg flex items-center gap-2">
-                    💺 {getCapacityMessage(selectedTableNumber)}
-                  </div>
-                  {popupReservations.length > 0 && (
-                    <div className="bg-yellow-100 text-yellow-700 p-3 rounded-lg">
-                      <h3 className="font-semibold">Jadwal Reservasi:</h3>
-                      <ul>
-                        {popupReservations.map((r) => (
-                          <li key={r.id}>
-                            {moment(r.tanggalReservasi).tz("Asia/Jakarta").format("DD MMMM YYYY HH:mm")} - {r.namaCustomer} ({r.kodeBooking})
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* <div className="p-4 border-t flex justify-end gap-4">
-  <button
-    onClick={() => setIsPopupVisible(false)}
-    className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
-  >
-    Tutup
-  </button>
-  {(() => {
-    const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-    const selectedDateTime = reservationData.selectedDateTime || (selectedDate ? selectedDate.toISOString() : null);
-
-    if (!selectedDateTime) {
-      console.log(`Table ${selectedTableNumber} - No selectedDateTime available`);
-      return (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Kembali ke Reservasi
-        </button>
-      );
-    }
-
-    const effectiveDate = selectedDate || new Date(selectedDateTime);
-    const selectedDayStart = moment(effectiveDate).tz("Asia/Jakarta").startOf("day").toDate();
-    const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-
-    const hasActiveOrdersToday =
-  selectedDayStart.getTime() === today.getTime() &&
-  selectedTableOrders.some((order) => {
-    const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-    console.log(
-      `Popup Table ${selectedTableNumber} - Order Check: Order ID=${order.id}, Status=${order.status}, Active=${isActiveOrder}`
-    );
-    return isActiveOrder && !order.reservasiId;
-  });
-
-    const isMarkedBackend = backendMarkedTables.includes(selectedTableNumber);
-    // Sinkronkan dengan logika getTableColor
-    const hasFutureReservation = popupReservations.some((r) => {
-      const reservasiDate = moment.tz(r.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
-      return (
-        r.nomorMeja === selectedTableNumber &&
-        (r.status === "BOOKED" || r.status === "RESERVED") &&
-        reservasiDate.getTime() > today.getTime()
-      );
-    });
-    const isMarkedBackendRelevant = isMarkedBackend && selectedDayStart.getTime() === today.getTime() && !hasFutureReservation;
-
-    const hasConflict = popupReservations.some((r) => {
-      const reservasiDate = moment.tz(r.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
-      const isSameDate = reservasiDate.getTime() === selectedDayStart.getTime();
-      console.log(
-        `Popup Table ${selectedTableNumber} - Conflict Check: ReservasiDate=${reservasiDate.toISOString().split("T")[0]}, SelectedDate=${selectedDayStart.toISOString().split("T")[0]}, IsSameDate=${isSameDate}, Status=${r.status}`
-      );
-      return (
-        r.nomorMeja === selectedTableNumber &&
-        (r.status === "BOOKED" || r.status === "RESERVED") &&
-        isSameDate
-      );
-    });
-
-    console.log(
-      `Popup Table ${selectedTableNumber} FINAL: Effective Date=${selectedDayStart.toISOString().split("T")[0]}, HasActiveOrdersToday=${hasActiveOrdersToday}, IsMarkedBackend=${isMarkedBackend}, HasFutureReservation=${hasFutureReservation}, IsMarkedBackendRelevant=${isMarkedBackendRelevant}, HasConflict=${hasConflict}`
-    );
-
-    if (hasActiveOrdersToday || isMarkedBackendRelevant) {
-      return null; // Meja onsite hanya untuk hari ini
-    } else if (hasConflict) {
-      return (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih tanggal lain
-        </button>
-      );
-    } else {
-      return (
-        <button
-          onClick={() => handleSelectTable(selectedTableNumber)}
-          className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih meja dan pesan menu
-        </button>
-      );
-    }
-  })()}
-</div> */}
-            <div className="p-4 border-t flex justify-end gap-4">
-  <button
-    onClick={() => setIsPopupVisible(false)}
-    className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
-  >
-    Tutup
-  </button>
-  {(() => {
-    const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-    const selectedDateTime = reservationData.selectedDateTime || (selectedDate ? selectedDate.toISOString() : null);
-
-    if (!selectedDateTime) {
-      console.log(`Table ${selectedTableNumber} - No selectedDateTime available`);
-      return (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Kembali ke Reservasi
-        </button>
-      );
-    }
-
-    const effectiveDate = selectedDate || new Date(selectedDateTime);
-    const selectedDayStart = moment(effectiveDate).tz("Asia/Jakarta").startOf("day").toDate();
-    const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-
-    const hasActiveOrdersToday =
-      selectedDayStart.getTime() === today.getTime() &&
-      selectedTableOrders.some((order) => {
-        const isActiveOrder = ["pending", "paid", "sedang diproses", "selesai"].includes(order.status.toLowerCase());
-        console.log(
-          `Popup Table ${selectedTableNumber} - Order Check: Order ID=${order.id}, Status=${order.status}, Active=${isActiveOrder}`
-        );
-        return isActiveOrder && !order.reservasiId;
-      });
-
-    const isMarkedBackend = backendMarkedTables.includes(selectedTableNumber) && selectedDayStart.getTime() === today.getTime();
-
-    const hasConflict = popupReservations.some((r) => {
-      const reservasiDate = moment.tz(r.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
-      const isSameDate = reservasiDate.getTime() === selectedDayStart.getTime();
-      console.log(
-        `Popup Table ${selectedTableNumber} - Conflict Check: ReservasiDate=${reservasiDate.toISOString().split("T")[0]}, SelectedDate=${selectedDayStart.toISOString().split("T")[0]}, IsSameDate=${isSameDate}, Status=${r.status}`
-      );
-      return (
-        r.nomorMeja === selectedTableNumber &&
-        (r.status === "BOOKED" || r.status === "RESERVED") &&
-        isSameDate
-      );
-    });
-
-    const tableColor = getTableColor(Number(selectedTableNumber));
-    console.log(
-      `Popup Table ${selectedTableNumber} FINAL: Effective Date=${selectedDayStart.toISOString().split("T")[0]}, HasActiveOrdersToday=${hasActiveOrdersToday}, IsMarkedBackend=${isMarkedBackend}, HasConflict=${hasConflict}, TableColor=${tableColor}`
-    );
-
-    if (tableColor === "bg-[#D02323]") {
-      return hasConflict ? (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih tanggal lain
-        </button>
-      ) : null; // Tidak ada tombol jika merah tanpa konflik reservasi
-    } else if (hasConflict) {
-      return (
-        <button
-          onClick={() => router.push("/reservasi")}
-          className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih tanggal lain
-        </button>
-      );
-    } else {
-      return (
-        <button
-          onClick={() => handleSelectTable(selectedTableNumber)}
-          className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition"
-        >
-          Silahkan pilih meja dan pesan menu
-        </button>
-      );
-    }
-  })()}
-</div>
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#FFF5E6] p-6 border-b">
+        <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
+          📋 Meja {selectedTableNumber}
+        </h2>
+      </div>
+      <div className="p-6 space-y-8">
+        <div className="space-y-4">
+          {getTableColor(Number(selectedTableNumber)) === "bg-[#D02323]" ? (
+            <div className="bg-red-100 border border-red-200 text-red-700 p-4 rounded-lg flex items-center gap-2">
+              ⚠️ Meja sedang digunakan atau dipesan hari ini
             </div>
+          ) : (
+            <div className="bg-green-100 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
+              ✅ Meja tersedia hari ini
+            </div>
+          )}
+          <div className="bg-blue-100 text-blue-700 p-3 rounded-lg flex items-center gap-2">
+            💺 {getCapacityMessage(selectedTableNumber)}
           </div>
-        )}
+          {popupReservations.length > 0 && (
+            <div className="bg-yellow-100 text-yellow-700 p-3 rounded-lg">
+              <h3 className="font-semibold">Jadwal Reservasi:</h3>
+              <ul>
+                {popupReservations.map((r) => (
+                  <li key={r.id}>
+                    {moment(r.tanggalReservasi).tz("Asia/Jakarta").format("DD MMMM YYYY HH:mm")} - {r.namaCustomer} ({r.kodeBooking})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="p-4 border-t flex justify-end gap-4">
+        <button
+          onClick={() => {
+            setIsPopupVisible(false);
+          }}
+          className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition"
+        >
+          Tutup
+        </button>
+        {(() => {
+          const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+          const selectedDate = reservationData.selectedDateTime ? new Date(reservationData.selectedDateTime) : null;
+
+          if (!selectedDate) return null;
+
+          const selectedDayStart = moment(selectedDate).tz("Asia/Jakarta").startOf("day").toDate();
+          const selectedDayEnd = moment(selectedDate).tz("Asia/Jakarta").endOf("day").toDate();
+
+          const hasConflict = popupReservations.some((r) => {
+            const reservasiDate = new Date(r.tanggalReservasi);
+            return (
+              (r.status === "BOOKED" || r.status === "RESERVED") &&
+              reservasiDate >= selectedDayStart &&
+              reservasiDate <= selectedDayEnd
+            );
+          });
+
+          console.log(`Table ${selectedTableNumber} - Selected Date: ${selectedDate}, Has Conflict: ${hasConflict}, Reservations:`, popupReservations);
+
+          if (!hasConflict) {
+            return (
+              <button
+                onClick={() => handleSelectTable(selectedTableNumber)}
+                className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition"
+              >
+                Pilih Meja dan Pesan Menu
+              </button>
+            );
+          } else {
+            return (
+              <button
+                onClick={() => router.push("/reservasi")}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg transition"
+              >
+                Silahkan pilih tanggal lain
+              </button>
+            );
+          }
+        })()}
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

@@ -310,8 +310,10 @@ model CompletedOrderItemModifier {
 }
 
 model DataMeja {
-  id         Int  @id @default(autoincrement()) @map("id")
-  nomorMeja  Int  @map("nomor_meja")
+  id              Int       @id @default(autoincrement()) @map("id")
+  nomorMeja       Int       @map("nomor_meja")
+  isManuallyMarked Boolean  @default(false)
+  markedAt        DateTime?
 }
 
 model Reservasi {

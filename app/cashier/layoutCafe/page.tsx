@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import SidebarCashier from "@/components/sidebarCashier";
 import toast from "react-hot-toast";
 import { Inter } from "next/font/google";
@@ -10,6 +10,16 @@ import io from "socket.io-client";
 import moment from "moment-timezone"; // Tambahkan impor ini
 const inter = Inter({ subsets: ["latin"] });
 
+interface Reservation {
+  id: number;
+  namaCustomer: string;
+  nomorKontak: string;
+  tanggalReservasi: string;
+  durasiPemesanan: string;
+  nomorMeja: string;
+  kodeBooking: string;
+  status: string;
+}
 interface Discount {
   id: number;
   name: string;
@@ -18,6 +28,23 @@ interface Discount {
   value: number;
   isActive: boolean;
 }
+
+// interface Order {
+//   id: number;
+//   tableNumber: string;
+//   total: number;
+//   status: string;
+//   paymentMethod?: string;
+//   paymentId?: string;
+//   createdAt: string;
+//   orderItems: OrderItem[];
+//   customerName: string;
+//   paymentStatus?: string;
+//   reservasi?: {
+//     id: number;
+//     kodeBooking: string;
+//   };
+// }
 
 interface Order {
   id: number;
@@ -30,10 +57,7 @@ interface Order {
   orderItems: OrderItem[];
   customerName: string;
   paymentStatus?: string;
-  reservasi?: {
-    id: number;
-    kodeBooking: string;
-  };
+  reservasi?: Reservation;
 }
 
 interface OrderItem {
@@ -105,7 +129,7 @@ const Bookinge = () => {
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [selectedTableNumber, setSelectedTableNumber] = useState<string>("");
   const [manuallyMarkedTables, setManuallyMarkedTables] = useState<string[]>([]);
-  const [backendMarkedTables, setBackendMarkedTables] = useState<string[]>([]); // Tambahkan deklarasi ini
+  const [backendMarkedTables, setBackendMarkedTables] = useState<string[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedTableNumberForOrder, setSelectedTableNumberForOrder] = useState<string>("");
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -120,7 +144,10 @@ const Bookinge = () => {
   const [selectedModifiers, setSelectedModifiers] = useState<number[]>([]);
   const [isDiscountPopupOpen, setIsDiscountPopupOpen] = useState(false);
 
- 
+  // Tambahkan useRef untuk menyimpan socket
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
+
+  
 
   useEffect(() => {
     const fetchDiscounts = async () => {
@@ -307,20 +334,78 @@ const Bookinge = () => {
     fetchMenus();
   }, []);
 
+
+
+  // const fetchMeja = async () => {
+  //   try {
+  //     const response = await fetch("/api/nomeja");
+  //     if (!response.ok) throw new Error("Gagal mengambil data meja");
+  //     const data = await response.json();
+  //     console.log("Raw data from /api/nomeja in bookinge.tsx:", JSON.stringify(data, null, 2));
+  
+  //     const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
+  //     const mejaNumbers = data
+  //       .filter((item: { nomorMeja: number; isManuallyMarked: boolean; markedAt: Date | null }) => {
+  //         const isMarked = item.isManuallyMarked;
+  //         const markedAt = item.markedAt ? new Date(item.markedAt) : null;
+  //         // Reset otomatis: Abaikan isManuallyMarked jika markedAt lebih lama dari 24 jam dan tidak ada pesanan aktif
+  //         const isMarkedValid =
+  //           isMarked &&
+  //           markedAt &&
+  //           (today.getTime() - markedAt.getTime()) / (1000 * 60 * 60) < 24; // Kurang dari 24 jam
+  //         console.log(
+  //           `Table ${item.nomorMeja}: isManuallyMarked=${isMarked}, markedAt=${markedAt}, isMarkedValid=${isMarkedValid}`
+  //         );
+  //         return isMarkedValid;
+  //       })
+  //       .map((item: { nomorMeja: number }) => item.nomorMeja.toString());
+  
+  //     setBackendMarkedTables(mejaNumbers);
+  //     setManuallyMarkedTables((prev) => {
+  //       const syncedTables = [...new Set([...prev, ...mejaNumbers])];
+  //       console.log("Synced manuallyMarkedTables after fetchMeja:", syncedTables);
+  //       return syncedTables;
+  //     });
+  //   } catch (error) {
+  //     console.error("Error fetching meja:", error);
+  //     toast.error("Gagal memuat data meja");
+  //   }
+  // };
+
   const fetchMeja = async () => {
     try {
       const response = await fetch("/api/nomeja");
       if (!response.ok) throw new Error("Gagal mengambil data meja");
       const data = await response.json();
-      const mejaNumbers = data.map((item: { nomorMeja: number }) => item.nomorMeja.toString());
-      setBackendMarkedTables(mejaNumbers); // Gunakan setBackendMarkedTables
-      console.log("Fetched meja data:", mejaNumbers);
+      console.log("Raw data from /api/nomeja in bookinge.tsx:", JSON.stringify(data, null, 2));
+  
+      const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
+      const mejaNumbers = data
+        .filter((item: { nomorMeja: number; isManuallyMarked: boolean; markedAt: Date | null }) => {
+          const isMarked = item.isManuallyMarked;
+          const markedAt = item.markedAt ? new Date(item.markedAt) : null;
+          const isMarkedValid =
+            isMarked &&
+            markedAt &&
+            (today.getTime() - markedAt.getTime()) / (1000 * 60 * 60) < 24;
+          console.log(
+            `Table ${item.nomorMeja}: isManuallyMarked=${isMarked}, markedAt=${markedAt}, isMarkedValid=${isMarkedValid}`
+          );
+          return isMarkedValid;
+        })
+        .map((item: { nomorMeja: number }) => item.nomorMeja.toString());
+  
+      setBackendMarkedTables(mejaNumbers);
+      setManuallyMarkedTables((prev) => {
+        const syncedTables = [...new Set([...prev, ...mejaNumbers])];
+        console.log("Synced manuallyMarkedTables after fetchMeja:", syncedTables);
+        return syncedTables;
+      });
     } catch (error) {
       console.error("Error fetching meja:", error);
       toast.error("Gagal memuat data meja");
     }
   };
-
   const markTableAsOccupied = async (tableNumber: string) => {
     try {
       const response = await fetch("/api/nomeja", {
@@ -328,9 +413,28 @@ const Bookinge = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tableNumber }),
       });
-
+  
       if (response.ok) {
-        await fetchMeja();
+        // Perbarui kedua state untuk sinkronisasi
+        setManuallyMarkedTables((prev) => {
+          if (!prev.includes(tableNumber)) {
+            console.log(`Adding ${tableNumber} to manuallyMarkedTables`);
+            return [...prev, tableNumber];
+          }
+          return prev;
+        });
+        setBackendMarkedTables((prev) => {
+          if (!prev.includes(tableNumber)) {
+            console.log(`Adding ${tableNumber} to backendMarkedTables`);
+            return [...prev, tableNumber];
+          }
+          return prev;
+        });
+        await fetchMeja(); // Sinkronkan dengan backend
+        if (socketRef.current) {
+          console.log(`Emitting tableStatusUpdate for ${tableNumber}`);
+          socketRef.current.emit("tableStatusUpdate", { tableNumber });
+        }
         toast.success("Meja berhasil ditandai sebagai terisi!");
       } else {
         throw new Error("Gagal menyimpan data meja");
@@ -340,7 +444,6 @@ const Bookinge = () => {
       toast.error("Gagal menyimpan data meja");
     }
   };
-
   const resetTable = async (tableNumber: string) => {
     try {
       const response = await fetch("/api/nomeja", {
@@ -348,17 +451,34 @@ const Bookinge = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nomorMeja: tableNumber }),
       });
-
+  
       if (response.ok) {
-        await fetchMeja();
-        await fetchData();
+        // Hapus dari kedua state untuk sinkronisasi
+        setManuallyMarkedTables((prev) => {
+          const updated = prev.filter((num) => num !== tableNumber);
+          console.log(`Removed ${tableNumber} from manuallyMarkedTables:`, updated);
+          return updated;
+        });
+        setBackendMarkedTables((prev) => {
+          const updated = prev.filter((num) => num !== tableNumber);
+          console.log(`Removed ${tableNumber} from backendMarkedTables:`, updated);
+          return updated;
+        });
+        await fetchMeja(); // Sinkronkan dengan backend
+        await fetchData(); // Perbarui data pesanan
+        if (socketRef.current) {
+          console.log(`Emitting tableStatusUpdate for table ${tableNumber}`);
+          socketRef.current.emit("tableStatusUpdate", { tableNumber });
+        }
         toast.success("Meja berhasil direset!");
       } else {
-        throw new Error("Gagal menghapus data meja");
+        const errorData = await response.json();
+        console.error("Error response from API:", errorData);
+        throw new Error(errorData.message || "Gagal menghapus data meja");
       }
     } catch (error) {
       console.error("Error resetting table:", error);
-      toast.error("Gagal menghapus data meja");
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus data meja");
     }
   };
 
@@ -389,66 +509,89 @@ const Bookinge = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
+  // useEffect(() => {
+  //   const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
+  //   if (savedMarkedTables) {
+  //     setManuallyMarkedTables(JSON.parse(savedMarkedTables));
+  //   }
+  // }, []);
+
   useEffect(() => {
-    const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
-    if (savedMarkedTables) {
-      setManuallyMarkedTables(JSON.parse(savedMarkedTables));
-    }
+    const initializeTables = async () => {
+      const savedMarkedTables = localStorage.getItem("manuallyMarkedTables");
+      const initialManualTables = savedMarkedTables ? JSON.parse(savedMarkedTables) : [];
+      setManuallyMarkedTables(initialManualTables);
+  
+      await fetchMeja();
+      await fetchData();
+  
+      setManuallyMarkedTables((prev) => {
+        const syncedTables = [...new Set([...prev, ...backendMarkedTables])];
+        console.log("Synced manuallyMarkedTables on mount:", syncedTables);
+        return syncedTables;
+      });
+    };
+  
+    initializeTables();
   }, []);
 
+  
   useEffect(() => {
-    fetchData();
-    fetchMeja();
-
-    const socket = io("http://localhost:3000", {
-      path: "/api/socket",
-    });
-
-    socket.on("connect", () => console.log("Connected to WebSocket server"));
-
-    socket.on("ordersUpdated", (data: any) => {
-      console.log("Orders updated via WebSocket:", data);
-      fetchData();
-      if (data.deletedOrderId && selectedTableNumber) {
-        fetchTableOrders(selectedTableNumber);
-      }
-    });
-
-    socket.on("paymentStatusUpdated", (updatedOrder: Order) => {
-      console.log("Payment status updated:", updatedOrder);
-      setAllOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
-        )
-      );
-      if (
-        updatedOrder.tableNumber === selectedTableNumber ||
-        updatedOrder.tableNumber.startsWith(`Meja ${selectedTableNumber} -`)
-      ) {
-        fetchTableOrders(selectedTableNumber);
-      }
-    });
-
-    socket.on("reservationDeleted", ({ reservasiId, orderId }) => {
-      console.log(`Reservation deleted: reservasiId=${reservasiId}, orderId=${orderId}`);
-      setAllOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
-      fetchTableOrders(selectedTableNumber);
-      fetchMeja();
-    });
-
-    socket.on("tableStatusUpdated", ({ tableNumber }) => {
-      console.log(`Table status updated: ${tableNumber}`);
-      setManuallyMarkedTables((prev) => prev.filter((num) => num !== tableNumber));
-      setBackendMarkedTables((prev) => prev.filter((num) => num !== tableNumber));
-      fetchData();
-      fetchMeja();
-    });
-
-    return () => {
-      socket.disconnect();
+    const fetchInitialData = async () => {
+      await fetchData();
+      await fetchMeja();
     };
-  }, [selectedTableNumber]);
-
+  
+    fetchInitialData();
+  
+    // Inisialisasi socket jika belum ada
+    if (!socketRef.current) {
+      socketRef.current = io("http://localhost:3000", {
+        path: "/api/socket",
+      });
+  
+      socketRef.current.on("connect", () => console.log("Connected to WebSocket server"));
+  
+      socketRef.current.on("ordersUpdated", (data: any) => {
+        console.log("Orders updated via WebSocket:", data);
+        fetchData(); // Hanya perbarui data global
+      });
+  
+      socketRef.current.on("paymentStatusUpdated", (updatedOrder: Order) => {
+        console.log("Payment status updated:", updatedOrder);
+        setAllOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
+          )
+        );
+        // Tidak panggil fetchTableOrders di sini, biarkan pengguna yang membuka popup
+      });
+  
+      socketRef.current.on("reservationDeleted", ({ reservasiId, orderId }) => {
+        console.log(`Reservation deleted: reservasiId=${reservasiId}, orderId=${orderId}`);
+        setAllOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+        fetchMeja(); // Sinkronkan status meja
+        fetchData(); // Perbarui data global
+        // Tidak panggil fetchTableOrders di sini
+      });
+  
+      socketRef.current.on("tableStatusUpdate", ({ tableNumber }) => {
+        console.log(`Table status updated: ${tableNumber}`);
+        fetchMeja().then(() => {
+          console.log("Updated backendMarkedTables:", backendMarkedTables);
+        });
+        fetchData(); // Perbarui data global
+      });
+    }
+  
+    // Cleanup saat komponen unmount
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, []); // Tidak ada dependensi, hanya dijalankan sekali saat mount
   useEffect(() => {
     localStorage.setItem("manuallyMarkedTables", JSON.stringify(manuallyMarkedTables));
   }, [manuallyMarkedTables]);
@@ -466,24 +609,101 @@ const Bookinge = () => {
     }
   };
 
+  // const getTableColor = (nomorMeja: number) => {
+  //   const tableNumberStr = nomorMeja.toString();
+  //   const today = new Date();
+  //   today.setHours(0, 0, 0, 0);
+  
+  //   // Pesanan onsite aktif hari ini
+  //   const hasActiveOrders = allOrders.some(
+  //     (order) =>
+  //       order.tableNumber === tableNumberStr &&
+  //       !order.reservasi?.kodeBooking && // Hanya pesanan onsite
+  //       new Date(order.createdAt).toDateString() === today.toDateString() &&
+  //       ["pending", "paid", "sedang diproses", "selesai"].includes(order.paymentStatus || order.status)
+  //   );
+  
+  //   // Reservasi aktif untuk hari ini
+  //   const hasActiveReservationToday = allOrders.some(
+  //     (order) =>
+  //       order.tableNumber === tableNumberStr &&
+  //       order.reservasi?.kodeBooking &&
+  //       new Date(order.reservasi.tanggalReservasi).toDateString() === today.toDateString() &&
+  //       ["BOOKED", "RESERVED"].includes(order.reservasi.status)
+  //   );
+  
+  //   // Cek apakah hanya ada reservasi masa depan
+  //   const hasFutureReservationOnly = allOrders.some(
+  //     (order) =>
+  //       order.tableNumber === tableNumberStr &&
+  //       order.reservasi?.kodeBooking &&
+  //       new Date(order.reservasi.tanggalReservasi) > today &&
+  //       ["BOOKED", "RESERVED"].includes(order.reservasi.status)
+  //   );
+  
+  //   // Penandaan manual lokal
+  //   const isMarkedManual = manuallyMarkedTables.includes(tableNumberStr);
+  
+  //   // Penandaan backend (hanya relevan jika ada aktivitas hari ini)
+  //   const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
+  //   const isMarkedBackendRelevant = isMarkedBackend && !hasActiveOrders && !hasActiveReservationToday && !hasFutureReservationOnly;
+  
+  //   console.log(`getTableColor for ${tableNumberStr}:`, {
+  //     hasActiveOrders,
+  //     hasActiveReservationToday,
+  //     hasFutureReservationOnly,
+  //     isMarkedBackend,
+  //     isMarkedBackendRelevant,
+  //     isMarkedManual,
+  //     backendMarkedTables,
+  //     manuallyMarkedTables,
+  //   });
+  
+  //   // Merah: Jika ada pesanan onsite hari ini, reservasi hari ini, atau ditandai manual
+  //   if (hasActiveOrders || hasActiveReservationToday || isMarkedManual) {
+  //     return "bg-[#D02323]";
+  //   }
+  
+  //   // Hijau: Jika hanya ada reservasi masa depan atau kosong
+  //   return "bg-green-800";
+  // };
+  
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
-
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+  
     const hasActiveOrders = allOrders.some(
-      (order) => order.tableNumber === tableNumberStr
+      (order) =>
+        order.tableNumber === tableNumberStr &&
+        !order.reservasi?.kodeBooking &&
+        new Date(order.createdAt).toDateString() === today.toDateString() &&
+        ["pending", "paid", "sedang diproses", "selesai"].includes(order.paymentStatus || order.status)
     );
-
-    const hasActiveReservation = allOrders.some(
-      (order) => order.tableNumber === tableNumberStr && order.reservasi?.kodeBooking
+  
+    const hasActiveReservationToday = allOrders.some(
+      (order) =>
+        order.tableNumber === tableNumberStr &&
+        order.reservasi?.kodeBooking &&
+        new Date(order.reservasi.tanggalReservasi).toDateString() === today.toDateString() &&
+        ["BOOKED", "RESERVED"].includes(order.reservasi.status)
     );
-
-    const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
+  
     const isMarkedManual = manuallyMarkedTables.includes(tableNumberStr);
-
-    if (hasActiveOrders || hasActiveReservation || isMarkedBackend || isMarkedManual) {
+    const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
+  
+    console.log(`getTableColor for ${tableNumberStr}:`, {
+      hasActiveOrders,
+      hasActiveReservationToday,
+      isMarkedManual,
+      isMarkedBackend,
+      manuallyMarkedTables,
+      backendMarkedTables,
+    });
+  
+    if (hasActiveOrders || hasActiveReservationToday || isMarkedManual || isMarkedBackend) {
       return "bg-[#D02323]";
     }
-
     return "bg-green-800";
   };
   const fetchTableOrders = async (tableNumber: string) => {
@@ -1454,56 +1674,111 @@ const Bookinge = () => {
       <div className="bg-[#FFF5E6] p-6 border-b">
         <h2 className="text-2xl font-bold text-[#2A2A2A] flex items-center gap-2">
           📋 Daftar Pesanan - Meja {selectedTableNumber}
-          <span className="text-lg font-normal text-[#666]">
-            ({selectedTableOrders.length} aktif, {selectedCompletedOrders.length} selesai)
-          </span>
         </h2>
       </div>
       <div className="p-6 space-y-8">
-        {selectedTableOrders.length > 0 && (
-          <div>
-            <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Pesanan Aktif</h3>
-            {selectedTableOrders.map((order) => (
-              <OrderCard key={order.id} order={order} onComplete={() => markOrderAsCompleted(order.id)} isPopup={true} />
-            ))}
-          </div>
-        )}
-        {selectedCompletedOrders.length > 0 && (
-          <div>
-            <h3 className="text-xl font-semibold mb-4 text-[#00C851] border-b-2 border-[#00C851] pb-2">Pesanan Selesai</h3>
-            {selectedCompletedOrders.map((order) => (
-              <OrderCard key={order.id} order={order} isCompleted isPopup={true} />
-            ))}
-          </div>
-        )}
-        {selectedTableOrders.length === 0 && selectedCompletedOrders.length === 0 && (
-          <div className="text-center py-8">
-            {selectedTableNumber !== "sementara" && (
-              <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini</p>
-            )}
-            <div className="flex justify-center gap-4">
-              {selectedTableNumber !== "sementara" && (
-                <>
-                  {manuallyMarkedTables.includes(selectedTableNumber) || backendMarkedTables.includes(selectedTableNumber) ? (
-                    <button
-                      onClick={() => resetTable(selectedTableNumber)}
-                      className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Reset Meja
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => markTableAsOccupied(selectedTableNumber)}
-                      className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
-                    >
-                      Tandai sebagai Terisi
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Pesanan Hari Ini */}
+        {(() => {
+          // const today = new Date("2025-03-07"); // Ganti dengan new Date() di produksi
+          const today = new Date; // Ganti dengan new Date() di produksi
+          today.setHours(0, 0, 0, 0);
+          const todayOrders = allOrders.filter(
+            (order) =>
+              order.tableNumber === selectedTableNumber &&
+              (!order.reservasi?.kodeBooking || // Pesanan onsite
+                new Date(order.reservasi?.tanggalReservasi).toDateString() === today.toDateString()) // Reservasi hari ini
+          );
+          const isMarked =
+            manuallyMarkedTables.includes(selectedTableNumber) ||
+            backendMarkedTables.includes(selectedTableNumber);
+          console.log(`Popup for Meja ${selectedTableNumber}:`, {
+            todayOrders: todayOrders.length,
+            isMarked,
+            backendMarkedTables,
+          });
+
+          if (todayOrders.length > 0 || isMarked) {
+            return (
+              <div>
+                <h3 className="text-xl font-semibold mb-4 text-[#FF8A00] border-b-2 border-[#FF8A00] pb-2">Hari Ini</h3>
+                {todayOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} onComplete={() => markOrderAsCompleted(order.id)} isPopup={true} />
+                ))}
+                {!isMarked && todayOrders.length === 0 && (
+                  <button
+                    onClick={() => markTableAsOccupied(selectedTableNumber)}
+                    className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+                  >
+                    Tandai sebagai Terisi
+                  </button>
+                )}
+                {isMarked && todayOrders.length === 0 && (
+                  <button
+                    onClick={() => resetTable(selectedTableNumber)}
+                    className="bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Reset Meja
+                  </button>
+                )}
+              </div>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Reservasi Masa Depan */}
+        {(() => {
+          const today = new Date(); // Ganti dengan new Date() di produksi
+          today.setHours(0, 0, 0, 0);
+          const futureReservations = allOrders.filter(
+            (order) =>
+              order.tableNumber === selectedTableNumber &&
+              order.reservasi?.kodeBooking &&
+              new Date(order.reservasi.tanggalReservasi) > today
+          );
+          if (futureReservations.length > 0) {
+            return (
+              <div>
+                <h3 className="text-xl font-semibold mb-4 text-[#007BFF] border-b-2 border-[#007BFF] pb-2">Reservasi Masa Depan</h3>
+                {futureReservations.map((order) => (
+                  <OrderCard key={order.id} order={order} isPopup={true} />
+                ))}
+              </div>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Jika Kosong */}
+        {(() => {
+          const todayOrders = allOrders.filter(
+            (order) =>
+              order.tableNumber === selectedTableNumber &&
+              (!order.reservasi?.kodeBooking || new Date(order.reservasi?.tanggalReservasi).toDateString() === new Date().toDateString())
+          );
+          const isMarked =
+              manuallyMarkedTables.includes(selectedTableNumber) ||
+              backendMarkedTables.includes(selectedTableNumber);
+          console.log(`Kosong check for Meja ${selectedTableNumber}:`, {
+            todayOrders: todayOrders.length,
+            isMarked,
+            backendMarkedTables,
+          });
+          if (todayOrders.length === 0 && !isMarked) {
+            return (
+              <div className="text-center py-8">
+                <p className="text-gray-600 mb-4">Belum ada pesanan untuk meja ini hari ini</p>
+                <button
+                  onClick={() => markTableAsOccupied(selectedTableNumber)}
+                  className="bg-[#D02323] text-white px-4 py-2 rounded-lg hover:bg-[#B21E1E] transition-colors"
+                >
+                  Tandai sebagai Terisi
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
       <div className="p-4 border-t flex justify-between gap-4">
         <button

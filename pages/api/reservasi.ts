@@ -6,17 +6,22 @@ const prisma = new PrismaClient();
 const SOCKET_URL = "http://localhost:3000";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // GET: Mengambil semua data reservasi
   if (req.method === "GET") {
     try {
       const reservasis = await prisma.reservasi.findMany({
         orderBy: { tanggalReservasi: "asc" },
       });
+      res.setHeader("X-Server-Time", new Date().toISOString());
       return res.status(200).json(reservasis);
     } catch (error) {
       console.error("Error fetching reservasi:", error);
       return res.status(500).json({ message: "Terjadi kesalahan pada server" });
     }
-  } else if (req.method === "POST") {
+  }
+
+  // POST: Menambahkan reservasi baru
+  else if (req.method === "POST") {
     try {
       const { namaCustomer, nomorKontak, tanggalReservasi, durasiPemesanan, nomorMeja, kodeBooking } = req.body;
 
@@ -25,18 +30,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const reservasiDate = new Date(tanggalReservasi);
+      const parsedNomorMeja = Number(nomorMeja);
 
+      if (isNaN(parsedNomorMeja)) {
+        return res.status(400).json({ message: "Nomor meja harus berupa angka" });
+      }
+
+      // Cek apakah meja sudah ada di DataMeja
+      const existingTable = await prisma.dataMeja.findFirst({
+        where: { nomorMeja: parsedNomorMeja },
+      });
+
+      // Jika belum ada, tambahkan dengan isManuallyMarked=false
+      if (!existingTable) {
+        await prisma.dataMeja.create({
+          data: {
+            nomorMeja: parsedNomorMeja,
+            isManuallyMarked: false,
+            markedAt: null,
+          },
+        });
+      }
+      // Jika sudah ada, jangan ubah isManuallyMarked atau markedAt
+
+      // Cek apakah reservasi untuk hari ini
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isToday = reservasiDate.toDateString() === today.toDateString();
+
+      // Buat reservasi
       const newReservasi = await prisma.reservasi.create({
         data: {
           namaCustomer,
           nomorKontak,
           tanggalReservasi: reservasiDate,
           durasiPemesanan,
-          nomorMeja,
+          nomorMeja: nomorMeja.toString(),
           kodeBooking,
           status: "BOOKED",
         },
       });
+
+      // Hanya buat pesanan otomatis jika reservasi untuk hari ini
+      if (isToday) {
+        const existingOrder = await prisma.order.findFirst({
+          where: {
+            reservasiId: newReservasi.id,
+          },
+        });
+
+        if (!existingOrder) {
+          await prisma.order.create({
+            data: {
+              tableNumber: nomorMeja.toString(),
+              reservasiId: newReservasi.id,
+              status: "PENDING",
+              createdAt: new Date(),
+            },
+          });
+        }
+      }
 
       const socket = io(SOCKET_URL, { path: "/api/socket" });
       socket.emit("reservationAdded", newReservasi);
@@ -46,7 +99,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error("Error saat menyimpan reservasi:", error);
       return res.status(500).json({ message: "Terjadi kesalahan pada server" });
     }
-  } else if (req.method === "PUT") {
+  }
+
+  // PUT: Mengupdate reservasi
+  else if (req.method === "PUT") {
     try {
       const { id } = req.query;
       const { namaCustomer, nomorKontak, tanggalReservasi, durasiPemesanan, nomorMeja, kodeBooking, status } = req.body;
@@ -55,18 +111,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: "Semua field harus diisi!" });
       }
 
+      const parsedId = Number(id);
+      const parsedNomorMeja = Number(nomorMeja);
+
+      if (isNaN(parsedId) || isNaN(parsedNomorMeja)) {
+        return res.status(400).json({ message: "ID atau nomor meja tidak valid" });
+      }
+
       const updatedReservasi = await prisma.reservasi.update({
-        where: { id: Number(id) },
+        where: { id: parsedId },
         data: {
           namaCustomer,
           nomorKontak,
           tanggalReservasi: new Date(tanggalReservasi),
           durasiPemesanan,
-          nomorMeja,
+          nomorMeja: nomorMeja.toString(),
           kodeBooking,
           status,
         },
       });
+
+      const existingTable = await prisma.dataMeja.findFirst({
+        where: { nomorMeja: parsedNomorMeja },
+      });
+
+      if (!existingTable) {
+        await prisma.dataMeja.create({
+          data: {
+            nomorMeja: parsedNomorMeja,
+            isManuallyMarked: false,
+            markedAt: null,
+          },
+        });
+      }
+
+      // Update pesanan jika reservasi jadi hari ini
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isToday = new Date(tanggalReservasi).toDateString() === today.toDateString();
+
+      if (isToday) {
+        const existingOrder = await prisma.order.findFirst({
+          where: { reservasiId: parsedId },
+        });
+
+        if (!existingOrder) {
+          await prisma.order.create({
+            data: {
+              tableNumber: nomorMeja.toString(),
+              reservasiId: parsedId,
+              status: "PENDING",
+              createdAt: new Date(),
+            },
+          });
+        }
+      }
 
       const socket = io(SOCKET_URL, { path: "/api/socket" });
       socket.emit("reservationUpdated", updatedReservasi);
@@ -76,7 +175,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error("Error updating reservasi:", error);
       return res.status(500).json({ message: "Terjadi kesalahan saat mengupdate" });
     }
-  } else if (req.method === "DELETE") {
+  }
+
+  // DELETE: Menghapus reservasi
+  else if (req.method === "DELETE") {
     try {
       const { id } = req.body;
 
@@ -84,17 +186,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: "ID reservasi diperlukan" });
       }
 
+      const parsedId = Number(id);
+      if (isNaN(parsedId)) {
+        return res.status(400).json({ message: "ID reservasi harus berupa angka" });
+      }
+
       const reservasi = await prisma.reservasi.findUnique({
-        where: { id: Number(id) },
+        where: { id: parsedId },
       });
 
       if (!reservasi) {
         return res.status(404).json({ message: "Reservasi tidak ditemukan" });
       }
 
-      // Hapus pesanan terkait jika ada
       const relatedOrder = await prisma.order.findFirst({
-        where: { reservasiId: Number(id) },
+        where: { reservasiId: parsedId },
       });
 
       if (relatedOrder) {
@@ -103,19 +209,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      // Hapus reservasi
       await prisma.reservasi.delete({
-        where: { id: Number(id) },
+        where: { id: parsedId },
       });
 
-      // Hapus entri DataMeja jika ada untuk mengubah status meja menjadi tersedia
-      await prisma.dataMeja.deleteMany({
-        where: { nomorMeja: parseInt(reservasi.nomorMeja || "0", 10) },
-      });
+      const parsedNomorMeja = Number(reservasi.nomorMeja);
+      if (!isNaN(parsedNomorMeja)) {
+        const table = await prisma.dataMeja.findFirst({
+          where: { nomorMeja: parsedNomorMeja },
+        });
 
-      // Emit event ke WebSocket untuk sinkronisasi real-time
+        if (table && !table.isManuallyMarked) {
+          await prisma.dataMeja.delete({
+            where: { id: table.id },
+          });
+        }
+      }
+
       const socket = io(SOCKET_URL, { path: "/api/socket" });
-      socket.emit("reservationDeleted", { reservasiId: Number(id), orderId: relatedOrder?.id });
+      socket.emit("reservationDeleted", { reservasiId: parsedId, orderId: relatedOrder?.id });
       socket.emit("ordersUpdated", { deletedOrderId: relatedOrder?.id });
       socket.emit("tableStatusUpdated", { tableNumber: reservasi.nomorMeja });
 
@@ -124,7 +236,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error("Error deleting reservasi:", error);
       return res.status(500).json({ message: "Terjadi kesalahan saat menghapus" });
     }
-  } else {
+  }
+
+  else {
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 }
