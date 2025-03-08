@@ -1151,9 +1151,9 @@ useEffect(() => {
                     <p className="text-sm text-gray-700">
                       <span className="font-semibold text-yellow-900">Perhatian:</span>{" "}
                       Tekan tombol{" "}
-                      <span className="font-semibold text-red-600">Rekap Stock Gudang</span>{" "}
+                      <span className="font-semibold text-red-600">Rekap Stock Cafe</span>{" "}
                       hanya pada saat <span className="font-semibold">closing cafe</span>,
-                      untuk menyimpan rekap pengeluaran stok gudang hari ini.
+                      untuk menyimpan rekap pengeluaran stok Cafe hari ini.
                     </p>
                   </div>
 
