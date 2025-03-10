@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import Sidebar from "@/components/sidebar";
+import toast from "react-hot-toast";
 
 interface Supplier {
   id: number;
@@ -46,11 +47,11 @@ const SuppliersPage: React.FC = () => {
     try {
       const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
-      alert('Supplier deleted successfully');
+      toast.success('Supplier deleted successfully');
       fetchSuppliers();
     } catch (err) {
       console.error(err);
-      alert('Error deleting supplier');
+      toast.error('Error deleting supplier');
     }
   };
 
@@ -164,7 +165,7 @@ const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({ onClose, onSu
       if (!res.ok) {
         setError(data.message || 'Failed to create supplier');
       } else {
-        alert('Supplier created successfully');
+        toast.success('Supplier created successfully');
         onSupplierCreated();
         onClose();
       }
@@ -265,7 +266,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({ supplier, onClose
       if (!res.ok) {
         setError(data.message || "Failed to update supplier");
       } else {
-        alert("Supplier updated successfully");
+        toast.success("Supplier updated successfully");
         onSupplierUpdated();
         onClose();
       }

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Sidebar from "@/components/sidebar";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 type Gratuity = {
   id?: number;
@@ -216,7 +216,7 @@ const GetGratuity: React.FC = () => {
   const handleDelete = async (id: number) => {
     try {
       await axios.delete(`/api/gratuity/${id}`);
-      alert("Berhasil hapus gratuity!");
+      toast.success("Berhasil hapus gratuity!");
       fetchGratuities();
     } catch (error) {
       console.error('Error deleting gratuity:', error);
@@ -232,7 +232,7 @@ const GetGratuity: React.FC = () => {
     try {
       if (!updatedGratuity.id) return;
       await axios.put(`/api/gratuity/${updatedGratuity.id}`, updatedGratuity);
-      alert("Berhasil edit gratuity!");
+      toast.success("Berhasil edit gratuity!");
       setShowEditModal(false);
       setSelectedGratuity(null);
       fetchGratuities();
@@ -244,7 +244,7 @@ const GetGratuity: React.FC = () => {
   const handleAddGratuity = async (newGratuity: Gratuity) => {
     try {
       await axios.post('/api/gratuity', newGratuity);
-      alert("Berhasil buat gratuity!");
+      toast.success("Berhasil buat gratuity!");
       setShowAddModal(false);
       fetchGratuities();
     } catch (error) {
@@ -367,7 +367,7 @@ const GetGratuity: React.FC = () => {
           onSubmit={handleAddGratuity}
         />
       )}
-      <Toaster />
+     
     </div>
   );
 };

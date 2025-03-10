@@ -77,7 +77,7 @@ export default function GudangTable() {
       toast.success("Ingredient berhasil dihapus!");
     } catch (err) {
       console.error(err);
-      alert("Gagal menghapus data gudang.");
+      toast.error("Gagal menghapus data gudang.");
     }
   };
 
@@ -116,11 +116,11 @@ export default function GudangTable() {
         );
         setSelectedGudang(null);
       } else {
-        alert(data.message || "Gagal mengupdate data gudang.");
+        toast.error(data.message || "Gagal mengupdate data gudang.");
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan saat mengupdate data gudang.");
+      toast.error("Terjadi kesalahan saat mengupdate data gudang.");
     }
   };
 
@@ -133,7 +133,7 @@ export default function GudangTable() {
         method: "POST",
       });
       const result = await res.json();
-      alert(result.message);
+      toast.success(result.message);
       if (res.ok) {
         router.push("/manager/rekapStokCafe");
       }

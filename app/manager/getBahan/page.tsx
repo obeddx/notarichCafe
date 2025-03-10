@@ -203,6 +203,7 @@ export default function IngredientsTable() {
     } catch (err) {
       console.error(err);
       alert("Gagal menghapus ingredient.");
+      toast.error("Ingredient gagal dihapus!");
     }
   };
 
@@ -338,7 +339,8 @@ export default function IngredientsTable() {
     try {
       const res = await fetch("/api/resetDailyStock", { method: "POST" });
       const result = await res.json();
-      alert(result.message);
+     
+      toast.success(result.message);
       if (res.ok) {
         router.push("/manager/rekapStokCafe");
       }

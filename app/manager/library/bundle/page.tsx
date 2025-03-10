@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import Sidebar from "@/components/sidebar";
+import toast from "react-hot-toast";
 
 interface Bundle {
   id: number;
@@ -87,11 +88,11 @@ const BundlesPage: React.FC = () => {
         fetchBundles();
       } else {
         const data = await res.json();
-        alert(data.message || 'Gagal menghapus bundle');
+        toast.error(data.message || 'Gagal menghapus bundle');
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan saat menghapus bundle');
+      toast.error('Terjadi kesalahan saat menghapus bundle');
     }
   };
 
@@ -107,7 +108,7 @@ const BundlesPage: React.FC = () => {
         throw new Error("Failed to toggle status");
       }
       fetchBundles();
-      alert(newStatus ? "Bundle berhasil diaktifkan" : "Bundle berhasil dinonaktifkan");
+      toast.success(newStatus ? "Bundle berhasil diaktifkan" : "Bundle berhasil dinonaktifkan");
     } catch (error) {
       console.error("Error toggling discount status:", error);
     }

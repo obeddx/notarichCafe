@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+
 import EditMenuModal from "../componentsManager/editMenuModal";
 import Sidebar from "@/components/sidebar";
 import { FiSearch } from "react-icons/fi";

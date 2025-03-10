@@ -2,6 +2,7 @@
 import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
 import { useRouter, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 
 interface Category {
   id: number;
@@ -158,11 +159,11 @@ export default function AddMenu() {
               data.menu.discounts.length > 0 ? data.menu.discounts[0].discountId.toString() : ""
             );
           } else {
-            alert("Gagal memuat data menu");
+            toast.error("Gagal memuat data menu");
           }
         } catch (error) {
           console.error("Error fetching menu:", error);
-          alert("Gagal memuat data menu");
+          toast.error("Gagal memuat data menu");
         }
       };
       fetchMenu();
@@ -228,6 +229,7 @@ export default function AddMenu() {
       console.log("Response API:", data);
 
       if (res.ok) {
+        toast.success("Berhasil buat Menu!");
         setName("");
         setDescription("");
         setPrice("");
@@ -241,15 +243,15 @@ export default function AddMenu() {
         setShowSuccessPopup(true);
         router.push("/manager/getMenu");
       } else {
-        alert("Gagal menyimpan menu: " + (data.message || "Unknown error"));
+        toast.error("Gagal menyimpan menu: " + (data.message || "Unknown error"));
       }
     } catch (error) {
       if (error instanceof Error) {
         console.error("Error submitting form:", error.message);
-        alert("Terjadi kesalahan: " + error.message);
+        toast.error("Terjadi kesalahan: " + error.message);
       } else {
         console.error("Error submitting form:", error);
-        alert("Terjadi kesalahan yang tidak diketahui.");
+        toast.error("Terjadi kesalahan yang tidak diketahui.");
       }
     }
   };

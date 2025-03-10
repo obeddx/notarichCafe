@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/sidebar";
+import toast from "react-hot-toast";
 
 
 type Ingredient = {
@@ -87,11 +88,11 @@ const PurchaseOrderForm: React.FC = () => {
   
       if (!response.ok) throw new Error("Gagal mengirim data");
   
-      alert("Purchase order berhasil dibuat!");
+      toast.success("Purchase order berhasil dibuat!");
       setForm({ ingredientId: 0, quantity: 0, totalPrice: 0 });
       setSelectedIngredient(null);
     } catch (err) {
-      alert("Terjadi kesalahan saat membuat purchase order");
+      toast.error("Terjadi kesalahan saat membuat purchase order");
     }
   };
   

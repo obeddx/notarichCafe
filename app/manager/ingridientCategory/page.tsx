@@ -79,7 +79,7 @@ export default function CategoryList() {
         setShowAddModal(false);
         fetchCategories();
       } else {
-        alert('Gagal menambahkan kategori');
+        toast.error('Gagal menambahkan kategori');
       }
     } catch (error) {
       console.error('Error adding category:', error);
@@ -97,16 +97,12 @@ export default function CategoryList() {
       const data = await res.json();
       if (res.ok) {
         setShowEditModal(false);
-        toast({
-          title: "Sukses!",
-          description: data.message,
-          variant: "default",
-        });
-        alert("Category Berhasil di edit")
+        
+        toast.success("Category Berhasil di edit");
         setSelectedCategory(null);
         fetchCategories();
       } else {
-        alert('Gagal mengedit kategori');
+        toast.error('Gagal mengedit kategori');
       }
     } catch (error) {
       console.error('Error editing category:', error);

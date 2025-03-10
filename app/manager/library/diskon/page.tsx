@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Sidebar from "@/components/sidebar";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 type Discount = {
   id?: number;
@@ -269,7 +269,7 @@ const GetDiscount: React.FC = () => {
   const handleDelete = async (id: number) => {
     try {
       await axios.delete(`/api/diskon/${id}`);
-      alert("Berhasil hapus diskon!");
+      toast.success("Berhasil hapus diskon!");
       fetchDiscounts();
     } catch (error) {
       console.error('Error deleting discount:', error);
@@ -285,7 +285,7 @@ const GetDiscount: React.FC = () => {
     try {
       if (!updatedDiscount.id) return;
       await axios.put(`/api/diskon/${updatedDiscount.id}`, updatedDiscount);
-      alert("Berhasil edit diskon!");
+      toast.success("Berhasil edit diskon!");
       setShowEditModal(false);
       setSelectedDiscount(null);
       fetchDiscounts();
@@ -297,7 +297,7 @@ const GetDiscount: React.FC = () => {
   const handleAddDiscount = async (newDiscount: Discount) => {
     try {
       await axios.post('/api/diskon', newDiscount);
-      alert("Berhasil buat diskon!");
+      toast.success("Berhasil buat diskon!");
       setShowAddModal(false);
       fetchDiscounts();
     } catch (error) {
@@ -424,7 +424,7 @@ const GetDiscount: React.FC = () => {
           onSubmit={handleAddDiscount}
         />
       )}
-      <Toaster />
+     
     </div>
   );
 };
