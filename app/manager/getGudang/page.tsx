@@ -235,9 +235,9 @@ export default function GudangTable() {
                 Unit
               </th>
               
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Aksi
-              </th>
+              </th> */}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -256,7 +256,7 @@ export default function GudangTable() {
                 <td className="px-6 py-4 whitespace-nowrap">{item.stock}</td>
                 <td className="px-6 py-4 whitespace-nowrap">{item.unit}</td>
                
-                <td className="px-8 py-4 whitespace-nowrap">
+                {/* <td className="px-8 py-4 whitespace-nowrap">
                   <button
                     onClick={() => handleEdit(item.id)}
                     className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded mr-3"
@@ -269,7 +269,7 @@ export default function GudangTable() {
                   >
                     Delete
                   </button>
-                </td>
+                </td> */}
               </tr>
             ))}
             {filteredGudang.length === 0 && (

@@ -1,5 +1,5 @@
 "use client";
-import { useState, FormEvent, useEffect} from "react";
+import { useState, FormEvent, useEffect } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import Sidebar from "@/components/sidebar";
 import { useRouter } from "next/navigation";
@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 type Categories = {
   id: number;
   name: string;
-  description:string;
- };
+  description: string;
+};
 
 export default function CreateIngredient() {
   // State untuk Sidebar
@@ -27,7 +27,7 @@ export default function CreateIngredient() {
   const [stockMin, setStockMin] = useState("");
   // Unit untuk ingredient (misalnya: gram, pack, dll)
   const [unit, setUnit] = useState("");
-  // Field untuk finished unit (misalnya: gram, liter), default "gram"
+  // Field untuk finished unit (misalnya: gram, liter), default "-"
   const [finishedUnit, setFinishedUnit] = useState("-");
   // Field untuk harga (angka)
   const [price, setPrice] = useState("");
@@ -38,22 +38,29 @@ export default function CreateIngredient() {
 
   const router = useRouter();
 
-    useEffect(() => {
-      const fetchCategories = async () => {
-        try {
-          const res = await fetch("/api/categories");
-          if (!res.ok) {
-            throw new Error("Gagal mengambil data categori.");
-          }
-          const data = await res.json();
-          setCategories(data.categories);
-        } catch (err: any) {
-          console.error("Error fetching raw ingredients:", err.message);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/categories");
+        if (!res.ok) {
+          throw new Error("Gagal mengambil data categori.");
         }
-      };
-  
-      fetchCategories();
-    }, []);
+        const data = await res.json();
+        setCategories(data.categories);
+      } catch (err: any) {
+        console.error("Error fetching raw ingredients:", err.message);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Event handler untuk mencegah simbol "-" dan "+"
+  const handleNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "-" || e.key === "+") {
+      e.preventDefault();
+    }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -99,7 +106,7 @@ export default function CreateIngredient() {
         setCategory("");
         setType("RAW");
         setPrice("");
-        router.push('/manager/getBahan');
+        router.push("/manager/getBahan");
       } else {
         toast.error(result.message || "Gagal membuat ingredient.");
       }
@@ -110,7 +117,7 @@ export default function CreateIngredient() {
   };
 
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen">
       {/* Sidebar */}
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
 
@@ -140,8 +147,10 @@ export default function CreateIngredient() {
                 <label className="block font-semibold mb-1">Stock Cafe:</label>
                 <input
                   type="number"
+                  min="0"
                   value={start}
                   onChange={(e) => setStart(e.target.value)}
+                  onKeyDown={handleNumberKeyDown}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
                   required
                   step="any"
@@ -152,8 +161,10 @@ export default function CreateIngredient() {
                 <label className="block font-semibold mb-1">Stock Inventory:</label>
                 <input
                   type="number"
+                  min="0"
                   value={warehouseStart}
                   onChange={(e) => setWarehouseStart(e.target.value)}
+                  onKeyDown={handleNumberKeyDown}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
                   required
                   step="any"
@@ -162,23 +173,23 @@ export default function CreateIngredient() {
               </div>
             </div>
 
-             {/* Input Category */}
-             <div className="mb-4">
-  <label className="block font-medium mb-1">Kategori Semi:</label>
-  <select
-    value={category}
-    onChange={(e) => setCategory(e.target.value)}
-    className="w-full p-2 border border-gray-300 rounded"
-    required
-  >
-    <option value="">Pilih Kategori</option>
-    {categories.map((cat) => (
-      <option key={cat.id} value={cat.id}>
-        {cat.name}
-      </option>
-    ))}
-  </select>
-</div>
+            {/* Input Category */}
+            <div className="mb-4">
+              <label className="block font-medium mb-1">Kategori Semi:</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded"
+                required
+              >
+                <option value="">Pilih Kategori</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Row untuk Ingredient Unit dan Finished Unit */}
             <div className="flex gap-4">
@@ -199,7 +210,7 @@ export default function CreateIngredient() {
                   type="text"
                   value={finishedUnit}
                   onChange={(e) => setFinishedUnit(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
+                  className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
                   placeholder="e.g., gram, liter"
                   readOnly
                 />
@@ -211,8 +222,10 @@ export default function CreateIngredient() {
               <label className="block font-semibold mb-1">Price per 1 {unit}:</label>
               <input
                 type="number"
+                min="0"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
+                onKeyDown={handleNumberKeyDown}
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
                 required
                 step="any"
@@ -225,8 +238,10 @@ export default function CreateIngredient() {
               <label className="block font-semibold mb-1">Stock Min / Alert at:</label>
               <input
                 type="number"
+                min="0"
                 value={stockMin}
                 onChange={(e) => setStockMin(e.target.value)}
+                onKeyDown={handleNumberKeyDown}
                 className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
                 required
                 step="any"
@@ -271,8 +286,6 @@ export default function CreateIngredient() {
               />
             </div>
 
-           
-
             {/* Dropdown untuk Ingredient Type */}
             <div>
               <label className="block font-semibold mb-1">Ingredient Type:</label>
@@ -283,7 +296,7 @@ export default function CreateIngredient() {
                 required
               >
                 <option value="RAW">RAW</option>
-                <option value="SEMI_FINISHED">SEMI_FINISHED</option>
+                
               </select>
             </div>
 
@@ -296,7 +309,7 @@ export default function CreateIngredient() {
           </form>
         </div>
       </div>
-      <Toaster position="top-right" />
+    
     </div>
   );
 }

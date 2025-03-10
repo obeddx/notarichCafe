@@ -394,6 +394,13 @@ export default function IngredientsTable() {
     setComposition(newComposition);
   };
 
+  // Event handler untuk mencegah simbol "-" dan "+"
+  const handleNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "-" || e.key === "+") {
+      e.preventDefault();
+    }
+  };
+
  
 
   // Fungsi untuk submit form semi finished ingredient (untuk TAMBAH)
@@ -626,6 +633,7 @@ export default function IngredientsTable() {
                 <label className="block font-medium mb-1">Stock In (Tambahan):</label>
                 <input
                   type="number"
+                   min="0"
                   value={additionalStock}
                   onChange={(e) => {
                     const inputVal = e.target.value;
@@ -637,6 +645,7 @@ export default function IngredientsTable() {
                       });
                     }
                   }}
+                  onKeyDown={handleNumberKeyDown}
                   className="w-full p-2 border border-gray-300 rounded"
                   required
                   step="any"
@@ -658,6 +667,7 @@ export default function IngredientsTable() {
                 <label className="block font-medium mb-1">Wasted (Tambahan):</label>
                 <input
                   type="number"
+                  min="0"
                   value={additionalWasted}
                   onChange={(e) => {
                     const inputVal = e.target.value;
@@ -669,6 +679,7 @@ export default function IngredientsTable() {
                       });
                     }
                   }}
+                  onKeyDown={handleNumberKeyDown}
                   className="w-full p-2 border border-gray-300 rounded"
                   required
                   step="any"
@@ -781,8 +792,10 @@ export default function IngredientsTable() {
           <label className="block font-medium mb-1">Jumlah Semi Ingredient yang Dibuat:</label>
           <input
             type="number"
+            min="0"
             value={semiEditProducedQuantity || ""}
             onChange={(e) => setSemiEditProducedQuantity(parseFloat(e.target.value))}
+            onKeyDown={handleNumberKeyDown}
             className="w-full p-2 border border-gray-300 rounded"
             required
           />
@@ -817,6 +830,7 @@ export default function IngredientsTable() {
         </select>
         <input
           type="number"
+          min="0"
           value={row.amount}
           onChange={(e) =>
             setSemiEditComposition((prev) => {
@@ -828,6 +842,7 @@ export default function IngredientsTable() {
               return newComp;
             })
           }
+          onKeyDown={handleNumberKeyDown}
           className="w-24 p-2 border border-gray-300 rounded"
           placeholder="Amount"
           required
@@ -954,8 +969,10 @@ export default function IngredientsTable() {
                 <label className="block font-medium mb-1">Jumlah Semi Ingredient yang Dibuat:</label>
                 <input
                   type="number"
+                  min="0"
                   value={producedQuantity || ""}
                   onChange={(e) => setProducedQuantity(parseFloat(e.target.value))}
+                  onKeyDown={handleNumberKeyDown}
                   className="w-full p-2 border border-gray-300 rounded"
                   required
                 />
@@ -981,8 +998,10 @@ export default function IngredientsTable() {
                       </select>
                       <input
                         type="number"
+                        min="0"
                         value={row.amount}
                         onChange={(e) => handleCompositionChange(index, "amount", e.target.value)}
+                        onKeyDown={handleNumberKeyDown}
                         className="w-24 p-2 border border-gray-300 rounded"
                         placeholder="Amount"
                         required
@@ -1021,6 +1040,7 @@ export default function IngredientsTable() {
                     style: "currency",
                     currency: "IDR",
                   })}
+
                   readOnly
                   className="w-full p-2 border border-gray-300 rounded bg-gray-100"
                 />

@@ -10,9 +10,9 @@ export default function CustomToaster() {
     toastOptions={{
       success: {
         style: {
-          background: 'rgba(76, 175, 80, 0.2)', // Hijau dengan transparansi
+          background: 'rgba(115, 235, 185, 0.2)', // Hijau dengan transparansi
           backdropFilter: 'blur(8px)',          // Efek blur untuk tampilan glass
-          border: '1px solid rgba(76, 175, 80, 0.4)', // Opsional: garis tepi untuk efek lebih nyata
+          border: '1px solid rgba(23, 232, 162, 0.4)', // Opsional: garis tepi untuk efek lebih nyata
            // Teks putih agar kontras
         },
       },

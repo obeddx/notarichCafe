@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SidebarCashier from "@/components/sidebarCashier";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { FiBell } from "react-icons/fi";
 import { AlertTriangle, ShoppingCart, X } from "lucide-react";
 import { useNotifications, MyNotification } from "../../contexts/NotificationContext";
@@ -791,7 +791,7 @@ useEffect(() => {
         <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
       <div className={`flex-1 p-6 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"}`}>
-        <Toaster />
+       
         <h1 className="text-3xl font-bold text-center mb-6 text-[#0E0E0E]">💳 Halaman Kasir</h1>
         <div className="flex items-center gap-4">
           <button onClick={() => setNotificationModalOpen(true)} className="relative">
