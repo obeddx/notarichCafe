@@ -324,13 +324,13 @@ const Booking1 = () => {
       <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
         <div className={`flex-1 p-8 transition-all duration-300`}>
           <div className="w-full sm:px-6 lg:px-28 pt-16">
-            <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">
+            <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm sticky top-0  z-10 py-4">
               🪑 Pilih Meja Anda untuk{" "}
               {selectedDate ? moment(selectedDate).tz("Asia/Jakarta").format("DD MMMM YYYY") : "Pilih Tanggal"}
             </h2>
 
             {/* Floor Selection */}
-            <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9] pb-4">
+            <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9] pb-4 sticky top-24  z-10">
               {[1, 2].map((floor) => (
                 <label
                   key={floor}

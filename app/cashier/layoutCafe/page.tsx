@@ -29,22 +29,7 @@ interface Discount {
   isActive: boolean;
 }
 
-// interface Order {
-//   id: number;
-//   tableNumber: string;
-//   total: number;
-//   status: string;
-//   paymentMethod?: string;
-//   paymentId?: string;
-//   createdAt: string;
-//   orderItems: OrderItem[];
-//   customerName: string;
-//   paymentStatus?: string;
-//   reservasi?: {
-//     id: number;
-//     kodeBooking: string;
-//   };
-// }
+
 
 interface Order {
   id: number;
@@ -116,6 +101,8 @@ interface CartItem {
   modifierIds: { [categoryId: number]: number | null };
   uniqueKey: string;
 }
+
+
 
 const Bookinge = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -609,64 +596,7 @@ const Bookinge = () => {
     }
   };
 
-  // const getTableColor = (nomorMeja: number) => {
-  //   const tableNumberStr = nomorMeja.toString();
-  //   const today = new Date();
-  //   today.setHours(0, 0, 0, 0);
-  
-  //   // Pesanan onsite aktif hari ini
-  //   const hasActiveOrders = allOrders.some(
-  //     (order) =>
-  //       order.tableNumber === tableNumberStr &&
-  //       !order.reservasi?.kodeBooking && // Hanya pesanan onsite
-  //       new Date(order.createdAt).toDateString() === today.toDateString() &&
-  //       ["pending", "paid", "sedang diproses", "selesai"].includes(order.paymentStatus || order.status)
-  //   );
-  
-  //   // Reservasi aktif untuk hari ini
-  //   const hasActiveReservationToday = allOrders.some(
-  //     (order) =>
-  //       order.tableNumber === tableNumberStr &&
-  //       order.reservasi?.kodeBooking &&
-  //       new Date(order.reservasi.tanggalReservasi).toDateString() === today.toDateString() &&
-  //       ["BOOKED", "RESERVED"].includes(order.reservasi.status)
-  //   );
-  
-  //   // Cek apakah hanya ada reservasi masa depan
-  //   const hasFutureReservationOnly = allOrders.some(
-  //     (order) =>
-  //       order.tableNumber === tableNumberStr &&
-  //       order.reservasi?.kodeBooking &&
-  //       new Date(order.reservasi.tanggalReservasi) > today &&
-  //       ["BOOKED", "RESERVED"].includes(order.reservasi.status)
-  //   );
-  
-  //   // Penandaan manual lokal
-  //   const isMarkedManual = manuallyMarkedTables.includes(tableNumberStr);
-  
-  //   // Penandaan backend (hanya relevan jika ada aktivitas hari ini)
-  //   const isMarkedBackend = backendMarkedTables.includes(tableNumberStr);
-  //   const isMarkedBackendRelevant = isMarkedBackend && !hasActiveOrders && !hasActiveReservationToday && !hasFutureReservationOnly;
-  
-  //   console.log(`getTableColor for ${tableNumberStr}:`, {
-  //     hasActiveOrders,
-  //     hasActiveReservationToday,
-  //     hasFutureReservationOnly,
-  //     isMarkedBackend,
-  //     isMarkedBackendRelevant,
-  //     isMarkedManual,
-  //     backendMarkedTables,
-  //     manuallyMarkedTables,
-  //   });
-  
-  //   // Merah: Jika ada pesanan onsite hari ini, reservasi hari ini, atau ditandai manual
-  //   if (hasActiveOrders || hasActiveReservationToday || isMarkedManual) {
-  //     return "bg-[#D02323]";
-  //   }
-  
-  //   // Hijau: Jika hanya ada reservasi masa depan atau kosong
-  //   return "bg-green-800";
-  // };
+
   
   const getTableColor = (nomorMeja: number) => {
     const tableNumberStr = nomorMeja.toString();
@@ -870,18 +800,22 @@ const Bookinge = () => {
 
   return (
     <div className="flex flex-col md:flex-row h-screen min-w-[1400px]">
-      <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
-        <div
-          className={`fixed h-full bg-[#2A2A2A] shadow-xl flex-shrink-0 transition-all duration-300 ${
-            isSidebarOpen ? "w-64" : "w-20"
-          }`}
-        >
+    <div className={`flex h-screen ${inter.className} min-w-[1400px]`}>
+      <div
+        className={`fixed h-full bg-[#2A2A2A] shadow-xl flex-shrink-0 transition-all duration-300 ${
+          isSidebarOpen ? "w-64" : "w-20"
+        }`}
+      >
           <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
         </div>
         <div className={`flex-1 p-8 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"}`}>
+          
           <div className="w-full sm:px-6 lg:px-28">
-            <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm">🪑 Pilih Meja Anda</h2>
-            <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9] pb-4">
+            
+          <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm sticky top-0  z-10 py-4">
+  🪑 Pilih Meja Anda
+</h2>
+            <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9]  pb-4 sticky top-24  z-10 " >
               {[1, 2].map((floor) => (
                 <label
                   key={floor}
@@ -1373,8 +1307,7 @@ const Bookinge = () => {
                                 </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="flex flex-row justify-center items-center">
+                            <div className="flex flex-col space-y-8 mb-16">
                             <div className="flex flex-col space-y-10">
                               <div className="flex flex-col mx-20">
                                 <div className="text-center">
@@ -1465,6 +1398,8 @@ const Bookinge = () => {
                               </div>
                             </div>
                           </div>
+                          </div>
+                       
                           <div className="flex flex-row justify-center items-center">
                             <div className="flex flex-col mx-20 gap-2 mb-12">
                               <div className="text-center">
@@ -2197,6 +2132,7 @@ const Bookinge = () => {
           -moz-appearance: textfield;
         }
       `}</style>
+      
     </div>
   );
 };
