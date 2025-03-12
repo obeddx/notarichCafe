@@ -1,6 +1,6 @@
 "use client";
 import { useState, FormEvent, useEffect } from "react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import Sidebar from "@/components/sidebar";
 import { useRouter } from "next/navigation";
 

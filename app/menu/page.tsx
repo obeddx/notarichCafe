@@ -1228,18 +1228,146 @@ export default function MenuPage() {
             item.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-  if (tableNumber === "Unknown") {
-    return (
-      <div className="min-h-screen flex flex-col justify-center items-center">
-        <h2 className="text-2xl mb-4">Table number tidak terdeteksi. Silakan scan barcode meja Anda.</h2>
-        <Link href="/scan">
-          <button className="bg-orange-600 text-white p-4 rounded-full shadow-lg hover:bg-orange-700 transition">
-            Scan Barcode
-          </button>
-        </Link>
-      </div>
-    );
-  }
+        if (tableNumber === "Unknown") {
+          return (
+            <div className="min-h-screen">
+              <Toaster position="top-right" reverseOrder={false} />
+        
+              <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
+                <div className="max-w-2xl text-center md:text-left">
+                  <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
+                    Begin your day with <br />
+                    a <span className="text-orange-600">perfect cup of coffee</span>
+                  </h1>
+                  <p className="mt-4 text-lg text-gray-700">
+                    Setting a positive tone with its comforting warmth and invigorating flavor
+                  </p>
+                </div>
+                <div className="w-full md:w-[600px] lg:w-[700px] h-[400px] md:h-[500px] relative flex justify-center">
+                  <Image src="/CaramelFrappucino.png" alt="Coffee Cup" layout="fill" objectFit="contain" />
+                </div>
+              </section>
+        
+              <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
+                <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">Our Popular Menu</h2>
+                <h2 className="text-2xl text-white mb-4">Table Number: {tableNumber}</h2>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Cari Menu</label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Cari nama menu..."
+                  />
+                </div>
+        
+                <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
+                  {categoriesState.map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
+                        selectedCategory === category
+                          ? "bg-orange-600 text-white scale-105"
+                          : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+        
+                {loading ? (
+                  <p className="text-center text-gray-500">Loading menu...</p>
+                ) : error ? (
+                  <p className="text-center text-red-500">{error}</p>
+                ) : filteredMenu.length === 0 ? (
+                  <p className="text-center text-gray-500">No menu available for this category.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {filteredMenu.map((item) => {
+                      const discountedPrice = calculateItemPrice(item, {});
+                      return (
+                        <div
+                          key={item.id}
+                          className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
+                        >
+                          <div className="hidden sm:block">
+                            <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
+                              <Image
+                                src={item.image}
+                                alt={item.name}
+                                layout="fill"
+                                objectFit="cover"
+                                className="rounded-lg"
+                              />
+                            </div>
+                            <div className="p-4 text-center">
+                              <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
+                              <p className="text-gray-600 text-left">{item.description}</p>
+                              <div className="text-left">
+                                {discountedPrice < item.price ? (
+                                  <>
+                                    <p className="text-sm text-gray-500 line-through">
+                                      Rp{item.price.toLocaleString()}
+                                    </p>
+                                    <p className="text-lg font-semibold text-orange-600">
+                                      Rp{discountedPrice.toLocaleString()}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="text-lg font-semibold text-orange-600">
+                                    Rp{item.price.toLocaleString()}
+                                  </p>
+                                )}
+                                {item.modifiers.length > 0 && (
+                                  <p className="text-sm text-gray-600">+ Modifier mulai dari Rp0</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="sm:hidden flex items-center gap-4">
+                            <div className="relative w-24 h-24 flex-shrink-0">
+                              <Image
+                                src={item.image}
+                                alt={item.name}
+                                layout="fill"
+                                objectFit="cover"
+                                className="rounded-lg"
+                              />
+                            </div>
+                            <div className="flex-grow">
+                              <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
+                              <p className="text-sm text-gray-600">{item.description}</p>
+                              {discountedPrice < item.price ? (
+                                <>
+                                  <p className="text-xs text-gray-500 line-through">
+                                    Rp{item.price.toLocaleString()}
+                                  </p>
+                                  <p className="text-md font-semibold text-orange-600">
+                                    Rp{discountedPrice.toLocaleString()}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-md font-semibold text-orange-600">
+                                  Rp{item.price.toLocaleString()}
+                                </p>
+                              )}
+                              {item.modifiers.length > 0 && (
+                                <p className="text-xs text-gray-600">+ Modifier mulai dari Rp0</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
 
   return (
     <div className="min-h-screen">
