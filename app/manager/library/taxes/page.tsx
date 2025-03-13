@@ -216,7 +216,7 @@ const GetTax: React.FC = () => {
   const handleDelete = async (id: number) => {
     try {
       await axios.delete(`/api/tax/${id}`);
-      toast.success("Berhasil hapus pajak!");
+      toast.success ("Berhasil hapus pajak!");
       fetchTaxes();
     } catch (error) {
       console.error('Error deleting tax:', error);
@@ -232,7 +232,7 @@ const GetTax: React.FC = () => {
     try {
       if (!updatedTax.id) return;
       await axios.put(`/api/tax/${updatedTax.id}`, updatedTax);
-      toast.success("Berhasil edit pajak!");
+      toast.success ("Berhasil edit pajak!");
       setShowEditModal(false);
       setSelectedTax(null);
       fetchTaxes();
@@ -244,7 +244,7 @@ const GetTax: React.FC = () => {
   const handleAddTax = async (newTax: Tax) => {
     try {
       await axios.post('/api/tax', newTax);
-      toast.success("Berhasil buat pajak!");
+      toast.success ("Berhasil buat pajak!");
       setShowAddModal(false);
       fetchTaxes();
     } catch (error) {

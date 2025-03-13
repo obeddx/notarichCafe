@@ -2,7 +2,7 @@
 import { useState, useEffect, ChangeEvent } from "react";
 import Image from "next/image";
 import { ShoppingCart, X, ChevronDown } from "lucide-react";
-import Link from "next/link";
+// import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
 import { jsPDF } from "jspdf";
@@ -76,6 +76,7 @@ interface Menu {
   image: string;
   description: string;
   price: number;
+  Status: string;
   ingredients: MenuIngredient[];
   category: string;
   rating: number;
@@ -245,6 +246,7 @@ export default function MenuPage() {
           name: item.name ?? "Unknown",
           image: item.image ? item.image : "/default-image.jpg",
           description: item.description ?? "No description available",
+          Status: item.Status,
           price: item.price ?? 0,
           ingredients: item.ingredients ?? [],
           category: item.category ?? "Uncategorized",
@@ -1428,11 +1430,15 @@ export default function MenuPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMenu.map((item) => {
               const discountedPrice = calculateItemPrice(item, {});
+              const isOutOfStock = item.Status?.toLowerCase() === "habis";
+
+              console.log(`Item: ${item.name}, Status: ${item.Status}, isOutOfStock: ${isOutOfStock}`);
               return (
                 <div
                   key={item.id}
                   className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
                 >
+                  <h1>item :{item.name} , stock : {item.Status}  </h1>
                   <div className="hidden sm:block">
                     <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
                       <Image
@@ -1466,12 +1472,20 @@ export default function MenuPage() {
                         )}
                       </div>
                       <button
-                        onClick={() => addToCart(item)}
-                        className="mt-4 px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-2"
+                        onClick={() => !isOutOfStock && addToCart(item)} // Hanya aktif jika tidak habis
+                        disabled={isOutOfStock} // Disable tombol jika habis
+                        className={`mt-4 px-6 py-3 text-white rounded-full text-lg font-semibold flex items-center justify-center gap-2 transition ${
+                          isOutOfStock
+                            ? "bg-gray-400 cursor-not-allowed" // Warna abu-abu jika habis
+                            : "bg-orange-600 hover:bg-orange-700" // Warna normal jika tersedia
+                        }`}
                       >
                         <ShoppingCart className="w-5 h-5" />
                         Add to Cart
                       </button>
+                      {isOutOfStock && (
+                        <p className="mt-4 px-3 text-sm text-red-600 text-left">Out of Stock</p> // Teks merah jika habis
+                      )}
                     </div>
                   </div>
                   <div className="sm:hidden flex items-center gap-4">
