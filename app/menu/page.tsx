@@ -1438,7 +1438,7 @@ export default function MenuPage() {
                   key={item.id}
                   className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
                 >
-                  <h1>item :{item.name} , stock : {item.Status}  </h1>
+                  {/* <h1>item :{item.name} , stock : {item.Status}  </h1> */}
                   <div className="hidden sm:block">
                     <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
                       <Image
