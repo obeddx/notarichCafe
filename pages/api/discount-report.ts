@@ -1,9 +1,11 @@
+// pages/api/discount-report.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedDiscount {
+// Interface untuk respons API
+interface DiscountReportResponse {
   name: string;
   discount: string;
   count: number;
@@ -12,7 +14,8 @@ interface AggregatedDiscount {
 
 function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
   switch (period.toLowerCase()) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -47,18 +50,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
 
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate
-        ? new Date(req.query.endDate as string)
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery
+        ? new Date(endDateQuery)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     console.log("Fetching discount data for period:", { startDate, endDate });
@@ -86,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log("Orders found:", orders.length);
 
-    const aggregatedData: Record<string, AggregatedDiscount> = {};
+    const aggregatedData: Record<string, DiscountReportResponse> = {};
 
     for (const order of orders) {
       const discountId = order.discountId;
@@ -131,7 +140,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log(`Aggregated: Key: ${discountKey}, Name: ${aggregatedData[discountKey].name}, Discount: ${aggregatedData[discountKey].discount}, Gross: ${grossDiscount}`);
     }
 
-    const result = Object.values(aggregatedData).sort((a, b) => b.grossDiscount - a.grossDiscount);
+    const result: DiscountReportResponse[] = Object.values(aggregatedData).sort(
+      (a, b) => b.grossDiscount - a.grossDiscount
+    );
 
     console.log("Aggregated Discount Data:", result);
 

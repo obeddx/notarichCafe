@@ -1,7 +1,19 @@
+// pages/manager/report/sales/category-sales/page.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data category sales
+interface CategorySalesData {
+  category: string;
+  itemSold: number;
+  totalCollected: number;
+  discount: number;
+  tax: number;
+  gratuity: number;
+  netSales: number;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -30,14 +42,14 @@ const CategorySales = () => {
     new Date().toISOString().split("T")[0]
   );
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<CategorySalesData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [sortColumn, setSortColumn] = useState<
     "category" | "itemSold" | "totalCollected" | "discount" | "tax" | "gratuity" | "netSales" | null
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -54,10 +66,10 @@ const CategorySales = () => {
         }
         url = `/api/category-sales?period=${periodQuery}&date=${queryDate}`;
       }
-      
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data");
-      const result = await res.json();
+      const result: CategorySalesData[] = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
@@ -65,13 +77,13 @@ const CategorySales = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number): string => "Rp " + num.toLocaleString("id-ID");
 
   const totalItemSold = data.reduce((acc, item) => acc + item.itemSold, 0);
   const totalCollected = data.reduce((acc, item) => acc + item.totalCollected, 0);
@@ -114,25 +126,26 @@ const CategorySales = () => {
     }
   });
 
-  const exportData = sortedData.map(item => ({
-    "Category": item.category,
-    "Item Sold": item.itemSold,
-    "Total Collected": item.totalCollected,
-    "Discount": item.discount,
-    "Tax": item.tax,
-    "Gratuity": item.gratuity,
-    "Net Sales": item.netSales,
-  }));
-
-  exportData.push({
-    "Category": "Total",
-    "Item Sold": totalItemSold,
-    "Total Collected": totalCollected,
-    "Discount": totalDiscount,
-    "Tax": totalTax,
-    "Gratuity": totalGratuity,
-    "Net Sales": totalNetSales,
-  });
+  const exportData = [
+    ...sortedData.map((item) => ({
+      Category: item.category,
+      "Item Sold": item.itemSold,
+      "Total Collected": formatCurrency(item.totalCollected),
+      Discount: formatCurrency(item.discount),
+      Tax: formatCurrency(item.tax),
+      Gratuity: formatCurrency(item.gratuity),
+      "Net Sales": formatCurrency(item.netSales),
+    })),
+    {
+      Category: "Total",
+      "Item Sold": totalItemSold,
+      "Total Collected": formatCurrency(totalCollected),
+      Discount: formatCurrency(totalDiscount),
+      Tax: formatCurrency(totalTax),
+      Gratuity: formatCurrency(totalGratuity),
+      "Net Sales": formatCurrency(totalNetSales),
+    },
+  ];
 
   const exportColumns = [
     { header: "Category", key: "Category" },
@@ -163,7 +176,7 @@ const CategorySales = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>
@@ -205,7 +218,7 @@ const CategorySales = () => {
         )}
         <button
           onClick={fetchData}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded shadow"
+          className="bg-blue-5 00 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded shadow"
         >
           {loading ? "Loading..." : "Cari"}
         </button>

@@ -4,9 +4,25 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Interface untuk respons API
+interface SalesSummaryResponse {
+  grossSales: number;
+  discounts: number;
+  refunds: number;
+  netSales: number;
+  gratuity: number;
+  tax: number;
+  rounding: number;
+  totalCollected: number;
+  ordersCount: number;
+  startDate: string;
+  endDate: string;
+}
+
 function getStartAndEndDates(period: string, dateString: string): { startDate: Date; endDate: Date } {
   const date = new Date(dateString);
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
   switch (period) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -39,24 +55,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
   try {
-    let startDate: Date, endDate: Date;
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      if (req.query.endDate) {
-        endDate = new Date(req.query.endDate as string);
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      if (endDateQuery) {
+        endDate = new Date(endDateQuery);
         endDate.setDate(endDate.getDate() + 1);
       } else {
         endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 1);
       }
     } else {
-      const period = (req.query.period as string) || "daily";
-      const dateString = (req.query.date as string) || new Date().toISOString();
+      const dateString = date || new Date().toISOString();
       ({ startDate, endDate } = getStartAndEndDates(period, dateString));
     }
 
-    // Ambil order dari tabel CompletedOrder beserta orderItems dan menu
     const orders = await prisma.completedOrder.findMany({
       where: {
         createdAt: {
@@ -73,7 +96,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Hitung Gross Sales: total harga normal menu - HPP (tanpa diskon menu)
     const grossSales = orders.reduce((acc, order) => {
       return (
         acc +
@@ -85,29 +107,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }, 0);
 
-    // Hitung Discounts: total semua diskon (scope MENU dan TOTAL)
     const discounts = orders.reduce((acc, order) => {
       return acc + Number(order.discountAmount || 0);
     }, 0);
 
-    // Refunds tetap 0 karena belum ada
     const refunds = 0;
 
-    // Hitung Net Sales: Gross Sales - Discounts - Refunds
     const netSales = grossSales - discounts - refunds;
 
-    // Hitung Tax dan Gratuity dari CompletedOrder
     const tax = orders.reduce((acc, order) => acc + Number(order.taxAmount || 0), 0);
     const gratuity = orders.reduce((acc, order) => acc + Number(order.gratuityAmount || 0), 0);
 
-    // Hitung Rounding: membulatkan dua digit terakhir ke 0
     const remainder = netSales % 100;
     const rounding = remainder === 0 ? 0 : 100 - remainder;
 
-    // Hitung Total Collected: Net Sales + Gratuity + Tax + Rounding
     const totalCollected = netSales + gratuity + tax + rounding;
 
-    return res.status(200).json({
+    const response: SalesSummaryResponse = {
       grossSales,
       discounts,
       refunds,
@@ -117,9 +133,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rounding,
       totalCollected,
       ordersCount: orders.length,
-      startDate,
-      endDate,
-    });
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error in sales-summary:", error);
     return res.status(500).json({ error: "Internal server error" });

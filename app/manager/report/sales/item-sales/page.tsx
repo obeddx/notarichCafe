@@ -1,8 +1,18 @@
 // pages/manager/report/sales/item-sales/page.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data item sales
+interface ItemSalesData {
+  menuName: string;
+  category: string;
+  quantity: number;
+  totalCollected: number;
+  hpp: number;
+  discount: number;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -31,14 +41,14 @@ const CategorySales = () => {
     new Date().toISOString().split("T")[0]
   );
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ItemSalesData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [sortColumn, setSortColumn] = useState<
     "menuName" | "category" | "quantity" | "totalCollected" | "hpp" | "discount" | null
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -55,10 +65,10 @@ const CategorySales = () => {
         }
         url = `/api/item-sales?period=${periodQuery}&date=${queryDate}`;
       }
-      
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data");
-      const result = await res.json();
+      const result: ItemSalesData[] = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
@@ -66,13 +76,13 @@ const CategorySales = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number): string => "Rp " + num.toLocaleString("id-ID");
 
   const totalSold = data.reduce((acc, item) => acc + item.quantity, 0);
   const totalCollected = data.reduce((acc, item) => acc + item.totalCollected, 0);
@@ -111,23 +121,24 @@ const CategorySales = () => {
     }
   });
 
-  const exportData = sortedData.map(item => ({
-    "Nama Menu": item.menuName,
-    "Category": item.category,
-    "Item Sold": item.quantity,
-    "Total Collected": item.totalCollected,
-    "HPP": item.hpp,
-    "Discount": item.discount,
-  }));
-
-  exportData.push({
-    "Nama Menu": "Total",
-    "Category": "",
-    "Item Sold": totalSold,
-    "Total Collected": totalCollected,
-    "HPP": totalHPP,
-    "Discount": totalDiscount,
-  });
+  const exportData = [
+    ...sortedData.map((item) => ({
+      "Nama Menu": item.menuName,
+      Category: item.category,
+      "Item Sold": item.quantity,
+      "Total Collected": formatCurrency(item.totalCollected),
+      HPP: formatCurrency(item.hpp),
+      Discount: formatCurrency(item.discount),
+    })),
+    {
+      "Nama Menu": "Total",
+      Category: "",
+      "Item Sold": totalSold,
+      "Total Collected": formatCurrency(totalCollected),
+      HPP: formatCurrency(totalHPP),
+      Discount: formatCurrency(totalDiscount),
+    },
+  ];
 
   const exportColumns = [
     { header: "Nama Menu", key: "Nama Menu" },
@@ -157,7 +168,7 @@ const CategorySales = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>

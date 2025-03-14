@@ -1,8 +1,33 @@
 // pages/manager/report/sales/gross-profit/page.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data gross profit
+interface GrossProfitData {
+  summary: {
+    explanation: string;
+    grossSales: number;
+    discounts: number;
+    refunds: number;
+    netSales: number;
+    cogs: number;
+  };
+  details: {
+    orderId: number;
+    orderDate: string;
+    menuName: string;
+    sellingPrice: number;
+    quantity: number;
+    itemTotalSelling: number;
+    hpp: number;
+    itemTotalHPP: number;
+  }[];
+  ordersCount: number;
+  startDate: string;
+  endDate: string;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -29,10 +54,10 @@ const GrossProfit = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<GrossProfitData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -44,7 +69,7 @@ const GrossProfit = () => {
       } else {
         let periodQuery = selectedPeriod;
         let queryDate = startDate;
-        if (selectedPeriod.endsWith("-prev")) {
+        if (selectedPeriod.endsWith("-prev")) {
           const basePeriod = selectedPeriod.split("-")[0];
           queryDate = getPreviousDate(startDate, basePeriod);
           periodQuery = basePeriod;
@@ -55,7 +80,7 @@ const GrossProfit = () => {
       if (!res.ok) {
         throw new Error("Gagal mengambil data gross profit");
       }
-      const result = await res.json();
+      const result: GrossProfitData = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
@@ -63,13 +88,14 @@ const GrossProfit = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number | undefined) => "Rp " + (num ?? 0).toLocaleString("id-ID");
+  const formatCurrency = (num: number | undefined): string =>
+    "Rp " + (num ?? 0).toLocaleString("id-ID");
 
   const grossSales = data?.summary?.grossSales ?? 0;
   const discounts = data?.summary?.discounts ?? 0;
@@ -79,20 +105,22 @@ const GrossProfit = () => {
   const cogsPercentage = netSales > 0 ? ((cogs / netSales) * 100).toFixed(2) : "0.00";
 
   const tableData = data
-    ? [{
-        grossSales: data.summary.grossSales,
-        discounts: data.summary.discounts,
-        refunds: data.summary.refunds,
-        netSales: data.summary.netSales,
-        cogs: data.summary.cogs,
-      }]
+    ? [
+        {
+          "Gross Sales": formatCurrency(data.summary.grossSales),
+          Discounts: formatCurrency(data.summary.discounts),
+          Refunds: formatCurrency(data.summary.refunds),
+          "Net Sales": formatCurrency(data.summary.netSales),
+          COGS: formatCurrency(data.summary.cogs),
+        },
+      ]
     : [];
   const columns = [
-    { header: "Gross Sales", key: "grossSales" },
-    { header: "Discounts", key: "discounts" },
-    { header: "Refunds", key: "refunds" },
-    { header: "Net Sales", key: "netSales" },
-    { header: "COGS", key: "cogs" },
+    { header: "Gross Sales", key: "Gross Sales" },
+    { header: "Discounts", key: "Discounts" },
+    { header: "Refunds", key: "Refunds" },
+    { header: "Net Sales", key: "Net Sales" },
+    { header: "COGS", key: "COGS" },
   ];
 
   return (
@@ -110,7 +138,7 @@ const GrossProfit = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>

@@ -1,8 +1,15 @@
 // pages/manager/report/sales/payment-methods/page.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data payment method
+interface PaymentMethodData {
+  paymentMethod: string;
+  count: number;
+  totalRevenue: number;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -31,10 +38,10 @@ const PaymentMethods = () => {
     new Date().toISOString().split("T")[0]
   );
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<PaymentMethodData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -51,10 +58,10 @@ const PaymentMethods = () => {
         }
         url = `/api/payment-method-stats?period=${periodQuery}&date=${queryDate}`;
       }
-      
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data");
-      const result = await res.json();
+      const result: PaymentMethodData[] = await res.json();
       setData(Array.isArray(result) ? result : []);
     } catch (error) {
       console.error(error);
@@ -62,13 +69,13 @@ const PaymentMethods = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) =>
+  const formatCurrency = (num: number): string =>
     "Rp " + num.toLocaleString("id-ID");
 
   // Hitung total
@@ -76,18 +83,18 @@ const PaymentMethods = () => {
   const totalRevenue = data.reduce((acc, item) => acc + item.totalRevenue, 0);
 
   // Data untuk ekspor
-  const exportData = data.map(item => ({
-    "Payment Method": item.paymentMethod,
-    "Number of Transaction": item.count,
-    "Total Collected": item.totalRevenue,
-  }));
-
-  // Tambahkan total ke data ekspor
-  exportData.push({
-    "Payment Method": "Total",
-    "Number of Transaction": totalCount,
-    "Total Collected": totalRevenue,
-  });
+  const exportData = [
+    ...data.map((item) => ({
+      "Payment Method": item.paymentMethod,
+      "Number of Transaction": item.count,
+      "Total Collected": formatCurrency(item.totalRevenue),
+    })),
+    {
+      "Payment Method": "Total",
+      "Number of Transaction": totalCount,
+      "Total Collected": formatCurrency(totalRevenue),
+    },
+  ];
 
   const exportColumns = [
     { header: "Payment Method", key: "Payment Method" },
@@ -114,7 +121,9 @@ const PaymentMethods = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              setSelectedPeriod(e.target.value)
+            }
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>
@@ -136,9 +145,7 @@ const PaymentMethods = () => {
             id="startDate"
             type="date"
             value={startDate}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setStartDate(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           />
         </div>
@@ -151,9 +158,7 @@ const PaymentMethods = () => {
               id="endDate"
               type="date"
               value={endDate}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setEndDate(e.target.value)
-              }
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
               className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
             />
           </div>

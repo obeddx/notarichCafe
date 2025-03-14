@@ -4,7 +4,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedItem {
+// Interface untuk respons API
+interface ItemSalesResponse {
   menuName: string;
   category: string;
   quantity: number;
@@ -13,9 +14,10 @@ interface AggregatedItem {
   discount: number;
 }
 
-function getStartAndEndDates(period: string, dateString?: string) {
+function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
 
   switch (period.toLowerCase()) {
     case "daily":
@@ -51,18 +53,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
-    
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate 
-        ? new Date(req.query.endDate as string)
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery
+        ? new Date(endDateQuery)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     const orders = await prisma.completedOrder.findMany({
@@ -82,10 +90,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Agregasi data per item
-    const aggregatedData: Record<number, AggregatedItem> = {};
+    const aggregatedData: Record<number, ItemSalesResponse> = {};
 
     for (const order of orders) {
-      const orderTotal = Number(order.finalTotal);
       const orderDiscount = Number(order.discountAmount || 0);
       const totalItems = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
       const discountPerItem = totalItems > 0 ? orderDiscount / totalItems : 0;
@@ -107,7 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const itemSellingPrice = Number(item.menu.price);
         const itemHPP = Number(item.menu.hargaBakul);
         const itemTotal = itemSellingPrice * quantity;
-        const itemCollected = (itemTotal - discountPerItem * quantity); // Proporsional berdasarkan finalTotal
+        const itemCollected = itemTotal - discountPerItem * quantity; // Proporsional berdasarkan jumlah item
         const itemHPPValue = itemHPP * quantity;
 
         aggregatedData[menuId].quantity += quantity;
@@ -118,14 +125,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Konversi ke array dan urutkan berdasarkan totalCollected
-    const result = Object.values(aggregatedData).sort((a, b) => b.totalCollected - a.totalCollected);
+    const result: ItemSalesResponse[] = Object.values(aggregatedData).sort(
+      (a, b) => b.totalCollected - a.totalCollected
+    );
 
     res.status(200).json(result);
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   }
 }

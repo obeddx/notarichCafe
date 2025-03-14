@@ -4,7 +4,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedGratuity {
+// Interface untuk respons API
+interface GratuityReportResponse {
   name: string;
   rate: string;
   gratuityCollected: number;
@@ -12,7 +13,8 @@ interface AggregatedGratuity {
 
 function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
   switch (period.toLowerCase()) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -47,18 +49,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
-    
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate 
-        ? new Date(req.query.endDate as string)
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery
+        ? new Date(endDateQuery)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     // Ambil semua gratuity aktif untuk referensi
@@ -85,11 +93,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Agregasi data per gratuity
-    const aggregatedData: Record<number, AggregatedGratuity> = {};
+    const aggregatedData: Record<number, GratuityReportResponse> = {};
 
     for (const order of orders) {
       // Asumsikan hanya satu gratuity aktif per periode untuk simplifikasi
-      const activeGratuity = gratuities.find(g => g.isActive); // Ambil gratuity aktif pertama
+      const activeGratuity = gratuities.find((g) => g.isActive); // Ambil gratuity aktif pertama
       if (!activeGratuity) continue;
 
       const gratuityId = activeGratuity.id;
@@ -105,14 +113,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Konversi ke array dan urutkan berdasarkan gratuityCollected
-    const result = Object.values(aggregatedData).sort((a, b) => b.gratuityCollected - a.gratuityCollected);
+    const result: GratuityReportResponse[] = Object.values(aggregatedData).sort(
+      (a, b) => b.gratuityCollected - a.gratuityCollected
+    );
 
     res.status(200).json(result);
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : "Unknown error",
     });
+  } finally {
+    await prisma.$disconnect();
   }
 }

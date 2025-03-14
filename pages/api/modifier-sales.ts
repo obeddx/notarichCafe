@@ -1,9 +1,11 @@
+// pages/api/modifier-sales.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedModifier {
+// Interface untuk respons API
+interface ModifierSalesResponse {
   modifierName: string;
   quantity: number;
   totalSales: number;
@@ -11,9 +13,10 @@ interface AggregatedModifier {
   grossSales: number;
 }
 
-function getStartAndEndDates(period: string, dateString?: string) {
+function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
 
   switch (period.toLowerCase()) {
     case "daily":
@@ -49,18 +52,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
 
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate
-        ? new Date(req.query.endDate as string)
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery
+        ? new Date(endDateQuery)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     const completedOrders = await prisma.completedOrder.findMany({
@@ -92,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Agregasi data per modifier
-    const aggregatedData: Record<number, AggregatedModifier> = {};
+    const aggregatedData: Record<number, ModifierSalesResponse> = {};
 
     for (const order of completedOrders) {
       for (const item of order.orderItems) {
@@ -131,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    const result = Object.values(aggregatedData).sort(
+    const result: ModifierSalesResponse[] = Object.values(aggregatedData).sort(
       (a, b) => b.totalSales - a.totalSales
     );
 
@@ -142,5 +151,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: "Internal server error",
       message: error instanceof Error ? error.message : "Unknown error",
     });
+  } finally {
+    await prisma.$disconnect();
   }
 }

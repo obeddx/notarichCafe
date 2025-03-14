@@ -1,8 +1,15 @@
 // pages/manager/report/sales/gratuity-report/GratuityReport.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data gratuity report
+interface GratuityReportData {
+  name: string;
+  rate: string;
+  gratuityCollected: number;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -29,10 +36,10 @@ const GratuityReport = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<GratuityReportData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -49,10 +56,10 @@ const GratuityReport = () => {
         }
         url = `/api/gratuity-report?period=${periodQuery}&date=${queryDate}`;
       }
-      
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data gratuity report");
-      const result = await res.json();
+      const result: GratuityReportData[] = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
@@ -60,29 +67,30 @@ const GratuityReport = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number): string => "Rp " + num.toLocaleString("id-ID");
 
   // Hitung total
   const totalGratuityCollected = data.reduce((acc, item) => acc + item.gratuityCollected, 0);
 
   // Data untuk ekspor
-  const exportData = data.map(item => ({
-    "Name": item.name,
-    "Rate": item.rate,
-    "Gratuity Collected": item.gratuityCollected,
-  }));
-
-  exportData.push({
-    "Name": "Total",
-    "Rate": "",
-    "Gratuity Collected": totalGratuityCollected,
-  });
+  const exportData = [
+    ...data.map((item) => ({
+      Name: item.name,
+      Rate: item.rate,
+      "Gratuity Collected": formatCurrency(item.gratuityCollected),
+    })),
+    {
+      Name: "Total",
+      Rate: "",
+      "Gratuity Collected": formatCurrency(totalGratuityCollected),
+    },
+  ];
 
   const exportColumns = [
     { header: "Name", key: "Name" },
@@ -109,7 +117,7 @@ const GratuityReport = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>

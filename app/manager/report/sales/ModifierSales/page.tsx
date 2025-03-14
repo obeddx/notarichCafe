@@ -1,7 +1,17 @@
+// pages/manager/report/sales/modifier-sales/page.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data modifier sales
+interface ModifierSalesData {
+  modifierName: string;
+  quantity: number;
+  totalSales: number;
+  hpp: number;
+  grossSales: number;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -30,14 +40,14 @@ const ModifierSales = () => {
     new Date().toISOString().split("T")[0]
   );
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ModifierSalesData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [sortColumn, setSortColumn] = useState<
     "modifierName" | "quantity" | "totalSales" | "hpp" | "grossSales" | null
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -57,7 +67,7 @@ const ModifierSales = () => {
 
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data");
-      const result = await res.json();
+      const result: ModifierSalesData[] = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
@@ -65,13 +75,13 @@ const ModifierSales = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number): string => "Rp " + num.toLocaleString("id-ID");
 
   const totalQuantity = data.reduce((acc, item) => acc + item.quantity, 0);
   const totalSales = data.reduce((acc, item) => acc + item.totalSales, 0);
@@ -108,21 +118,22 @@ const ModifierSales = () => {
     }
   });
 
-  const exportData = sortedData.map((item) => ({
-    "Nama Modifier": item.modifierName,
-    "Quantity Sold": item.quantity,
-    "Total Sales": item.totalSales,
-    "HPP": item.hpp,
-    "Gross Sales": item.grossSales,
-  }));
-
-  exportData.push({
-    "Nama Modifier": "Total",
-    "Quantity Sold": totalQuantity,
-    "Total Sales": totalSales,
-    "HPP": totalHPP,
-    "Gross Sales": totalGrossSales,
-  });
+  const exportData = [
+    ...sortedData.map((item) => ({
+      "Nama Modifier": item.modifierName,
+      "Quantity Sold": item.quantity,
+      "Total Sales": formatCurrency(item.totalSales),
+      HPP: formatCurrency(item.hpp),
+      "Gross Sales": formatCurrency(item.grossSales),
+    })),
+    {
+      "Nama Modifier": "Total",
+      "Quantity Sold": totalQuantity,
+      "Total Sales": formatCurrency(totalSales),
+      HPP: formatCurrency(totalHPP),
+      "Gross Sales": formatCurrency(totalGrossSales),
+    },
+  ];
 
   const exportColumns = [
     { header: "Nama Modifier", key: "Nama Modifier" },
@@ -151,7 +162,7 @@ const ModifierSales = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>
@@ -173,9 +184,7 @@ const ModifierSales = () => {
             id="startDate"
             type="date"
             value={startDate}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setStartDate(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           />
         </div>
@@ -188,9 +197,7 @@ const ModifierSales = () => {
               id="endDate"
               type="date"
               value={endDate}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setEndDate(e.target.value)
-              }
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
               className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
             />
           </div>
@@ -214,23 +221,13 @@ const ModifierSales = () => {
                     <div className="ml-2 flex flex-col">
                       <button
                         onClick={() => handleSort("modifierName")}
-                        className={`text-gray-500 ${
-                          sortColumn === "modifierName" &&
-                          sortDirection === "asc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "modifierName" && sortDirection === "asc" ? "text-blue-500" : ""}`}
                       >
                         ▲
                       </button>
                       <button
                         onClick={() => handleSort("modifierName")}
-                        className={`text-gray-500 ${
-                          sortColumn === "modifierName" &&
-                          sortDirection === "desc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "modifierName" && sortDirection === "desc" ? "text-blue-500" : ""}`}
                       >
                         ▼
                       </button>
@@ -243,21 +240,13 @@ const ModifierSales = () => {
                     <div className="ml-2 flex flex-col">
                       <button
                         onClick={() => handleSort("quantity")}
-                        className={`text-gray-500 ${
-                          sortColumn === "quantity" && sortDirection === "asc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "quantity" && sortDirection === "asc" ? "text-blue-500" : ""}`}
                       >
                         ▲
                       </button>
                       <button
                         onClick={() => handleSort("quantity")}
-                        className={`text-gray-500 ${
-                          sortColumn === "quantity" && sortDirection === "desc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "quantity" && sortDirection === "desc" ? "text-blue-500" : ""}`}
                       >
                         ▼
                       </button>
@@ -270,23 +259,13 @@ const ModifierSales = () => {
                     <div className="ml-2 flex flex-col">
                       <button
                         onClick={() => handleSort("totalSales")}
-                        className={`text-gray-500 ${
-                          sortColumn === "totalSales" &&
-                          sortDirection === "asc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "totalSales" && sortDirection === "asc" ? "text-blue-500" : ""}`}
                       >
                         ▲
                       </button>
                       <button
                         onClick={() => handleSort("totalSales")}
-                        className={`text-gray-500 ${
-                          sortColumn === "totalSales" &&
-                          sortDirection === "desc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "totalSales" && sortDirection === "desc" ? "text-blue-500" : ""}`}
                       >
                         ▼
                       </button>
@@ -299,21 +278,13 @@ const ModifierSales = () => {
                     <div className="ml-2 flex flex-col">
                       <button
                         onClick={() => handleSort("hpp")}
-                        className={`text-gray-500 ${
-                          sortColumn === "hpp" && sortDirection === "asc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "hpp" && sortDirection === "asc" ? "text-blue-500" : ""}`}
                       >
                         ▲
                       </button>
                       <button
                         onClick={() => handleSort("hpp")}
-                        className={`text-gray-500 ${
-                          sortColumn === "hpp" && sortDirection === "desc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "hpp" && sortDirection === "desc" ? "text-blue-500" : ""}`}
                       >
                         ▼
                       </button>
@@ -326,22 +297,13 @@ const ModifierSales = () => {
                     <div className="ml-2 flex flex-col">
                       <button
                         onClick={() => handleSort("grossSales")}
-                        className={`text-gray-500 ${
-                          sortColumn === "grossSales" && sortDirection === "asc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "grossSales" && sortDirection === "asc" ? "text-blue-500" : ""}`}
                       >
                         ▲
                       </button>
                       <button
                         onClick={() => handleSort("grossSales")}
-                        className={`text-gray-500 ${
-                          sortColumn === "grossSales" &&
-                          sortDirection === "desc"
-                            ? "text-blue-500"
-                            : ""
-                        }`}
+                        className={`text-gray-500 ${sortColumn === "grossSales" && sortDirection === "desc" ? "text-blue-500" : ""}`}
                       >
                         ▼
                       </button>
@@ -353,37 +315,19 @@ const ModifierSales = () => {
             <tbody className="divide-y divide-gray-200">
               {sortedData.map((item, index) => (
                 <tr key={index}>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {item.modifierName}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                    {item.quantity}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                    {formatCurrency(item.totalSales)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                    {formatCurrency(item.hpp)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                    {formatCurrency(item.grossSales)}
-                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{item.modifierName}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{item.quantity}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.totalSales)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.hpp)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(item.grossSales)}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold">
                 <td className="px-6 py-4 text-sm text-gray-900">Total</td>
-                <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                  {totalQuantity}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                  {formatCurrency(totalSales)}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                  {formatCurrency(totalHPP)}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900 text-right">
-                  {formatCurrency(totalGrossSales)}
-                </td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{totalQuantity}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalSales)}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalHPP)}</td>
+                <td className="px-6 py-4 text-sm text-gray-900 text-right">{formatCurrency(totalGrossSales)}</td>
               </tr>
             </tbody>
           </table>

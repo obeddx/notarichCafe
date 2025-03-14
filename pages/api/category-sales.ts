@@ -4,7 +4,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedCategory {
+// Interface untuk respons API
+interface CategorySalesResponse {
   category: string;
   itemSold: number;
   totalCollected: number;
@@ -14,9 +15,10 @@ interface AggregatedCategory {
   netSales: number;
 }
 
-function getStartAndEndDates(period: string, dateString?: string) {
+function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
 
   switch (period.toLowerCase()) {
     case "daily":
@@ -52,18 +54,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
-    
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate 
-        ? new Date(req.query.endDate as string)
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery
+        ? new Date(endDateQuery)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     const orders = await prisma.completedOrder.findMany({
@@ -83,15 +91,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Agregasi data per kategori
-    const aggregatedData: Record<string, AggregatedCategory> = {};
+    const aggregatedData: Record<string, CategorySalesResponse> = {};
 
     for (const order of orders) {
-      const orderTotal = Number(order.finalTotal);
       const orderDiscount = Number(order.discountAmount || 0);
       const orderTax = Number(order.taxAmount || 0);
       const orderGratuity = Number(order.gratuityAmount || 0);
       const totalItems = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
       const discountPerItem = totalItems > 0 ? orderDiscount / totalItems : 0;
+      const taxPerItem = totalItems > 0 ? orderTax / totalItems : 0;
+      const gratuityPerItem = totalItems > 0 ? orderGratuity / totalItems : 0;
 
       for (const item of order.orderItems) {
         const category = item.menu.category;
@@ -115,21 +124,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         aggregatedData[category].itemSold += quantity;
         aggregatedData[category].totalCollected += itemCollected;
         aggregatedData[category].discount += discountPerItem * quantity;
-        aggregatedData[category].tax += orderTax;
-        aggregatedData[category].gratuity += orderGratuity; 
-        aggregatedData[category].netSales += itemCollected + orderTax + orderGratuity - (discountPerItem * quantity);
+        aggregatedData[category].tax += taxPerItem * quantity;
+        aggregatedData[category].gratuity += gratuityPerItem * quantity;
+        aggregatedData[category].netSales +=
+          itemCollected + taxPerItem * quantity + gratuityPerItem * quantity - discountPerItem * quantity;
       }
     }
 
     // Konversi ke array dan urutkan berdasarkan totalCollected
-    const result = Object.values(aggregatedData).sort((a, b) => b.totalCollected - a.totalCollected);
+    const result: CategorySalesResponse[] = Object.values(aggregatedData).sort(
+      (a, b) => b.totalCollected - a.totalCollected
+    );
 
     res.status(200).json(result);
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   } finally {
     await prisma.$disconnect();

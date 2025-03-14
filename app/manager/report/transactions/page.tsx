@@ -1,8 +1,31 @@
 // pages/manager/report/transactions/Transactions.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import Sidebar from "@/components/sidebar"; // Pastikan path sesuai
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data transaksi
+interface TransactionItem {
+  menuName: string;
+  total: number;
+}
+
+interface TransactionDetail {
+  time: string; // ISO string dari Date
+  items: TransactionItem[];
+  totalPrice: number;
+}
+
+interface TransactionSummary {
+  totalTransactions: number;
+  totalCollected: number;
+  netSales: number;
+}
+
+interface TransactionData {
+  summary: TransactionSummary;
+  details: TransactionDetail[];
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -29,13 +52,13 @@ const Transactions = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<TransactionData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [sortColumn, setSortColumn] = useState<"time" | "totalPrice" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true); // State untuk sidebar
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -52,10 +75,10 @@ const Transactions = () => {
         }
         url = `/api/transactions?period=${periodQuery}&date=${queryDate}`;
       }
-      
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data transaksi");
-      const result = await res.json();
+      const result: TransactionData = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
@@ -63,17 +86,17 @@ const Transactions = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number): string => "Rp " + num.toLocaleString("id-ID");
 
-  const totalTransactions = data?.summary?.totalTransactions || 0;
-  const totalCollected = data?.summary?.totalCollected || 0;
-  const netSales = data?.summary?.netSales || 0;
+  const totalTransactions = data?.summary.totalTransactions || 0;
+  const totalCollected = data?.summary.totalCollected || 0;
+  const netSales = data?.summary.netSales || 0;
 
   const handleSort = (column: "time" | "totalPrice") => {
     if (sortColumn === column) {
@@ -84,35 +107,38 @@ const Transactions = () => {
     }
   };
 
-  const sortedDetails = data?.details ? [...data.details].sort((a: any, b: any) => {
-    if (!sortColumn) return 0;
-    const direction = sortDirection === "asc" ? 1 : -1;
-    if (sortColumn === "time") {
-      return direction * (new Date(a.time).getTime() - new Date(b.time).getTime());
-    } else if (sortColumn === "totalPrice") {
-      return direction * (a.totalPrice - b.totalPrice);
-    }
-    return 0;
-  }) : [];
+  const sortedDetails = data?.details
+    ? [...data.details].sort((a, b) => {
+        if (!sortColumn) return 0;
+        const direction = sortDirection === "asc" ? 1 : -1;
+        if (sortColumn === "time") {
+          return direction * (new Date(a.time).getTime() - new Date(b.time).getTime());
+        } else if (sortColumn === "totalPrice") {
+          return direction * (a.totalPrice - b.totalPrice);
+        }
+        return 0;
+      })
+    : [];
 
-  const exportData = sortedDetails.map((item: any) => ({
-    "Time": new Date(item.time).toLocaleString("id-ID", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    "Items": item.items.map((i: any) => `${i.menuName} (Rp ${i.total.toLocaleString("id-ID")})`).join(", "),
-    "Total Price": item.totalPrice,
-  }));
-
-  exportData.push({
-    "Time": "Total",
-    "Items": "",
-    "Total Price": totalCollected,
-  });
+  const exportData = [
+    ...sortedDetails.map((item) => ({
+      Time: new Date(item.time).toLocaleString("id-ID", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      Items: item.items.map((i) => `${i.menuName} (Rp ${i.total.toLocaleString("id-ID")})`).join(", "),
+      "Total Price": formatCurrency(item.totalPrice),
+    })),
+    {
+      Time: "Total",
+      Items: "",
+      "Total Price": formatCurrency(totalCollected),
+    },
+  ];
 
   const exportColumns = [
     { header: "Time", key: "Time" },
@@ -122,14 +148,10 @@ const Transactions = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
       <Sidebar onToggle={() => setSidebarOpen(!sidebarOpen)} isOpen={sidebarOpen} />
 
-      {/* Konten Utama */}
       <div
-        className={`flex-1 p-6 transition-all duration-300 ${
-          sidebarOpen ? "ml-64" : "ml-20"
-        }`}
+        className={`flex-1 p-6 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}
       >
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
@@ -149,7 +171,7 @@ const Transactions = () => {
               <select
                 id="period"
                 value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
                 className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
               >
                 <option value="daily">Hari Ini</option>
@@ -271,7 +293,7 @@ const Transactions = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {sortedDetails.map((transaction: any, index: number) => (
+                    {sortedDetails.map((transaction, index) => (
                       <tr key={index} className="bg-white">
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {new Date(transaction.time).toLocaleString("id-ID", {
@@ -284,7 +306,7 @@ const Transactions = () => {
                           })}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {transaction.items.map((item: any, i: number) => (
+                          {transaction.items.map((item, i) => (
                             <div key={i}>{item.menuName}</div>
                           ))}
                         </td>

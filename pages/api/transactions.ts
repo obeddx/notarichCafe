@@ -4,9 +4,33 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Interface untuk respons API
+interface TransactionItem {
+  menuName: string;
+  total: number;
+}
+
+interface TransactionDetail {
+  time: Date;
+  items: TransactionItem[];
+  totalPrice: number;
+}
+
+interface TransactionSummary {
+  totalTransactions: number;
+  totalCollected: number;
+  netSales: number;
+}
+
+interface TransactionResponse {
+  summary: TransactionSummary;
+  details: TransactionDetail[];
+}
+
 function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
   switch (period.toLowerCase()) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -41,18 +65,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
-    
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate 
-        ? new Date(req.query.endDate as string)
-        : new Date(startDate);
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery ? new Date(endDateQuery) : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     const orders = await prisma.completedOrder.findMany({
@@ -77,30 +105,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Hitung summary
     const totalTransactions = orders.length;
     const totalCollected = orders.reduce((acc, order) => acc + Number(order.finalTotal), 0);
-    const netSales = orders.reduce((acc, order) => acc + Number(order.total) - Number(order.discountAmount || 0), 0);
+    const netSales = orders.reduce(
+      (acc, order) => acc + Number(order.total) - Number(order.discountAmount || 0),
+      0
+    );
 
     // Format detail transaksi
-    const details = orders.map(order => ({
+    const details: TransactionDetail[] = orders.map((order) => ({
       time: order.createdAt,
-      items: order.orderItems.map(item => ({
+      items: order.orderItems.map((item) => ({
         menuName: item.menu.name,
-        total: item.menu.price * item.quantity,
+        total: Number(item.menu.price) * item.quantity,
       })),
       totalPrice: Number(order.finalTotal),
     }));
 
-    const summary = {
+    const summary: TransactionSummary = {
       totalTransactions,
       totalCollected,
       netSales,
     };
 
-    return res.status(200).json({
+    const response: TransactionResponse = {
       summary,
       details,
-    });
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching transactions:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({
+      error: "Internal server error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  } finally {
+    await prisma.$disconnect();
   }
 }

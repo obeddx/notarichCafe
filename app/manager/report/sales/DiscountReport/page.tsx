@@ -1,7 +1,16 @@
+// pages/manager/report/sales/discount-report/page.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data discount report
+interface DiscountReportData {
+  name: string;
+  discount: string;
+  count: number;
+  grossDiscount: number;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -28,10 +37,10 @@ const DiscountReport = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<DiscountReportData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -51,7 +60,7 @@ const DiscountReport = () => {
 
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data discount report");
-      const result = await res.json();
+      const result: DiscountReportData[] = await res.json();
       setData(result);
     } catch (error) {
       console.error("Error fetching discount report:", error);
@@ -59,30 +68,31 @@ const DiscountReport = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number): string => "Rp " + num.toLocaleString("id-ID");
 
   const totalCount = data.reduce((acc, item) => acc + item.count, 0);
   const totalGrossDiscount = data.reduce((acc, item) => acc + item.grossDiscount, 0);
 
-  const exportData = data.map((item) => ({
-    Name: item.name,
-    Discount: item.discount,
-    Count: item.count,
-    "Gross Discount": formatCurrency(item.grossDiscount),
-  }));
-
-  exportData.push({
-    Name: "Total",
-    Discount: "",
-    Count: totalCount,
-    "Gross Discount": formatCurrency(totalGrossDiscount),
-  });
+  const exportData = [
+    ...data.map((item) => ({
+      Name: item.name,
+      Discount: item.discount,
+      Count: item.count,
+      "Gross Discount": formatCurrency(item.grossDiscount),
+    })),
+    {
+      Name: "Total",
+      Discount: "",
+      Count: totalCount,
+      "Gross Discount": formatCurrency(totalGrossDiscount),
+    },
+  ];
 
   const exportColumns = [
     { header: "Name", key: "Name" },
@@ -110,7 +120,7 @@ const DiscountReport = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>

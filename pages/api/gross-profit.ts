@@ -4,9 +4,35 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Interface untuk respons API
+interface GrossProfitResponse {
+  summary: {
+    explanation: string;
+    grossSales: number;
+    discounts: number;
+    refunds: number;
+    netSales: number;
+    cogs: number;
+  };
+  details: {
+    orderId: number;
+    orderDate: string;
+    menuName: string;
+    sellingPrice: number;
+    quantity: number;
+    itemTotalSelling: number;
+    hpp: number;
+    itemTotalHPP: number;
+  }[];
+  ordersCount: number;
+  startDate: string;
+  endDate: string;
+}
+
 function getStartAndEndDates(period: string, dateString: string): { startDate: Date; endDate: Date } {
   const date = new Date(dateString);
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
   switch (period) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -39,20 +65,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
   try {
-    let startDate: Date, endDate: Date;
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      if (req.query.endDate) {
-        endDate = new Date(req.query.endDate as string);
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      if (endDateQuery) {
+        endDate = new Date(endDateQuery);
         endDate.setDate(endDate.getDate() + 1);
       } else {
         endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 1);
       }
     } else {
-      const period = (req.query.period as string) || "daily";
-      const dateStr = (req.query.date as string) || new Date().toISOString();
+      const dateStr = date || new Date().toISOString();
       ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
@@ -75,7 +109,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // Hitung Gross Sales: Total harga normal menu - HPP (tanpa diskon menu)
     const grossSales = orders.reduce((acc, order) => {
       return (
         acc +
@@ -87,18 +120,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }, 0);
 
-    // Hitung Discounts: Total semua diskon (scope MENU dan TOTAL)
     const discounts = orders.reduce((acc, order) => {
       return acc + Number(order.discountAmount || 0);
     }, 0);
 
-    // Refunds tetap 0
     const refunds = 0;
 
-    // Hitung Net Sales: Gross Sales - Discounts - Refunds
     const netSales = grossSales - discounts - refunds;
 
-    // Hitung COGS: Total HPP (hargaBakul * quantity)
     const cogs = orders.reduce((acc, order) => {
       return (
         acc +
@@ -108,8 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }, 0);
 
-    // Siapkan detail item untuk referensi (meskipun tidak ditampilkan di tabel utama)
-    const itemDetails = [];
+    const itemDetails: GrossProfitResponse["details"] = [];
     for (const order of orders) {
       for (const item of order.orderItems) {
         const sellingPrice = Number(item.menu.price);
@@ -119,7 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const itemTotalHPP = hpp * quantity;
         itemDetails.push({
           orderId: order.id,
-          orderDate: order.createdAt,
+          orderDate: order.createdAt.toISOString(),
           menuName: item.menu.name,
           sellingPrice,
           quantity,
@@ -130,7 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    const summary = {
+    const summary: GrossProfitResponse["summary"] = {
       explanation: "Gross Sales dihitung sebagai total penjualan normal dikurangi HPP (COGS). Net Sales dihitung sebagai Gross Sales dikurangi Discounts dan Refunds.",
       grossSales,
       discounts,
@@ -139,13 +167,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cogs,
     };
 
-    return res.status(200).json({
+    const response: GrossProfitResponse = {
       summary,
       details: itemDetails,
       ordersCount: orders.length,
-      startDate,
-      endDate,
-    });
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error calculating gross profit:", error);
     return res.status(500).json({ error: "Internal server error" });

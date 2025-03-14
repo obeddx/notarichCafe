@@ -1,8 +1,16 @@
 // pages/manager/report/sales/tax-report/TaxReport.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data tax report
+interface TaxReportData {
+  name: string;
+  taxRate: string;
+  taxableAmount: number;
+  taxCollected: number;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -29,10 +37,10 @@ const TaxReport = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
   const [startDate, setStartDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState<string>("");
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<TaxReportData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -49,10 +57,10 @@ const TaxReport = () => {
         }
         url = `/api/tax-report?period=${periodQuery}&date=${queryDate}`;
       }
-      
+
       const res = await fetch(url);
       if (!res.ok) throw new Error("Gagal mengambil data tax report");
-      const result = await res.json();
+      const result: TaxReportData[] = await res.json();
       setData(result);
     } catch (error) {
       console.error(error);
@@ -60,32 +68,33 @@ const TaxReport = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchData]);
 
-  const formatCurrency = (num: number) => "Rp " + num.toLocaleString("id-ID");
+  const formatCurrency = (num: number): string => "Rp " + num.toLocaleString("id-ID");
 
   // Hitung total
   const totalTaxableAmount = data.reduce((acc, item) => acc + item.taxableAmount, 0);
   const totalTaxCollected = data.reduce((acc, item) => acc + item.taxCollected, 0);
 
   // Data untuk ekspor
-  const exportData = data.map(item => ({
-    "Name": item.name,
-    "Tax Rate": item.taxRate,
-    "Taxable Amount": item.taxableAmount,
-    "Tax Collected": item.taxCollected,
-  }));
-
-  exportData.push({
-    "Name": "Total",
-    "Tax Rate": "",
-    "Taxable Amount": totalTaxableAmount,
-    "Tax Collected": totalTaxCollected,
-  });
+  const exportData = [
+    ...data.map((item) => ({
+      Name: item.name,
+      "Tax Rate": item.taxRate,
+      "Taxable Amount": formatCurrency(item.taxableAmount),
+      "Tax Collected": formatCurrency(item.taxCollected),
+    })),
+    {
+      Name: "Total",
+      "Tax Rate": "",
+      "Taxable Amount": formatCurrency(totalTaxableAmount),
+      "Tax Collected": formatCurrency(totalTaxCollected),
+    },
+  ];
 
   const exportColumns = [
     { header: "Name", key: "Name" },
@@ -113,7 +122,7 @@ const TaxReport = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedPeriod(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>

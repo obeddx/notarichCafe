@@ -1,8 +1,23 @@
 // pages/manager/report/sales/summary/page.tsx
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react"; // Tambahkan useCallback
 import SalesLayout from "@/components/SalesLayout";
 import { ExportButton } from "@/components/ExportButton";
+
+// Interface untuk data sales summary
+interface SalesSummaryData {
+  grossSales: number;
+  discounts: number;
+  refunds: number;
+  netSales: number;
+  gratuity: number;
+  tax: number;
+  rounding: number;
+  totalCollected: number;
+  ordersCount: number;
+  startDate: string;
+  endDate: string;
+}
 
 const getPreviousDate = (dateStr: string, period: string): string => {
   const date = new Date(dateStr);
@@ -31,10 +46,10 @@ const SalesSummary = () => {
     new Date().toISOString().split("T")[0]
   );
   const [endDate, setEndDate] = useState<string>("");
-  const [salesSummary, setSalesSummary] = useState<any>(null);
+  const [salesSummary, setSalesSummary] = useState<SalesSummaryData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
       let url = "";
@@ -57,7 +72,7 @@ const SalesSummary = () => {
       if (!res.ok) {
         throw new Error("Gagal mengambil data sales summary");
       }
-      const data = await res.json();
+      const data: SalesSummaryData = await res.json();
       setSalesSummary(data);
     } catch (error) {
       console.error(error);
@@ -65,39 +80,39 @@ const SalesSummary = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, startDate, endDate]); // Dependensi untuk useCallback
 
   useEffect(() => {
     fetchSummary();
-  }, [selectedPeriod, startDate, endDate]);
+  }, [fetchSummary]); // Hanya fetchSummary sebagai dependensi
 
-  const formatCurrency = (num: number) =>
+  const formatCurrency = (num: number): string =>
     "Rp " + num.toLocaleString("id-ID");
 
   const exportData = salesSummary
     ? [
         {
-          grossSales: salesSummary.grossSales,
-          discounts: salesSummary.discounts,
-          refunds: salesSummary.refunds,
-          netSales: salesSummary.netSales,
-          gratuity: salesSummary.gratuity,
-          tax: salesSummary.tax,
-          rounding: salesSummary.rounding,
-          totalCollected: salesSummary.totalCollected,
+          "Gross Sales": formatCurrency(salesSummary.grossSales),
+          Discounts: formatCurrency(salesSummary.discounts),
+          Refunds: formatCurrency(salesSummary.refunds),
+          "Net Sales": formatCurrency(salesSummary.netSales),
+          Gratuity: formatCurrency(salesSummary.gratuity),
+          Tax: formatCurrency(salesSummary.tax),
+          Rounding: formatCurrency(salesSummary.rounding),
+          "Total Collected": formatCurrency(salesSummary.totalCollected),
         },
       ]
     : [];
 
   const exportColumns = [
-    { header: "Gross Sales", key: "grossSales" },
-    { header: "Discounts", key: "discounts" },
-    { header: "Refunds", key: "refunds" },
-    { header: "Net Sales", key: "netSales" },
-    { header: "Gratuity", key: "gratuity" },
-    { header: "Tax", key: "tax" },
-    { header: "Rounding", key: "rounding" },
-    { header: "Total Collected", key: "totalCollected" },
+    { header: "Gross Sales", key: "Gross Sales" },
+    { header: "Discounts", key: "Discounts" },
+    { header: "Refunds", key: "Refunds" },
+    { header: "Net Sales", key: "Net Sales" },
+    { header: "Gratuity", key: "Gratuity" },
+    { header: "Tax", key: "Tax" },
+    { header: "Rounding", key: "Rounding" },
+    { header: "Total Collected", key: "Total Collected" },
   ];
 
   return (
@@ -119,7 +134,9 @@ const SalesSummary = () => {
           <select
             id="period"
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              setSelectedPeriod(e.target.value)
+            }
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           >
             <option value="daily">Hari Ini</option>
@@ -141,9 +158,7 @@ const SalesSummary = () => {
             id="startDate"
             type="date"
             value={startDate}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setStartDate(e.target.value)
-            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)}
             className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
           />
         </div>
@@ -156,9 +171,7 @@ const SalesSummary = () => {
               id="endDate"
               type="date"
               value={endDate}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setEndDate(e.target.value)
-              }
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)}
               className="p-2 border rounded bg-[#FFFAF0] text-[#212121] shadow-sm"
             />
           </div>

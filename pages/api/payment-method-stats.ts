@@ -1,11 +1,20 @@
+// pages/api/payment-method-stats.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-function getStartAndEndDates(period: string, dateString?: string) {
+// Interface untuk respons API
+interface PaymentMethodStats {
+  paymentMethod: string;
+  count: number;
+  totalRevenue: number;
+}
+
+function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
 
   switch (period.toLowerCase()) {
     case "daily":
@@ -41,43 +50,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
-    
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate 
-        ? new Date(req.query.endDate as string)
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery
+        ? new Date(endDateQuery)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     const result = await prisma.completedOrder.groupBy({
-      by: ['paymentMethod'],
+      by: ["paymentMethod"],
       where: {
         createdAt: { gte: startDate, lt: endDate },
-        paymentMethod: { not: null }
+        paymentMethod: { not: null },
       },
       _count: { paymentMethod: true },
       _sum: { total: true },
-      orderBy: { _count: { paymentMethod: 'desc' } }
+      orderBy: { _count: { paymentMethod: "desc" } },
     });
 
-    const formattedResult = result.map(item => ({
-      paymentMethod: item.paymentMethod || 'Unknown',
+    const formattedResult: PaymentMethodStats[] = result.map((item) => ({
+      paymentMethod: item.paymentMethod || "Unknown",
       count: item._count.paymentMethod,
-      totalRevenue: item._sum.total || 0
+      totalRevenue: item._sum.total || 0,
     }));
 
     res.status(200).json(formattedResult);
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   }
 }

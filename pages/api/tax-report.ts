@@ -4,7 +4,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-interface AggregatedTax {
+// Interface untuk respons API
+interface TaxReportResponse {
   name: string;
   taxRate: string;
   taxableAmount: number;
@@ -13,7 +14,8 @@ interface AggregatedTax {
 
 function getStartAndEndDates(period: string, dateString?: string): { startDate: Date; endDate: Date } {
   const date = dateString ? new Date(dateString) : new Date();
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
   switch (period.toLowerCase()) {
     case "daily":
       startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -48,18 +50,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let startDate: Date, endDate: Date;
-    
-    if (req.query.startDate) {
-      startDate = new Date(req.query.startDate as string);
-      endDate = req.query.endDate 
-        ? new Date(req.query.endDate as string)
+    const { period = "daily", date, startDate: startDateQuery, endDate: endDateQuery } = req.query as {
+      period?: string;
+      date?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateQuery) {
+      startDate = new Date(startDateQuery);
+      endDate = endDateQuery
+        ? new Date(endDateQuery)
         : new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
     } else {
-      const period = (req.query.period as string) || "daily";
-      const date = req.query.date as string || new Date().toISOString();
-      ({ startDate, endDate } = getStartAndEndDates(period, date));
+      const dateStr = date || new Date().toISOString();
+      ({ startDate, endDate } = getStartAndEndDates(period, dateStr));
     }
 
     // Ambil semua pajak aktif untuk referensi
@@ -86,11 +94,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Agregasi data per pajak
-    const aggregatedData: Record<number, AggregatedTax> = {};
+    const aggregatedData: Record<number, TaxReportResponse> = {};
 
     for (const order of orders) {
       // Asumsikan hanya satu pajak aktif per periode untuk simplifikasi
-      const activeTax = taxes.find(t => t.isActive); // Ambil pajak aktif pertama
+      const activeTax = taxes.find((t) => t.isActive); // Ambil pajak aktif pertama
       if (!activeTax) continue;
 
       const taxId = activeTax.id;
@@ -104,23 +112,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Taxable Amount: Total harga normal dikurangi diskon
-      const taxableAmount = order.orderItems.reduce((acc, item) => {
-        return acc + Number(item.menu.price) * item.quantity;
-      }, 0) - Number(order.discountAmount || 0);
+      const taxableAmount =
+        order.orderItems.reduce((acc, item) => {
+          return acc + Number(item.menu.price) * item.quantity;
+        }, 0) - Number(order.discountAmount || 0);
 
       aggregatedData[taxId].taxableAmount += taxableAmount;
       aggregatedData[taxId].taxCollected += Number(order.taxAmount || 0);
     }
 
     // Konversi ke array dan urutkan berdasarkan taxCollected
-    const result = Object.values(aggregatedData).sort((a, b) => b.taxCollected - a.taxCollected);
+    const result: TaxReportResponse[] = Object.values(aggregatedData).sort(
+      (a, b) => b.taxCollected - a.taxCollected
+    );
 
     res.status(200).json(result);
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : "Unknown error",
     });
+  } finally {
+    await prisma.$disconnect();
   }
 }
