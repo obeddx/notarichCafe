@@ -1,8 +1,32 @@
-// pages/api/grossMarginDetail.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+// Definisi tipe untuk hasil query summary
+interface SummaryRaw {
+  netSales: bigint | number;
+  totalHPP: bigint | number;
+}
+
+// Definisi tipe untuk detail menu
+interface MenuDetail {
+  menuName: string;
+  sellingPrice: number;
+  hpp: number;
+  quantity: bigint | number;
+  totalSales: number;
+}
+
+// Definisi tipe untuk respons API
+interface GrossMarginDetailResponse {
+  summary: {
+    netSales: number;
+    totalHPP: number;
+    grossMargin: number;
+  };
+  details: MenuDetail[];
+}
 
 function getStartOfISOWeek(isoWeek: string): Date {
   const [yearStr, weekStr] = isoWeek.split("-W");
@@ -52,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      const summaryRaw: any[] = await prisma.$queryRaw`
+      const summaryRaw: SummaryRaw[] = await prisma.$queryRaw`
         SELECT 
           SUM(co.finalTotal) as netSales,
           SUM(m.hargaBakul * ci.quantity) as totalHPP
@@ -62,19 +86,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         WHERE co.createdAt >= ${startDate} AND co.createdAt < ${endDate}
       `;
 
-      const summary = summaryRaw && summaryRaw.length > 0
-        ? {
-            netSales: Number(summaryRaw[0].netSales) || 0,
-            totalHPP: Number(summaryRaw[0].totalHPP) || 0,
-            grossMargin:
-              Number(summaryRaw[0].netSales) > 0
-                ? ((Number(summaryRaw[0].netSales) - Number(summaryRaw[0].totalHPP)) /
-                    Number(summaryRaw[0].netSales)) * 100
-                : 0,
-          }
-        : { netSales: 0, totalHPP: 0, grossMargin: 0 };
+      const summary: GrossMarginDetailResponse["summary"] =
+        summaryRaw && summaryRaw.length > 0
+          ? {
+              netSales: Number(summaryRaw[0].netSales) || 0,
+              totalHPP: Number(summaryRaw[0].totalHPP) || 0,
+              grossMargin:
+                Number(summaryRaw[0].netSales) > 0
+                  ? ((Number(summaryRaw[0].netSales) - Number(summaryRaw[0].totalHPP)) /
+                      Number(summaryRaw[0].netSales)) * 100
+                  : 0,
+            }
+          : { netSales: 0, totalHPP: 0, grossMargin: 0 };
 
-      const details: any[] = await prisma.$queryRaw`
+      const details: MenuDetail[] = await prisma.$queryRaw`
         SELECT 
           m.name as menuName,
           m.price as sellingPrice,
@@ -88,10 +113,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         GROUP BY m.id
       `;
 
-      return res.status(200).json({
+      const response: GrossMarginDetailResponse = {
         summary,
         details,
-      });
+      };
+
+      return res.status(200).json(response);
     } catch (error) {
       console.error("Error fetching gross margin detail:", error);
       return res.status(500).json({ error: "Internal server error" });

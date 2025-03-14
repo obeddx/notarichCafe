@@ -1,4 +1,3 @@
-// pages/manager/report/sales/gross-margin/GrossMarginChart.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {
@@ -15,19 +14,53 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
+// Deklarasi tipe untuk memperluas jsPDF dengan autoTable
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: {
+      head: string[][];
+      body: string[][];
+      startY?: number;
+      theme?: string;
+      styles?: { fontSize: number; cellPadding: number };
+      headStyles?: { fillColor: string };
+    }) => void;
+  }
+}
+
+// Definisi tipe untuk data gross margin
+interface GrossMarginData {
+  date: string;
+  grossMargin: number;
+}
+
+// Definisi tipe untuk detail menu
+interface MenuDetail {
+  menuName: string;
+  sellingPrice: number;
+  hpp: number;
+  quantity: number;
+  totalSales: number;
+}
+
+// Definisi tipe untuk detail yang dipilih
+interface SelectedDetail {
+  date: string;
+  summary: {
+    netSales: number;
+    totalHPP: number;
+    grossMargin: number;
+  };
+  details: MenuDetail[];
+}
+
 export default function GrossMarginChart() {
-  const [grossMarginData, setGrossMarginData] = useState<
-    { date: string; grossMargin: number }[]
-  >([]);
+  const [grossMarginData, setGrossMarginData] = useState<GrossMarginData[]>([]);
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const [selectedDetail, setSelectedDetail] = useState<{
-    date: string;
-    summary: { netSales: number; totalHPP: number; grossMargin: number };
-    details: any[];
-  } | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<SelectedDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
@@ -63,14 +96,14 @@ export default function GrossMarginChart() {
     return "";
   };
 
-  const handleBarClick = async (data: any) => {
-    const clickedDate = data.date;
+  const handleBarClick = async (data: { payload: GrossMarginData }) => {
+    const clickedDate = data.payload.date;
     setLoadingDetail(true);
     try {
       const res = await fetch(
         `/api/grossMarginDetail?date=${clickedDate}&period=${period}`
       );
-      const detailData = await res.json();
+      const detailData: SelectedDetail = await res.json();
       setSelectedDetail({
         date: clickedDate,
         summary: detailData.summary,
@@ -93,7 +126,7 @@ export default function GrossMarginChart() {
     ]);
     doc.setFontSize(18);
     doc.text(title, 14, 22);
-    (doc as any).autoTable({
+    doc.autoTable({
       head: headers,
       body: data,
       startY: 30,
@@ -163,13 +196,13 @@ export default function GrossMarginChart() {
       <div className="flex gap-4 mb-6">
         <button
           onClick={exportToPDF}
-          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#45a049] transition-all"
+          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#45a049] transition-all"
         >
           Ekspor ke PDF
         </button>
         <button
           onClick={exportToExcel}
-          className="px-4 py-2 bg-[#2196F3] text-white rounded hover:bg-[#1e88e5] transition-all"
+          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#1e88e5] transition-all"
         >
           Ekspor ke Excel
         </button>
@@ -206,7 +239,7 @@ export default function GrossMarginChart() {
             dataKey="grossMargin"
             fill="#FF8A00"
             radius={[8, 8, 0, 0]}
-            onClick={(data) => handleBarClick(data.payload)}
+            onClick={handleBarClick}
           />
         </BarChart>
       </ResponsiveContainer>

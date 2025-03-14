@@ -175,13 +175,13 @@ export default function SalesTransactionChart() {
       <div className="flex gap-4 mb-6">
         <button
           onClick={exportToPDF}
-          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#45a049] transition-all"
+          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#45a049] transition-all"
         >
           Ekspor ke PDF
         </button>
         <button
           onClick={exportToExcel}
-          className="px-4 py-2 bg-[#2196F3] text-white rounded hover:bg-[#1e88e5] transition-all"
+          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#1e88e5] transition-all"
         >
           Ekspor ke Excel
         </button>
