@@ -71,10 +71,10 @@ export default function PaymentMethodPieChart() {
   
 
   return (
-    <div className="mt-8 p-6 bg-white rounded-lg shadow-lg">
+    <div className="mt-8 p-6 bg-white rounded-lg shadow-lg w-full">
       <h2 className="text-2xl font-bold text-[#8A4210] mb-4">Metode Pembayaran</h2>
       {/* Pilihan periode dan tanggal */}
-      <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
         <div>
           <label className="text-[#212121] font-medium mr-2">Pilih Periode:</label>
           <select
@@ -123,7 +123,7 @@ export default function PaymentMethodPieChart() {
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: any, name: any) => [`${value} transaksi`, name]}
+                formatter={(value: number, name: string) => [`${value} transaksi`, name]}
               />
             </PieChart>
           </ResponsiveContainer>

@@ -44,9 +44,9 @@ export default function MinimumStock() {
   }, []);
 
   return (
-    <div className="p-4 bg-white rounded-lg shadow mt-6">
+    <div className="p-4 bg-white rounded-lg shadow mt-6 w-full">
       <h2 className="text-xl font-bold mb-4">Stok Minimum</h2>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+      <div className="flex flex-wrap flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
         <div className="flex items-center gap-2">
           <label className="font-medium">Filter stok:</label>
           <select
