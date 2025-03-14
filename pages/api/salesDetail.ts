@@ -1,4 +1,4 @@
-// File: pages/api/salesDetail.ts
+// pages/api/salesDetail.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
@@ -17,6 +17,28 @@ function getStartOfISOWeek(isoWeek: string): Date {
     ISOweekStart.setDate(simple.getDate() - dow + 1);
   }
   return ISOweekStart;
+}
+
+interface SummaryRaw {
+  totalOrders: bigint | number;
+  totalSales: bigint | number;
+}
+
+interface SalesDetailResponse {
+  summary: {
+    totalSales: number;
+    totalOrders: number;
+  };
+  orders: {
+    orderId: number;
+    createdAt: Date;
+    total: number;
+    items: {
+      menuName: string;
+      quantity: number;
+      price: number;
+    }[];
+  }[];
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -55,19 +77,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       endDate.setDate(endDate.getDate() + 1);
     }
 
-    const summaryRaw: any[] = await prisma.$queryRaw`
+    const summaryRaw: SummaryRaw[] = await prisma.$queryRaw`
       SELECT 
         COUNT(*) as totalOrders,
         SUM(finalTotal) as totalSales
       FROM CompletedOrder
       WHERE createdAt >= ${startDate} AND createdAt < ${endDate}
     `;
-    const summary = summaryRaw && summaryRaw.length > 0
-      ? {
-          totalSales: Number(summaryRaw[0].totalSales) || 0,
-          totalOrders: Number(summaryRaw[0].totalOrders) || 0,
-        }
-      : { totalSales: 0, totalOrders: 0 };
+    const summary: SalesDetailResponse["summary"] =
+      summaryRaw && summaryRaw.length > 0
+        ? {
+            totalSales: Number(summaryRaw[0].totalSales) || 0,
+            totalOrders: Number(summaryRaw[0].totalOrders) || 0,
+          }
+        : { totalSales: 0, totalOrders: 0 };
 
     const orders = await prisma.completedOrder.findMany({
       where: {
@@ -96,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       orderBy: { createdAt: "desc" },
     });
 
-    const formattedOrders = orders.map((o) => ({
+    const formattedOrders: SalesDetailResponse["orders"] = orders.map((o) => ({
       orderId: o.id,
       createdAt: o.createdAt,
       total: o.finalTotal,
@@ -107,10 +130,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })),
     }));
 
-    return res.status(200).json({
+    const response: SalesDetailResponse = {
       summary,
       orders: formattedOrders,
-    });
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching sales detail:", error);
     return res.status(500).json({ error: "Internal server error" });

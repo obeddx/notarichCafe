@@ -3,28 +3,30 @@
 
 import { useEffect, useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { ExportButton } from "./ExportButton"; // Pastikan path ini sesuai
 
 const COLORS = ["#FF8A00", "#975F2C", "#8A4210", "#92700C", "#212121"];
 
+// Interface untuk data top seller
+interface TopSeller {
+  menuName: string;
+  totalSold: number;
+}
+
 export default function TopSellers() {
-  // Data top seller
-  const [topSellers, setTopSellers] = useState<{ menuName: string; totalSold: number }[]>([]);
+  const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState<string>("");
 
   useEffect(() => {
     async function fetchTopSellers() {
       try {
         let url = `/api/topSellers?period=${period}`;
         if (date) {
-          // Gunakan tanggal tunggal sebagai filter
           url += `&date=${date}`;
         }
         const res = await fetch(url);
-        const data = await res.json();
+        const data: { topSellers: TopSeller[] } = await res.json();
         setTopSellers(data.topSellers);
       } catch (error) {
         console.error("Error fetching top sellers:", error);
@@ -33,52 +35,20 @@ export default function TopSellers() {
     fetchTopSellers();
   }, [period, date]);
 
-  // Fungsi ekspor ke PDF
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const title = "Laporan Top Sellers";
-    const headers = [["Menu", "Total Terjual"]];
-    const tableData = topSellers.map((item) => [item.menuName, item.totalSold]);
+  // Data untuk ExportButton
+  const exportData = topSellers.map((item) => ({
+    Menu: item.menuName,
+    "Total Terjual": item.totalSold,
+    "Menu Terlaris": topSellers[0]?.menuName === item.menuName 
+      ? `${item.menuName} (${item.totalSold} terjual)` 
+      : "",
+  }));
 
-    doc.setFontSize(16);
-    doc.text(title, 14, 20);
-    doc.setFontSize(10);
-    if (topSellers.length > 0) {
-      doc.text(
-        `Menu Terlaris: ${topSellers[0].menuName} (${topSellers[0].totalSold} terjual)`,
-        14,
-        28
-      );
-    }
-    (doc as any).autoTable({
-      head: headers,
-      body: tableData,
-      startY: 34,
-      theme: "striped",
-      styles: { fontSize: 10, cellPadding: 2 },
-      headStyles: { fillColor: "#FF8A00" },
-    });
-    doc.save("laporan_top_sellers.pdf");
-  };
-
-  // Fungsi ekspor ke Excel
-  const exportToExcel = () => {
-    const dataForExcel = topSellers.map((item) => ({
-      Menu: item.menuName,
-      "Total Terjual": item.totalSold,
-    }));
-    const summary = [
-      {
-        Menu: "Menu Terlaris",
-        "Total Terjual": `${topSellers[0]?.menuName || "-"} (${topSellers[0]?.totalSold || 0} terjual)`,
-      },
-    ];
-    const finalData = [...dataForExcel, ...summary];
-    const worksheet = XLSX.utils.json_to_sheet(finalData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Top Sellers");
-    XLSX.writeFile(workbook, "laporan_top_sellers.xlsx");
-  };
+  const exportColumns = [
+    { header: "Menu", key: "Menu" },
+    { header: "Total Terjual", key: "Total Terjual" },
+    { header: "Menu Terlaris", key: "Menu Terlaris" },
+  ];
 
   return (
     <div className="p-3 bg-gray-50 rounded-lg shadow min-h-[350px] w-full">
@@ -86,11 +56,13 @@ export default function TopSellers() {
 
       {/* Dropdown Pilihan Periode */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center gap-2">
-        <label htmlFor="period" className="text-sm text-gray-700 font-medium">Periode:</label>
+        <label htmlFor="period" className="text-sm text-gray-700 font-medium">
+          Periode:
+        </label>
         <select
           id="period"
           value={period}
-          onChange={(e) =>
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
             setPeriod(e.target.value as "daily" | "weekly" | "monthly" | "yearly")
           }
           className="p-1 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8A00]"
@@ -108,25 +80,18 @@ export default function TopSellers() {
         <input
           type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
           className="p-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF8A00]"
         />
       </div>
 
-      {/* Tombol Ekspor */}
+      {/* Tombol Ekspor dengan ExportButton */}
       <div className="mb-3 flex gap-2">
-        <button
-          onClick={exportToPDF}
-          className="px-3 py-1 bg-[#FF8A00] text-white text-sm rounded hover:bg-[#FF6F00] transition-all"
-        >
-          Ekspor PDF
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-all"
-        >
-          Ekspor Excel
-        </button>
+        <ExportButton
+          data={exportData}
+          columns={exportColumns}
+          fileName="laporan_top_sellers"
+        />
       </div>
 
       {/* Layout: Daftar Menu Terlaris dan Pie Chart */}

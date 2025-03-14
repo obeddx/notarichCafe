@@ -47,24 +47,57 @@ interface Order {
   orderItems: OrderItem[];
 }
 
+interface TransactionDetail {
+  id: number;
+  createdAt: string;
+  total: number;
+  itemCount: number;
+  menus: string[];
+}
+
+interface GrossDetail {
+  orderId: number;
+  orderDate: string;
+  menuName: string;
+  itemId: number; 
+  sellingPrice: number;
+  quantity: number;
+  itemTotalSelling: number;
+  hpp: number;
+  itemTotalHPP: number;
+}
+
+interface NetDetail {
+  orderId: number;
+  orderDate: string;
+  menuName: string;
+  itemId: number; 
+  sellingPrice: number;
+  discount: number;
+  tax: number;
+  gratuity: number;
+  quantity: number;
+  itemNetProfit: number;
+}
+
 interface ModalData {
   title: string;
   metric: "sales" | "transactions" | "gross" | "net" | "discounts" | "tax" | "gratuity";
   summary?: {
     explanation: string;
-    [key: string]: any;
+    [key: string]: string | number;
   };
-  data: any[];
+  data: Order[] | TransactionDetail[] | GrossDetail[] | NetDetail[];
 }
 
 interface SalesDetailsModalProps {
   title: string;
   summary?: {
     explanation: string;
-    [key: string]: any;
+    [key: string]: string | number;
   };
   metric: "sales" | "transactions" | "gross" | "net" | "discounts" | "tax" | "gratuity";
-  data: any[];
+  data: Order[] | TransactionDetail[] | GrossDetail[] | NetDetail[];
   onClose: () => void;
 }
 
@@ -162,12 +195,12 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
   const renderTableRows = () => {
     switch (metric) {
       case "sales":
-        return data.map((order: Order) => (
+        return (data as Order[]).map((order) => (
           <tr key={order.id}>
             <td className="border p-2">{new Date(order.createdAt).toLocaleDateString()}</td>
             <td className="border p-2">Rp {Number(order.finalTotal).toLocaleString()}</td>
             <td className="border p-2">
-              {order.orderItems.map((item: OrderItem) => (
+              {order.orderItems.map((item) => (
                 <div key={item.id}>
                   {item.menu.name} x{item.quantity}
                 </div>
@@ -176,7 +209,7 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
           </tr>
         ));
       case "transactions":
-        return data.map((tx: { id: number; createdAt: string; total: number; itemCount: number; menus: string[] }) => (
+        return (data as TransactionDetail[]).map((tx) => (
           <tr key={tx.id}>
             <td className="border p-2">{new Date(tx.createdAt).toLocaleDateString()}</td>
             <td className="border p-2">Rp {Number(tx.total).toLocaleString()}</td>
@@ -184,42 +217,50 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
             <td className="border p-2">{tx.menus.join(", ")}</td>
           </tr>
         ));
-      case "gross":
-        return data.map((item: any) => (
-          <tr key={`${item.orderId}-${item.menuName}`}>
-            <td className="border p-2">{item.orderId}</td>
-            <td className="border p-2">{new Date(item.orderDate).toLocaleDateString()}</td>
-            <td className="border p-2">{item.menuName}</td>
-            <td className="border p-2">Rp {Number(item.sellingPrice).toLocaleString()}</td>
-            <td className="border p-2">{item.quantity}</td>
-            <td className="border p-2">Rp {Number(item.itemTotalSelling).toLocaleString()}</td>
-            <td className="border p-2">Rp {Number(item.hpp).toLocaleString()}</td>
-            <td className="border p-2">Rp {Number(item.itemTotalHPP).toLocaleString()}</td>
-          </tr>
-        ));
-      case "net":
-        return data.map((item: any) => (
-          <tr key={`${item.orderId}-${item.menuName}`}>
-            <td className="border p-2">{item.orderId}</td>
-            <td className="border p-2">{new Date(item.orderDate).toLocaleDateString()}</td>
-            <td className="border p-2">{item.menuName}</td>
-            <td className="border p-2">Rp {Number(item.sellingPrice).toLocaleString()}</td>
-            <td className="border p-2">Rp {Number(item.discount).toLocaleString()}</td>
-            <td className="border p-2">Rp {Number(item.tax).toLocaleString()}</td>
-            <td className="border p-2">Rp {Number(item.gratuity).toLocaleString()}</td>
-            <td className="border p-2">{item.quantity}</td>
-            <td className="border p-2">Rp {Number(item.itemNetProfit).toLocaleString()}</td>
-          </tr>
-        ));
+        case "gross":
+          return (data as GrossDetail[]).map((item) => (
+            <tr key={`${item.orderId}-${item.itemId}-${item.menuName}`}>
+              <td className="border p-2">{item.orderId}</td>
+              <td className="border p-2">{new Date(item.orderDate).toLocaleDateString()}</td>
+              <td className="border p-2">{item.menuName}</td>
+              <td className="border p-2">Rp {Number(item.sellingPrice).toLocaleString()}</td>
+              <td className="border p-2">{item.quantity}</td>
+              <td className="border p-2">Rp {Number(item.itemTotalSelling).toLocaleString()}</td>
+              <td className="border p-2">Rp {Number(item.hpp).toLocaleString()}</td>
+              <td className="border p-2">Rp {Number(item.itemTotalHPP).toLocaleString()}</td>
+            </tr>
+          ));
+        
+        case "net":
+          return (data as NetDetail[]).map((item) => (
+            <tr key={`${item.orderId}-${item.itemId}-${item.menuName}`}>
+              <td className="border p-2">{item.orderId}</td>
+              <td className="border p-2">{new Date(item.orderDate).toLocaleDateString()}</td>
+              <td className="border p-2">{item.menuName}</td>
+              <td className="border p-2">Rp {Number(item.sellingPrice).toLocaleString()}</td>
+              <td className="border p-2">Rp {Number(item.discount).toLocaleString()}</td>
+              <td className="border p-2">Rp {Number(item.tax).toLocaleString()}</td>
+              <td className="border p-2">Rp {Number(item.gratuity).toLocaleString()}</td>
+              <td className="border p-2">{item.quantity}</td>
+              <td className="border p-2">Rp {Number(item.itemNetProfit).toLocaleString()}</td>
+            </tr>
+          ));
       case "discounts":
       case "tax":
       case "gratuity":
-        return data.map((order: Order) => (
+        return (data as Order[]).map((order) => (
           <tr key={order.id}>
             <td className="border p-2">{order.id}</td>
             <td className="border p-2">{new Date(order.createdAt).toLocaleDateString()}</td>
             <td className="border p-2">
-              Rp {Number(metric === "discounts" ? order.discountAmount : metric === "tax" ? order.taxAmount : order.gratuityAmount).toLocaleString()}
+              Rp{" "}
+              {Number(
+                metric === "discounts"
+                  ? order.discountAmount
+                  : metric === "tax"
+                  ? order.taxAmount
+                  : order.gratuityAmount
+              ).toLocaleString()}
             </td>
           </tr>
         ));
@@ -233,14 +274,25 @@ const SalesDetailsModal: React.FC<SalesDetailsModalProps> = ({
       <div className="bg-white p-6 rounded-lg w-11/12 max-h-screen overflow-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">{title}</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            ×
+          </button>
         </div>
         {summary && (
           <div className="mb-4 p-4 bg-gray-100 rounded">
-            <p className="mb-2"><strong>Info:</strong> {summary.explanation}</p>
-            {Object.keys(summary).filter(key => key !== "explanation").map((key) => (
-              <p key={key}><strong>{key}:</strong> {summary[key]}</p>
-            ))}
+            <p className="mb-2">
+              <strong>Info:</strong> {summary.explanation}
+            </p>
+            {Object.keys(summary)
+              .filter((key) => key !== "explanation")
+              .map((key) => (
+                <p key={key}>
+                  <strong>{key}:</strong> {summary[key]}
+                </p>
+              ))}
           </div>
         )}
         <table className="w-full">
@@ -257,15 +309,19 @@ function getPreviousDate(dateString: string, period: string): string {
   const date = new Date(dateString);
   switch (period) {
     case "daily":
+    case "daily-prev":
       date.setDate(date.getDate() - 1);
       break;
     case "weekly":
+    case "weekly-prev":
       date.setDate(date.getDate() - 7);
       break;
     case "monthly":
+    case "monthly-prev":
       date.setMonth(date.getMonth() - 1);
       break;
     case "yearly":
+    case "yearly-prev":
       date.setFullYear(date.getFullYear() - 1);
       break;
     default:
@@ -277,7 +333,9 @@ function getPreviousDate(dateString: string, period: string): string {
 // ======= COMPONENT UTAMA: STATS CARDS =======
 export default function StatsCards() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("daily");
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(() =>
+    new Date().toISOString().split("T")[0]
+  );
   const [currentMetrics, setCurrentMetrics] = useState<Metrics | null>(null);
   const [previousMetrics, setPreviousMetrics] = useState<Metrics | null>(null);
   const [modalData, setModalData] = useState<ModalData | null>(null);
@@ -286,8 +344,10 @@ export default function StatsCards() {
   useEffect(() => {
     async function fetchCurrentMetrics() {
       try {
-        const res = await fetch(`/api/sales-metrics?period=${selectedPeriod}&date=${selectedDate}`);
-        const data = await res.json();
+        const res = await fetch(
+          `/api/sales-metrics?period=${selectedPeriod}&date=${selectedDate}`
+        );
+        const data: Metrics = await res.json();
         setCurrentMetrics(data);
       } catch (error) {
         console.error("Error fetching current metrics:", error);
@@ -300,8 +360,10 @@ export default function StatsCards() {
     async function fetchPreviousMetrics() {
       try {
         const previousDate = getPreviousDate(selectedDate, selectedPeriod);
-        const res = await fetch(`/api/sales-metrics?period=${selectedPeriod}&date=${previousDate}`);
-        const data = await res.json();
+        const res = await fetch(
+          `/api/sales-metrics?period=${selectedPeriod}&date=${previousDate}`
+        );
+        const data: Metrics = await res.json();
         setPreviousMetrics(data);
       } catch (error) {
         console.error("Error fetching previous metrics:", error);
@@ -316,24 +378,46 @@ export default function StatsCards() {
     return `${change.toFixed(2)}%`;
   };
 
-  const handleCardClick = async (type: string) => {
+  const handleCardClick = async (
+    type: "sales" | "transactions" | "gross" | "net" | "discounts" | "tax" | "gratuity"
+  ) => {
     try {
-      const res = await fetch(`/api/sales-details?metric=${type}&period=${selectedPeriod}&date=${selectedDate}`);
-      const response = await res.json();
+      const res = await fetch(
+        `/api/sales-details?metric=${type}&period=${selectedPeriod}&date=${selectedDate}`
+      );
+      const response: {
+        summary?: { explanation: string; [key: string]: string | number };
+        details: Order[] | TransactionDetail[] | GrossDetail[] | NetDetail[];
+      } = await res.json();
       let title = "";
       switch (type) {
-        case "sales": title = "Detail Total Penjualan"; break;
-        case "transactions": title = "Detail Transaksi"; break;
-        case "gross": title = "Detail Laba Kotor"; break;
-        case "net": title = "Detail Laba Bersih"; break;
-        case "discounts": title = "Detail Diskon"; break;
-        case "tax": title = "Detail Pajak"; break;
-        case "gratuity": title = "Detail Gratuity"; break;
-        default: title = "Detail Penjualan";
+        case "sales":
+          title = "Detail Total Penjualan";
+          break;
+        case "transactions":
+          title = "Detail Transaksi";
+          break;
+        case "gross":
+          title = "Detail Laba Kotor";
+          break;
+        case "net":
+          title = "Detail Laba Bersih";
+          break;
+        case "discounts":
+          title = "Detail Diskon";
+          break;
+        case "tax":
+          title = "Detail Pajak";
+          break;
+        case "gratuity":
+          title = "Detail Gratuity";
+          break;
+        default:
+          title = "Detail Penjualan";
       }
       setModalData({
         title,
-        metric: type as "sales" | "transactions" | "gross" | "net" | "discounts" | "tax" | "gratuity",
+        metric: type,
         summary: response.summary,
         data: response.details,
       });
@@ -386,7 +470,10 @@ export default function StatsCards() {
             <StatCard
               title="Total Penjualan"
               value={`Rp ${currentMetrics.totalSales.toLocaleString()}`}
-              percentage={getPercentageChange(currentMetrics.totalSales, previousMetrics.totalSales)}
+              percentage={getPercentageChange(
+                currentMetrics.totalSales,
+                previousMetrics.totalSales
+              )}
               icon="💰"
               color="text-green-500"
               onClick={() => handleCardClick("sales")}
@@ -394,7 +481,10 @@ export default function StatsCards() {
             <StatCard
               title="Transaksi"
               value={currentMetrics.transactions.toLocaleString()}
-              percentage={getPercentageChange(currentMetrics.transactions, previousMetrics.transactions)}
+              percentage={getPercentageChange(
+                currentMetrics.transactions,
+                previousMetrics.transactions
+              )}
               icon="📦"
               color="text-blue-500"
               onClick={() => handleCardClick("transactions")}
@@ -402,7 +492,10 @@ export default function StatsCards() {
             <StatCard
               title="Laba Kotor"
               value={`Rp ${currentMetrics.grossProfit.toLocaleString()}`}
-              percentage={getPercentageChange(currentMetrics.grossProfit, previousMetrics.grossProfit)}
+              percentage={getPercentageChange(
+                currentMetrics.grossProfit,
+                previousMetrics.grossProfit
+              )}
               icon="📈"
               color="text-purple-500"
               onClick={() => handleCardClick("gross")}
@@ -410,7 +503,10 @@ export default function StatsCards() {
             <StatCard
               title="Laba Bersih"
               value={`Rp ${currentMetrics.netProfit.toLocaleString()}`}
-              percentage={getPercentageChange(currentMetrics.netProfit, previousMetrics.netProfit)}
+              percentage={getPercentageChange(
+                currentMetrics.netProfit,
+                previousMetrics.netProfit
+              )}
               icon="💵"
               color="text-pink-500"
               onClick={() => handleCardClick("net")}
@@ -418,7 +514,10 @@ export default function StatsCards() {
             <StatCard
               title="Diskon"
               value={`Rp ${currentMetrics.discounts.toLocaleString()}`}
-              percentage={getPercentageChange(currentMetrics.discounts, previousMetrics.discounts)}
+              percentage={getPercentageChange(
+                currentMetrics.discounts,
+                previousMetrics.discounts
+              )}
               icon="🎁"
               color="text-orange-500"
               onClick={() => handleCardClick("discounts")}
@@ -434,7 +533,10 @@ export default function StatsCards() {
             <StatCard
               title="Gratuity"
               value={`Rp ${currentMetrics.gratuity.toLocaleString()}`}
-              percentage={getPercentageChange(currentMetrics.gratuity, previousMetrics.gratuity)}
+              percentage={getPercentageChange(
+                currentMetrics.gratuity,
+                previousMetrics.gratuity
+              )}
               icon="💳"
               color="text-teal-500"
               onClick={() => handleCardClick("gratuity")}

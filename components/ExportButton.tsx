@@ -3,15 +3,26 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import "jspdf-autotable"; // Pastikan modul ini terinstall
+import "jspdf-autotable";
 
-interface ExportButtonProps {
-  data: any[]; // Data tabel berupa array objek
-  columns: { header: string; key: string }[]; // Konfigurasi kolom: header dan key untuk data
+// Definisi tipe untuk konfigurasi kolom
+interface ColumnConfig {
+  header: string;
+  key: string;
+}
+
+// Definisi tipe props dengan generik untuk data
+interface ExportButtonProps<T extends Record<string, unknown>> {
+  data: T[];
+  columns: ColumnConfig[];
   fileName: string;
 }
 
-export const ExportButton: React.FC<ExportButtonProps> = ({ data, columns, fileName }) => {
+export const ExportButton = <T extends Record<string, unknown>>({
+  data,
+  columns,
+  fileName,
+}: ExportButtonProps<T>) => {
   const [open, setOpen] = useState(false);
 
   const toggleDropdown = () => {
@@ -23,18 +34,21 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ data, columns, fileN
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    setOpen(false);
   };
 
   const exportToPdf = () => {
     const doc = new jsPDF();
-    const headers = [columns.map(col => col.header)];
-    const body = data.map(row => columns.map(col => row[col.key]));
-    // Gunakan cast ke any untuk menghindari error TypeScript
-    (doc as any).autoTable({
+    const headers = [columns.map((col) => col.header)];
+    const body = data.map((row) =>
+      columns.map((col) => String(row[col.key] ?? ""))
+    );
+    doc.autoTable({
       head: headers,
       body: body,
     });
     doc.save(`${fileName}.pdf`);
+    setOpen(false);
   };
 
   return (
@@ -48,13 +62,13 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ data, columns, fileN
       {open && (
         <div className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md z-10">
           <button
-            onClick={() => { exportToPdf(); setOpen(false); }}
+            onClick={exportToPdf}
             className="block w-full text-left px-4 py-2 hover:bg-gray-100"
           >
             Export PDF
           </button>
           <button
-            onClick={() => { exportToExcel(); setOpen(false); }}
+            onClick={exportToExcel}
             className="block w-full text-left px-4 py-2 hover:bg-gray-100"
           >
             Export Excel

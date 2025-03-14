@@ -1,4 +1,4 @@
-// File: components/SalesChart.tsx
+// components/SalesChart.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {
@@ -11,9 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { ExportButton } from "./ExportButton";
 
 interface SalesData {
   date: string;
@@ -36,6 +34,12 @@ interface SalesDetailItem {
   }[];
 }
 
+interface SalesDetail {
+  date: string;
+  summary: SalesDetailSummary;
+  orders: SalesDetailItem[];
+}
+
 export default function SalesChart() {
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
@@ -46,11 +50,7 @@ export default function SalesChart() {
     ? salesData.reduce((sum, item) => sum + item.total, 0)
     : 0;
 
-  const [selectedDetail, setSelectedDetail] = useState<{
-    date: string;
-    summary: SalesDetailSummary;
-    orders: SalesDetailItem[];
-  } | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<SalesDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
@@ -87,12 +87,12 @@ export default function SalesChart() {
     return dateString;
   };
 
-  const handleBarClick = async (data: any) => {
-    const clickedDate = data.date;
+  const handleBarClick = async (data: { payload: SalesData }) => {
+    const clickedDate = data.payload.date;
     setLoadingDetail(true);
     try {
       const res = await fetch(`/api/salesDetail?date=${clickedDate}&period=${period}`);
-      const detailData = await res.json();
+      const detailData: SalesDetail = await res.json();
       setSelectedDetail({
         date: clickedDate,
         summary: detailData.summary,
@@ -105,42 +105,22 @@ export default function SalesChart() {
     }
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const title = "Laporan Penjualan";
-    const headers = [["Tanggal", "Total Pendapatan (Rp)"]];
-    const tableData = salesData.map((item) => [
-      formatDate(item.date),
-      item.total.toLocaleString(),
-    ]);
-    tableData.push(["Total", totalRevenue.toLocaleString()]);
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    (doc as any).autoTable({
-      head: headers,
-      body: tableData,
-      startY: 30,
-      theme: "striped",
-      styles: { fontSize: 12, cellPadding: 3 },
-      headStyles: { fillColor: "#FF8A00" },
-    });
-    doc.save("laporan_penjualan.pdf");
-  };
-
-  const exportToExcel = () => {
-    const dataForExcel = salesData.map((item) => ({
+  // Data untuk ExportButton
+  const exportData = [
+    ...salesData.map((item) => ({
       Tanggal: formatDate(item.date),
       "Total Pendapatan (Rp)": item.total,
-    }));
-    dataForExcel.push({
+    })),
+    {
       Tanggal: "Total",
       "Total Pendapatan (Rp)": totalRevenue,
-    });
-    const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Penjualan");
-    XLSX.writeFile(workbook, "laporan_penjualan.xlsx");
-  };
+    },
+  ];
+
+  const exportColumns = [
+    { header: "Tanggal", key: "Tanggal" },
+    { header: "Total Pendapatan (Rp)", key: "Total Pendapatan (Rp)" },
+  ];
 
   return (
     <div className="mt-8 p-6 bg-[#FCFFFC] shadow-lg rounded-xl">
@@ -188,18 +168,7 @@ export default function SalesChart() {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <button
-          onClick={exportToPDF}
-          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#FF6F00] transition-all"
-        >
-          Ekspor ke PDF
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#45a049] transition-all"
-        >
-          Ekspor ke Excel
-        </button>
+        <ExportButton data={exportData} columns={exportColumns} fileName="laporan_penjualan" />
       </div>
 
       <div className="mb-6">
@@ -219,16 +188,20 @@ export default function SalesChart() {
           />
           <YAxis tick={{ fill: "#212121", fontSize: 12 }} />
           <Tooltip
-            contentStyle={{ backgroundColor: "#FFFAF0", borderRadius: "8px", borderColor: "#FF8A00" }}
+            contentStyle={{
+              backgroundColor: "#FFFAF0",
+              borderRadius: "8px",
+              borderColor: "#FF8A00",
+            }}
             labelFormatter={(value) => `Tanggal: ${formatDate(value)}`}
-            formatter={(value) => [`Rp ${value.toLocaleString()}`, "Total Pendapatan"]}
+            formatter={(value) => [`Rp ${Number(value).toLocaleString()}`, "Total Pendapatan"]}
           />
           <Legend verticalAlign="top" align="right" iconType="circle" />
           <Bar
             dataKey="total"
             fill="#FF8A00"
             radius={[8, 8, 0, 0]}
-            onClick={(barData) => handleBarClick(barData.payload)}
+            onClick={handleBarClick}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -254,15 +227,14 @@ export default function SalesChart() {
                 <div className="mb-4 p-4 bg-gray-100 rounded">
                   <p>
                     <strong>Total Sales:</strong> Rp{" "}
-                    {selectedDetail.summary.totalSales?.toLocaleString() || 0}
+                    {selectedDetail.summary.totalSales.toLocaleString()}
                   </p>
                   <p>
-                    <strong>Total Orders:</strong>{" "}
-                    {selectedDetail.summary.totalOrders || 0}
+                    <strong>Total Orders:</strong> {selectedDetail.summary.totalOrders}
                   </p>
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Detail Order</h3>
-                {selectedDetail.orders?.length > 0 ? (
+                {selectedDetail.orders.length > 0 ? (
                   <table className="w-full text-left">
                     <thead>
                       <tr>

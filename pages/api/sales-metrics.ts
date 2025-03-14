@@ -4,9 +4,44 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-function getStartAndEndDates(period: string, dateString: string) {
+interface Metrics {
+  totalSales: number;
+  transactions: number;
+  grossProfit: number;
+  netProfit: number;
+  discounts: number;
+  tax: number;
+  gratuity: number;
+}
+
+interface OrderItem {
+  id: number;
+  quantity: number;
+  price: number;
+  discountAmount: number;
+  menu: {
+    id: number;
+    name: string;
+    price: number;
+    hargaBakul: number;
+  };
+}
+
+interface Order {
+  id: number;
+  createdAt: Date;
+  total: number;
+  discountAmount: number;
+  taxAmount: number;
+  gratuityAmount: number;
+  finalTotal: number;
+  orderItems: OrderItem[];
+}
+
+function getStartAndEndDates(period: string, dateString: string): { startDate: Date; endDate: Date } {
   const date = new Date(dateString);
-  let startDate: Date, endDate: Date;
+  let startDate: Date;
+  let endDate: Date;
 
   switch (period) {
     case "daily":
@@ -19,7 +54,7 @@ function getStartAndEndDates(period: string, dateString: string) {
     case "weekly-prev":
       const day = date.getDay();
       const diff = date.getDate() - (day === 0 ? 6 : day - 1);
-      startDate = new Date(date.setDate(diff));
+      startDate = new Date(date.getFullYear(), date.getMonth(), diff);
       endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 7);
       break;
@@ -45,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { period = "daily", date = new Date().toISOString() } = req.query;
       const { startDate, endDate } = getStartAndEndDates(period as string, date as string);
 
-      const orders = await prisma.completedOrder.findMany({
+      const orders: Order[] = await prisma.completedOrder.findMany({
         where: {
           createdAt: {
             gte: startDate,
@@ -91,7 +126,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Net Profit (Net Sales): Gross Sales - Discounts - Refunds (Refunds = 0)
       const netProfit = grossProfit - discounts;
 
-      res.status(200).json({
+      const response: Metrics = {
         totalSales,
         transactions,
         grossProfit,
@@ -99,7 +134,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         discounts,
         tax,
         gratuity,
-      });
+      };
+
+      res.status(200).json(response);
     } catch (error) {
       console.error("Error fetching sales metrics:", error);
       res.status(500).json({ error: "Internal server error" });

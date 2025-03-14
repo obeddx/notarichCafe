@@ -4,7 +4,19 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-type SalesPerTransactionData = { date: string; salesPerTransaction: number };
+interface SalesPerTransactionData {
+  date: string;
+  salesPerTransaction: number;
+}
+
+interface SalesRawData {
+  date?: Date; // Untuk daily
+  year: number; // Untuk weekly, monthly, yearly
+  week?: number; // Untuk weekly
+  month?: number; // Untuk monthly
+  transactionCount: bigint | number;
+  netSales: bigint | number;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
@@ -12,11 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
       let salesData: SalesPerTransactionData[] = [];
-      let startDate = start ? new Date(start as string) : null;
-      let endDate = end ? new Date(end as string) : null;
+      const startDate = start ? new Date(start as string) : null;
+      const endDate = end ? new Date(end as string) : null;
 
       if (period === "daily") {
-        const rawData: any[] = await prisma.$queryRaw`
+        const rawData: SalesRawData[] = await prisma.$queryRaw`
           SELECT 
             DATE(createdAt) as date,
             COUNT(*) as transactionCount,
@@ -28,12 +40,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ORDER BY DATE(createdAt) ASC
         `;
         salesData = rawData.map((item) => ({
-          date: item.date.toISOString().split("T")[0],
+          date: item.date!.toISOString().split("T")[0],
           salesPerTransaction:
             Number(item.netSales) / Number(item.transactionCount),
         }));
       } else if (period === "weekly") {
-        const rawData: any[] = await prisma.$queryRaw`
+        const rawData: SalesRawData[] = await prisma.$queryRaw`
           SELECT 
             YEAR(createdAt) as year,
             WEEK(createdAt) as week,
@@ -51,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             Number(item.netSales) / Number(item.transactionCount),
         }));
       } else if (period === "monthly") {
-        const rawData: any[] = await prisma.$queryRaw`
+        const rawData: SalesRawData[] = await prisma.$queryRaw`
           SELECT 
             YEAR(createdAt) as year,
             MONTH(createdAt) as month,
@@ -69,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             Number(item.netSales) / Number(item.transactionCount),
         }));
       } else if (period === "yearly") {
-        const rawData: any[] = await prisma.$queryRaw`
+        const rawData: SalesRawData[] = await prisma.$queryRaw`
           SELECT 
             YEAR(createdAt) as year,
             COUNT(*) as transactionCount,

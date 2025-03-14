@@ -11,32 +11,35 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { ExportButton } from "@/components/ExportButton"; // Sesuaikan path sesuai struktur proyek Anda
+
+interface SalesData {
+  date: string;
+  salesPerTransaction: number;
+}
+
+interface SalesDetail {
+  date: string;
+  summary: {
+    netSales: number;
+    transactionCount: number;
+    salesPerTransaction: number;
+  };
+  details: {
+    menuName: string;
+    sellingPrice: number;
+    quantity: number;
+    totalSales: number;
+  }[];
+}
 
 export default function SalesTransactionChart() {
-  const [salesData, setSalesData] = useState<
-    { date: string; salesPerTransaction: number }[]
-  >([]);
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const [selectedDetail, setSelectedDetail] = useState<{
-    date: string;
-    summary: {
-      netSales: number;
-      transactionCount: number;
-      salesPerTransaction: number;
-    };
-    details: {
-      menuName: string;
-      sellingPrice: number;
-      quantity: number;
-      totalSales: number;
-    }[];
-  } | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<SalesDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
@@ -47,7 +50,7 @@ export default function SalesTransactionChart() {
           url += `&start=${startDate}&end=${endDate}`;
         }
         const res = await fetch(url);
-        const data = await res.json();
+        const data: SalesData[] = await res.json();
         setSalesData(data);
       } catch (error) {
         console.error("Error fetching sales data:", error);
@@ -73,13 +76,13 @@ export default function SalesTransactionChart() {
     return "";
   };
 
-  const handleBarClick = async (data: any) => {
-    const clickedDate = data.date;
+  const handleBarClick = async (data: { payload: SalesData }) => {
+    const clickedDate = data.payload.date;
     setLoadingDetail(true);
     try {
       const detailUrl = `/api/salesTransactionDetail?date=${clickedDate}&period=${period}`;
       const res = await fetch(detailUrl);
-      const detailData = await res.json();
+      const detailData: SalesDetail = await res.json();
       setSelectedDetail({
         date: clickedDate,
         summary: detailData.summary,
@@ -92,38 +95,16 @@ export default function SalesTransactionChart() {
     }
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const title = "Laporan Sales per Transaction";
-    const headers = [["Tanggal", "Sales per Transaction"]];
-    const data = salesData.map((item) => [
-      formatDate(item.date),
-      item.salesPerTransaction.toFixed(2),
-    ]);
+  // Data untuk ExportButton
+  const exportData = salesData.map((item) => ({
+    Tanggal: formatDate(item.date),
+    "Sales per Transaction": item.salesPerTransaction.toFixed(2),
+  }));
 
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    (doc as any).autoTable({
-      head: headers,
-      body: data,
-      startY: 30,
-      theme: "striped",
-      styles: { fontSize: 12, cellPadding: 3 },
-      headStyles: { fillColor: "#4CAF50" },
-    });
-    doc.save("laporan_sales_per_transaction.pdf");
-  };
-
-  const exportToExcel = () => {
-    const data = salesData.map((item) => ({
-      Tanggal: formatDate(item.date),
-      "Sales per Transaction": item.salesPerTransaction.toFixed(2),
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Sales per Transaction");
-    XLSX.writeFile(workbook, "laporan_sales_per_transaction.xlsx");
-  };
+  const exportColumns = [
+    { header: "Tanggal", key: "Tanggal" },
+    { header: "Sales per Transaction", key: "Sales per Transaction" },
+  ];
 
   return (
     <div className="mt-8 p-6 bg-[#FCFFFC] shadow-lg rounded-xl">
@@ -173,18 +154,11 @@ export default function SalesTransactionChart() {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <button
-          onClick={exportToPDF}
-          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#45a049] transition-all"
-        >
-          Ekspor ke PDF
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#1e88e5] transition-all"
-        >
-          Ekspor ke Excel
-        </button>
+        <ExportButton
+          data={exportData}
+          columns={exportColumns}
+          fileName="laporan_sales_per_transaction"
+        />
       </div>
 
       <ResponsiveContainer width="100%" height={400}>
@@ -206,19 +180,14 @@ export default function SalesTransactionChart() {
               borderColor: "#4CAF50",
             }}
             labelFormatter={(value) => `Tanggal: ${formatDate(value)}`}
-            formatter={(value) => {
-              if (typeof value === "number") {
-                return [`${value.toFixed(2)}`, "Sales per Transaction"];
-              }
-              return [value, "Sales per Transaction"];
-            }}
+            formatter={(value) => [`${Number(value).toFixed(2)}`, "Sales per Transaction"]}
           />
           <Legend verticalAlign="top" align="right" iconType="circle" />
           <Bar
             dataKey="salesPerTransaction"
             fill="#4CAF50"
             radius={[8, 8, 0, 0]}
-            onClick={(data) => handleBarClick(data.payload)}
+            onClick={handleBarClick}
           />
         </BarChart>
       </ResponsiveContainer>

@@ -19,6 +19,20 @@ function getStartOfISOWeek(isoWeek: string): Date {
   return ISOweekStart;
 }
 
+interface SalesDetailResponse {
+  summary: {
+    netSales: number;
+    transactionCount: number;
+    salesPerTransaction: number;
+  };
+  details: {
+    menuName: string;
+    sellingPrice: number;
+    quantity: number;
+    totalSales: number;
+  }[];
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     const { date, period } = req.query;
@@ -100,10 +114,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       const details = Array.from(detailsMap.values());
 
-      return res.status(200).json({
+      const response: SalesDetailResponse = {
         summary: { netSales, transactionCount, salesPerTransaction },
         details,
-      });
+      };
+
+      return res.status(200).json(response);
     } catch (error) {
       console.error("Error fetching sales detail:", error);
       return res.status(500).json({ error: "Internal server error" });

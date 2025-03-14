@@ -1,3 +1,4 @@
+// components/GrossMarginChart.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {
@@ -10,23 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import * as XLSX from "xlsx";
-
-// Deklarasi tipe untuk memperluas jsPDF dengan autoTable
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: {
-      head: string[][];
-      body: string[][];
-      startY?: number;
-      theme?: string;
-      styles?: { fontSize: number; cellPadding: number };
-      headStyles?: { fillColor: string };
-    }) => void;
-  }
-}
+import { ExportButton } from "./ExportButton";
 
 // Definisi tipe untuk data gross margin
 interface GrossMarginData {
@@ -116,37 +101,16 @@ export default function GrossMarginChart() {
     }
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const title = "Laporan Gross Margin";
-    const headers = [["Tanggal", "Gross Margin (%)"]];
-    const data = grossMarginData.map((item) => [
-      formatDate(item.date),
-      item.grossMargin.toFixed(2),
-    ]);
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    doc.autoTable({
-      head: headers,
-      body: data,
-      startY: 30,
-      theme: "striped",
-      styles: { fontSize: 12, cellPadding: 3 },
-      headStyles: { fillColor: "#FF8A00" },
-    });
-    doc.save("laporan_gross_margin.pdf");
-  };
+  // Data untuk ExportButton
+  const exportData = grossMarginData.map((item) => ({
+    Tanggal: formatDate(item.date),
+    "Gross Margin (%)": item.grossMargin.toFixed(2),
+  }));
 
-  const exportToExcel = () => {
-    const data = grossMarginData.map((item) => ({
-      Tanggal: formatDate(item.date),
-      "Gross Margin (%)": item.grossMargin.toFixed(2),
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Gross Margin");
-    XLSX.writeFile(workbook, "laporan_gross_margin.xlsx");
-  };
+  const exportColumns = [
+    { header: "Tanggal", key: "Tanggal" },
+    { header: "Gross Margin (%)", key: "Gross Margin (%)" },
+  ];
 
   return (
     <div className="mt-8 p-6 bg-[#FCFFFC] shadow-lg rounded-xl">
@@ -194,18 +158,7 @@ export default function GrossMarginChart() {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <button
-          onClick={exportToPDF}
-          className="px-4 py-2 bg-[#FF8A00] text-white rounded hover:bg-[#45a049] transition-all"
-        >
-          Ekspor ke PDF
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="px-4 py-2 bg-[#4CAF50] text-white rounded hover:bg-[#1e88e5] transition-all"
-        >
-          Ekspor ke Excel
-        </button>
+        <ExportButton data={exportData} columns={exportColumns} fileName="laporan_gross_margin" />
       </div>
 
       <ResponsiveContainer width="100%" height={400}>
