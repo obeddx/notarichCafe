@@ -712,7 +712,7 @@ export default function IngredientsTable() {
                     setSelectedIngredient({ ...selectedIngredient, unit: e.target.value })
                   }
                   className="w-full p-2 border border-gray-300 rounded"
-                  required
+                  readOnly
                 />
               </div>
               <div className="mb-4">

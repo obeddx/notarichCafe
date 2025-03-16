@@ -3,16 +3,17 @@
 import { useState, ChangeEvent } from "react";
 import Sidebar from "@/components/sidebar";
 
+// Sesuaikan interface dengan struktur respons API terbaru
 interface GudangStock {
-  date: string;
-  gudangId: number;
-  gudangName: string;
+  gudang: {
+    id: number;
+    name: string;
+  };
   start: number;
   stockIn: number;
   used: number;
   wasted: number;
   stock: number;
-  stockMin: number;
 }
 
 const RekapStokGudang = () => {
@@ -23,7 +24,10 @@ const RekapStokGudang = () => {
 
   const fetchData = async (start: string, end?: string) => {
     try {
-      const url = end ? `/api/dailygudangstock?start=${start}&end=${end}` : `/api/dailygudangstock?date=${start}`;
+      // Sesuaikan parameter query dengan API terbaru (startDate dan endDate)
+      const url = end
+        ? `/api/dailygudangstock?startDate=${start}&endDate=${end}`
+        : `/api/dailygudangstock?startDate=${start}`;
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error("Error fetching data");
@@ -53,7 +57,9 @@ const RekapStokGudang = () => {
     });
   };
 
-  const formattedDate = data.length > 0 ? (endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}` : `${formatDate(startDate)}`) : "";
+  const formattedDate = data.length > 0 
+    ? (endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}` : `${formatDate(startDate)}`) 
+    : "";
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -107,19 +113,19 @@ const RekapStokGudang = () => {
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Nama Gudang</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Nama Ingridient</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Start</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Stock Masuk</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Terpakai</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Terbuang</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Sisa Stok</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Purchase Order</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Used</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Wasted</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Stock</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {data.map((gudang, index) => (
                     <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{gudang.gudangId}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{gudang.gudangName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{gudang.gudang.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{gudang.gudang.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{gudang.start}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{gudang.stockIn}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{gudang.used}</td>

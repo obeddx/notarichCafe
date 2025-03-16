@@ -3,26 +3,25 @@ import { useState, ChangeEvent } from "react";
 import Sidebar from "@/components/sidebar";
 
 interface Ingredient {
-  date: string;
-  ingredientId: number;
-  ingredientName: string;
+  ingredient: {
+    id: number;
+    name: string;
+  };
   start: number;
   stockIn: number;
   used: number;
   wasted: number;
   stock: number;
-  stockMin: number;
 }
 
 const DailyIngredientStock = () => {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [data, setData] = useState<Ingredient[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // State untuk sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
   const fetchData = async (start: string, end?: string) => {
     try {
-      // Mengubah parameter query ke startDate dan endDate
       const url = end ? `/api/dailyingredientstock?startDate=${start}&endDate=${end}` : `/api/dailyingredientstock?startDate=${start}`;
       const res = await fetch(url);
 
@@ -57,7 +56,6 @@ const DailyIngredientStock = () => {
 
   const formattedDate = data.length > 0 ? (endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}` : `${formatDate(startDate)}`) : "";
 
-  // Fungsi untuk toggle sidebar
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -116,20 +114,18 @@ const DailyIngredientStock = () => {
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Used</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Wasted</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Stock</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Stock Min</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {data.map((ingredient, index) => (
+                  {data.map((item, index) => (
                     <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ingredient.ingredientId}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ingredient.ingredientName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{ingredient.start}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{ingredient.stockIn}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{ingredient.used}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{ingredient.wasted}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{ingredient.stock}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{ingredient.stockMin}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.ingredient.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.ingredient.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{item.start}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{item.stockIn}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{item.used}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{item.wasted}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{item.stock}</td>
                     </tr>
                   ))}
                 </tbody>
