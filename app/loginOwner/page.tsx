@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FcGoogle } from "react-icons/fc";
+import { useRouter } from "next/navigation";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
-export default function LoginPage() {
+export default function OwnerLoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -13,9 +12,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-  // Jika ada query parameter role, maka lockedRole akan digunakan untuk validasi akses
-  const lockedRole = searchParams?.get("role") || "";
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -23,7 +19,7 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch("/api/loginOwner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -31,30 +27,24 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Jika lockedRole disediakan, validasi kecocokan role (menggunakan lowercase untuk konsistensi)
-        if (lockedRole && data.user.role.toLowerCase() !== lockedRole.toLowerCase()) {
-          setErrorMessage(`Akun Anda tidak memiliki akses sebagai ${lockedRole}`);
+        // Validasi role harus OWNER secara statis
+        if (data.owner.role !== "owner") {
+          setErrorMessage("Akun Anda tidak memiliki akses sebagai owner");
           setLoading(false);
           return;
         }
 
-        // Simpan data user ke sessionStorage untuk keperluan aplikasi
-        sessionStorage.setItem("user", JSON.stringify(data.user));
+        // Simpan data owner ke sessionStorage (atau bisa juga membuat cookie)
+        sessionStorage.setItem("owner", JSON.stringify(data.owner));
 
-        // Redirect berdasarkan role locked atau berdasarkan role user
-        if (lockedRole.toLowerCase() === "manager") {
-          router.push("/manager");
-        } else if (lockedRole.toLowerCase() === "kasir") {
-          router.push("/cashier/kasir");
-        } else {
-          router.push("/");
-        }
+        // Redirect ke halaman dashboard owner
+        router.push("/manager/employeeSlots");
       } else {
-        setErrorMessage(data.message || "Login failed");
+        setErrorMessage(data.message || "Login gagal");
       }
     } catch (error) {
       console.error("Login error:", error);
-      setErrorMessage("An error occurred while logging in.");
+      setErrorMessage("Terjadi kesalahan saat login.");
     } finally {
       setLoading(false);
     }
@@ -62,15 +52,8 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-cover bg-center p-4" style={{ backgroundImage: "url('/login2.png')" }}>
-      <div className="relative w-full max-w-md p-6 bg-white bg-opacity-80 rounded-lg shadow-lg md:max-w-lg lg:max-w-xl">
-        <button className="absolute top-4 right-4 text-gray-500 hover:text-gray-700">✕</button>
-        <h2 className="text-2xl font-bold text-center mb-4 text-black">Log In {lockedRole && lockedRole.toLowerCase()}</h2>
-        <p className="text-sm text-center text-gray-600 mb-6">
-          Don’t have an account?{" "}
-          <a href="/register" className="text-blue-500">
-            Create an account
-          </a>
-        </p>
+      <div className="relative w-full max-w-md p-6 bg-white bg-opacity-80 rounded-lg shadow-lg">
+        <h2 className="text-2xl font-bold text-center mb-4 text-black">Owner Login</h2>
 
         {errorMessage && <p className="text-center text-red-500 mb-4">{errorMessage}</p>}
 
@@ -79,6 +62,7 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-gray-700">Username</label>
             <input type="text" className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={username} onChange={(e) => setUsername(e.target.value)} required />
           </div>
+
           <div className="mb-4 relative">
             <label className="block text-sm font-medium text-gray-700">Password</label>
             <input type={showPassword ? "text" : "password"} className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -86,14 +70,11 @@ export default function LoginPage() {
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
           </div>
+
           <button type="submit" disabled={loading} className="w-full p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">
             {loading ? "Logging in..." : "Log In"}
           </button>
         </form>
-        <div className="my-4 text-center text-gray-500">OR</div>
-        <button className="text-black w-full flex items-center justify-center p-2 border rounded-lg hover:bg-gray-200 transition">
-          <FcGoogle className="text-xl mr-2" /> Log In with Google
-        </button>
       </div>
     </div>
   );

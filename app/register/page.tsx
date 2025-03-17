@@ -7,6 +7,11 @@ import "react-toastify/dist/ReactToastify.css";
 import { FcGoogle } from "react-icons/fc";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 
+interface RoleType {
+  id: number;
+  name: string;
+}
+
 export default function RegisterPage() {
   // ======================
   // STATE & HOOKS
@@ -14,16 +19,21 @@ export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("kasir");
+  // Menyimpan nama role
+  const [role, setRole] = useState("");
+  const [availableRoles, setAvailableRoles] = useState<RoleType[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Token-related states (invite token dari URL)
+  // Token invite
   const [inviteTokenValid, setInviteTokenValid] = useState<boolean | null>(null);
   const [inviteEmployee, setInviteEmployee] = useState<any>(null);
 
-  // Opsi generate token manual
+  // Menandakan apakah ini mode invite
+  const isInviteFlow = !!(inviteTokenValid && inviteEmployee);
+
+  // Opsi generate token manual (jika diperlukan)
   const [generateToken, setGenerateToken] = useState(false);
 
   const router = useRouter();
@@ -31,7 +41,7 @@ export default function RegisterPage() {
   const tokenFromURL = searchParams?.get("token");
 
   // ======================
-  // FUNGSI: Generate Token Manual
+  // FUNGSI: Generate Token Manual (opsional)
   // ======================
   const generateManualToken = () => {
     const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -43,16 +53,15 @@ export default function RegisterPage() {
   };
 
   // ======================
-  // EFFECT: Verifikasi Token dari URL
+  // EFFECT: Verifikasi Token Invite
   // ======================
   useEffect(() => {
-    // Jika tidak ada token di URL, berarti pendaftaran biasa
     if (!tokenFromURL) {
+      // Bukan invite flow
       setInviteTokenValid(null);
       return;
     }
 
-    // Verifikasi token ke API (opsional)
     const verifyToken = async () => {
       try {
         const res = await fetch(`/api/verify-invite?token=${tokenFromURL}`);
@@ -63,7 +72,6 @@ export default function RegisterPage() {
         const data = await res.json();
         setInviteTokenValid(true);
         setInviteEmployee(data.employee);
-        // Contoh: Anda bisa auto-isi email dari data.employee.email
       } catch (error) {
         setInviteTokenValid(false);
       }
@@ -71,6 +79,42 @@ export default function RegisterPage() {
 
     verifyToken();
   }, [tokenFromURL]);
+
+  // ======================
+  // EFFECT: Ambil RoleList (untuk pendaftaran biasa)
+  // ======================
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const res = await fetch("/api/employeeRoles");
+        if (!res.ok) {
+          throw new Error("Gagal mengambil data role");
+        }
+        const data = await res.json();
+        setAvailableRoles(data);
+      } catch (error: any) {
+        console.error(error);
+        toast.error("Gagal mengambil data role");
+      }
+    };
+
+    // Jika user BUKAN invite flow, baru kita butuh daftar roles
+    if (!isInviteFlow) {
+      fetchRoles();
+    }
+  }, [isInviteFlow]);
+
+  // ======================
+  // EFFECT: Isi Email & Role Jika Invite Flow
+  // ======================
+  useEffect(() => {
+    if (inviteEmployee) {
+      setEmail(inviteEmployee.email || "");
+      if (inviteEmployee.role?.name) {
+        setRole(inviteEmployee.role.name);
+      }
+    }
+  }, [inviteEmployee]);
 
   // ======================
   // VALIDASI INPUT
@@ -89,6 +133,10 @@ export default function RegisterPage() {
       toast.error("Password harus minimal 6 karakter");
       return false;
     }
+    if (!role) {
+      toast.error("Role belum dipilih");
+      return false;
+    }
     return true;
   };
 
@@ -98,13 +146,14 @@ export default function RegisterPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage("");
+
     if (!validateInput()) return;
     setLoading(true);
 
     try {
-      // Generate token manual jika user mencentang checkbox
       const manualToken = generateToken ? generateManualToken() : null;
 
+      // Kirim data ke /api/register
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -113,15 +162,13 @@ export default function RegisterPage() {
           email,
           password,
           role,
-          // Token dari URL (jika ada)
-          token: tokenFromURL,
-          // Token manual (jika user mencentang "Generate Token")
+          token: tokenFromURL, // Penting untuk invite flow
           manualToken,
         }),
       });
 
       const data = await res.json();
-      console.log("Response dari server:", data); // Debugging
+      console.log("Response dari server:", data);
 
       if (res.ok) {
         toast.success("Registrasi berhasil, silakan login!");
@@ -137,10 +184,7 @@ export default function RegisterPage() {
     }
   };
 
-  // ======================
-  // RENDER
-  // ======================
-  // Jika tokenFromURL ada, tapi belum dipastikan valid/invalid
+  // Jika token invite masih diverifikasi
   if (tokenFromURL && inviteTokenValid === null) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -149,7 +193,7 @@ export default function RegisterPage() {
     );
   }
 
-  // Jika tokenFromURL ada dan invalid
+  // Jika token invite invalid
   if (tokenFromURL && inviteTokenValid === false) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -173,16 +217,30 @@ export default function RegisterPage() {
         {errorMessage && <p className="text-center text-red-500 mb-4">{errorMessage}</p>}
 
         <form onSubmit={handleSubmit}>
+          {/* Username */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Username</label>
             <input type="text" className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={username} onChange={(e) => setUsername(e.target.value)} required />
           </div>
 
+          {/* Email (kunci jika invite) */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input type="email" className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              type="email"
+              className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black"
+              value={email}
+              onChange={(e) => {
+                if (!isInviteFlow) {
+                  setEmail(e.target.value);
+                }
+              }}
+              disabled={isInviteFlow}
+              required
+            />
           </div>
 
+          {/* Password */}
           <div className="mb-4 relative">
             <label className="block text-sm font-medium text-gray-700">Password</label>
             <input type={showPassword ? "text" : "password"} className="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200 bg-white text-black" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -191,23 +249,27 @@ export default function RegisterPage() {
             </button>
           </div>
 
-          {/* Jika Anda mau role di-set otomatis dari token, 
-              Anda bisa menyembunyikan ini saat token valid. */}
+          {/* Role */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Role</label>
-            <div className="flex items-center mt-1">
-              <label className="mr-4 flex items-center text-sm font-medium text-gray-700">
-                <input type="radio" value="kasir" checked={role === "kasir"} onChange={(e) => setRole(e.target.value)} className="mr-1" />
-                Kasir
-              </label>
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <input type="radio" value="manager" checked={role === "manager"} onChange={(e) => setRole(e.target.value)} className="mr-1" />
-                Manager
-              </label>
-            </div>
+
+            {isInviteFlow ? (
+              // Jika invite flow, tampilkan read-only text
+              <input type="text" value={role} className="w-full mt-1 p-2 border rounded-lg bg-gray-100 text-black" readOnly />
+            ) : (
+              // Jika pendaftaran biasa, tampilkan dropdown
+              <select className="w-full mt-1 p-2 border rounded-lg bg-white text-black" value={role} onChange={(e) => setRole(e.target.value)} required>
+                <option value="">-- Pilih Role --</option>
+                {availableRoles.map((r) => (
+                  <option key={r.id} value={r.name}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
-          {/* Checkbox Generate Token */}
+          {/* Generate Token (opsional) */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">Generate Token?</label>
             <div className="flex items-center mt-1">
@@ -218,6 +280,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Submit */}
           <button type="submit" disabled={loading} className="w-full p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">
             {loading ? "Processing..." : "Register"}
           </button>

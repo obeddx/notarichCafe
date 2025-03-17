@@ -12,50 +12,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { username, password } = req.body;
 
-  // Validasi input
   if (typeof username !== "string" || typeof password !== "string") {
     return res.status(400).json({ message: "Username and password must be strings." });
   }
 
   try {
-    // Cari pengguna berdasarkan username dan sertakan relasi role
-    const user = await prisma.user.findUnique({
+    // Cari owner berdasarkan username
+    const owner = await prisma.owner.findUnique({
       where: { username },
-      include: { role: true },
     });
 
-    if (!user) {
+    if (!owner) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Verifikasi password
-    const isPasswordValid = await argon2.verify(user.password, password);
+    // Verifikasi password menggunakan argon2
+    const isPasswordValid = await argon2.verify(owner.password, password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Pastikan role ada (tanpa membatasi ke nilai tertentu)
-    if (!user.role) {
-      return res.status(500).json({ message: "User role is not defined." });
+    // Pastikan owner memiliki token (token bisa dibuat saat pembuatan akun owner)
+    if (!owner.token) {
+      return res.status(500).json({ message: "Owner token is not defined." });
     }
 
-    const roleCookie = user.role.name.toLowerCase();
+    // Hanya set flag Secure jika di environment production
+    const isProduction = process.env.NODE_ENV === "production";
 
-    // Set cookie dengan token user
-    res.setHeader("Set-Cookie", `${roleCookie}=${encodeURIComponent(user.token)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`);
+    res.setHeader("Set-Cookie", `owner=${encodeURIComponent(owner.token)}; Path=/; HttpOnly;${isProduction ? " Secure;" : ""} SameSite=Strict; Max-Age=86400`);
 
-    // Respons sukses
+    // Respons sukses dengan data owner dan role statis "owner"
     return res.status(200).json({
       message: "Login successful",
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role.name,
+      owner: {
+        id: owner.id,
+        username: owner.username,
+        email: owner.email,
+        role: owner.role, // Nilai statis "owner"
       },
     });
   } catch (error) {
-    console.error("Error logging in:", error);
+    console.error("Error logging in owner:", error);
     return res.status(500).json({ message: "An error occurred during login." });
   } finally {
     await prisma.$disconnect();

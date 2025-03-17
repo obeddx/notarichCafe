@@ -146,21 +146,29 @@ model DailyGudangStock {
   @@index([date])
 }
 
-enum Role {
-  kasir
-  manager
+model User {
+  id         Int           @id @default(autoincrement())
+  username   String        @unique
+  email      String        @unique
+  password   String
+  roleId     Int?          // Menyimpan ID role yang dinamis
+  role       RoleEmployee? @relation(fields: [roleId], references: [id])
+  token      String        @unique
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 }
 
-model User {
-  id         Int      @id @default(autoincrement())
-  username   String   @unique
-  email      String   @unique
+model Owner {
+  id         Int       @id @default(autoincrement())
+  username   String    @unique
+  email      String    @unique
   password   String
-  role       Role     @default(manager)
-  token      String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  token      String?   @unique
+  role       String    @default("owner")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
+
 
 model Employee {
   id             Int          @id @default(autoincrement())
@@ -180,13 +188,14 @@ model Employee {
 }
 
 model RoleEmployee {
-  id        Int        @id @default(autoincrement())
-  name      String
-  employees Employee[]
-
-  appPermissions       Json?
+  id                    Int      @id @default(autoincrement())
+  name                  String 
+  employees             Employee[]
+  users                 User[]
+  appPermissions        Json?
   backofficePermissions Json?
 }
+
 
 
 model Order {

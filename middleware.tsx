@@ -1,38 +1,40 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Untuk rute /manager, izinkan role "manager" dan "owner"
   if (pathname.startsWith("/manager")) {
-    const managerCookie = req.cookies.get("manager")?.value;
-    let decodedManagerCookie: string | null = null;
-    if (managerCookie) {
-      try {
-        decodedManagerCookie = decodeURIComponent(managerCookie);
-      } catch (error) {
-        console.error("Gagal mendecode cookie manager:", error);
-        // Jika decode gagal, anggap cookie tidak valid
-        decodedManagerCookie = null;
+    const allowedRoles = ["manager", "owner"];
+    let validToken: string | null = null;
+    let detectedRole: string | null = null;
+
+    for (const roleName of allowedRoles) {
+      const cookieValue = req.cookies.get(roleName)?.value;
+      if (cookieValue) {
+        try {
+          validToken = decodeURIComponent(cookieValue);
+          detectedRole = roleName;
+          break;
+        } catch (error) {
+          console.error(`Gagal mendecode cookie ${roleName}:`, error);
+        }
       }
     }
 
-    if (!decodedManagerCookie) {
-      return redirectToLogin(req, "Cookie manager tidak ditemukan");
+    if (!validToken || !detectedRole) {
+      return redirectToLogin(req, "Cookie untuk role manager/owner tidak ditemukan");
     }
 
-    // Panggil API Route untuk validasi menggunakan token yang sudah didecode
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/validateUser`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userToken: decodedManagerCookie, role: "manager" }),
-      }
-    );
+    // Validasi token melalui API validateUser
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/validateUser`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userToken: validToken, role: detectedRole }),
+    });
 
     if (!response.ok) {
       let errorMessage = "Validasi gagal";
@@ -46,50 +48,36 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Untuk rute /cashier
   if (pathname.startsWith("/cashier")) {
-    // Ambil cookie untuk kasir dan manager
-    const kasirCookie = req.cookies.get("kasir")?.value;
-    const managerCookie = req.cookies.get("manager")?.value;
+    const allowedRoles = ["kasir", "manager", "owner"];
+    let validToken: string | null = null;
+    let detectedRole: string | null = null;
 
-    let decodedKasirCookie: string | null = null;
-    let decodedManagerCookie: string | null = null;
-
-    if (kasirCookie) {
-      try {
-        decodedKasirCookie = decodeURIComponent(kasirCookie);
-      } catch (error) {
-        console.error("Gagal mendecode cookie kasir:", error);
-        decodedKasirCookie = null;
-      }
-    }
-    if (managerCookie) {
-      try {
-        decodedManagerCookie = decodeURIComponent(managerCookie);
-      } catch (error) {
-        console.error("Gagal mendecode cookie manager:", error);
-        decodedManagerCookie = null;
+    for (const roleName of allowedRoles) {
+      const cookieValue = req.cookies.get(roleName)?.value;
+      if (cookieValue) {
+        try {
+          validToken = decodeURIComponent(cookieValue);
+          detectedRole = roleName;
+          break;
+        } catch (error) {
+          console.error(`Gagal mendecode cookie ${roleName}:`, error);
+        }
       }
     }
 
-    if (!decodedKasirCookie && !decodedManagerCookie) {
-      return redirectToLogin(req, "Cookie kasir atau manager tidak ditemukan");
+    if (!validToken || !detectedRole) {
+      return redirectToLogin(req, "Cookie untuk kasir/manager tidak ditemukan");
     }
 
-    // Tentukan userToken dan role berdasarkan cookie yang ada
-    const userToken = decodedKasirCookie || decodedManagerCookie;
-    const role = decodedKasirCookie ? "kasir" : "manager";
-
-    // Panggil API Route untuk validasi
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/validateUser`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userToken, role }),
-      }
-    );
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/validateUser`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userToken: validToken, role: detectedRole }),
+    });
 
     if (!response.ok) {
       let errorMessage = "Validasi gagal";

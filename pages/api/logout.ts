@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const isProduction = process.env.NODE_ENV === "production";
 
     // Daftar semua kemungkinan nama cookie berdasarkan login.ts
-    const possibleCookies = ["user", "kasir", "manager"];
+    const possibleCookies = ["user", "kasir", "manager", "owner"];
 
     // Buat array cookie yang akan dihapus
     const cookiesToDelete = possibleCookies.map((cookieName) => `${cookieName}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${isProduction ? "; Secure" : ""}`);

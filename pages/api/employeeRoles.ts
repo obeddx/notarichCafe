@@ -10,6 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const roles = await prisma.roleEmployee.findMany({
         include: {
           employees: true,
+          users: true,
         },
       });
       return res.status(200).json(roles);

@@ -12,10 +12,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Token not provided" });
       }
 
-      // 1. Cari employee berdasarkan token
+      // 1. Cari employee berdasarkan token + sertakan relasi role
       const employee = await prisma.employee.findFirst({
         where: { inviteToken: token },
+        include: { role: true }, // <-- Tambahkan ini
       });
+
       if (!employee) {
         return res.status(404).json({ error: "Invalid token" });
       }
@@ -27,7 +29,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // 3. Token valid dan belum expired
-      return res.status(200).json({ message: "Token valid", employee });
+      return res.status(200).json({
+        message: "Token valid",
+        employee,
+      });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: "Server Error" });
