@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { toast } from "react-toastify";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -44,13 +45,17 @@ export default function LoginPage() {
 
         // Redirect berdasarkan role locked atau berdasarkan role user
         if (lockedRole.toLowerCase() === "manager") {
-          router.push("/manager");
+          toast.success("Login berhasil!");
+          setTimeout(() => router.push(`/manager/dashboard`), 1500);
         } else if (lockedRole.toLowerCase() === "kasir") {
-          router.push("/cashier/kasir");
+          toast.success("Login berhasil!");
+          setTimeout(() => router.push(`/cashier/kasir`), 1500);
         } else {
-          router.push("/");
+          toast.success("Login berhasil !");
+          setTimeout(() => router.push(`/`), 1500);
         }
       } else {
+        toast.error("Login gagal!");
         setErrorMessage(data.message || "Login failed");
       }
     } catch (error) {

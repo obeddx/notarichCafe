@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             // Backoffice Permissions (disesuaikan dengan Sidebar.tsx)
             case "backoffice.viewDashboard":
-              return "/manager";
+              return "/manager/dashboard";
             case "backoffice.viewReports.sales":
               return "/manager/report/sales";
             case "backoffice.viewReports.transactions":

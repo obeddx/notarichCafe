@@ -3,6 +3,8 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function OwnerLoginPage() {
   const [username, setUsername] = useState("");
@@ -30,6 +32,7 @@ export default function OwnerLoginPage() {
         // Validasi role harus OWNER secara statis
         if (data.owner.role !== "owner") {
           setErrorMessage("Akun Anda tidak memiliki akses sebagai owner");
+          toast.error("Akun Anda tidak memiliki akses sebagai owner");
           setLoading(false);
           return;
         }
@@ -37,14 +40,20 @@ export default function OwnerLoginPage() {
         // Simpan data owner ke sessionStorage (atau bisa juga membuat cookie)
         sessionStorage.setItem("owner", JSON.stringify(data.owner));
 
-        // Redirect ke halaman dashboard owner
-        router.push("/manager/employeeSlots");
+        toast.success("Login berhasil!");
+
+        // Redirect ke halaman dashboard owner setelah delay
+        setTimeout(() => {
+          router.push("/manager/employeeSlots");
+        }, 1500);
       } else {
         setErrorMessage(data.message || "Login gagal");
+        toast.error(data.message || "Login gagal");
       }
     } catch (error) {
       console.error("Login error:", error);
       setErrorMessage("Terjadi kesalahan saat login.");
+      toast.error("Terjadi kesalahan saat login.");
     } finally {
       setLoading(false);
     }
@@ -52,6 +61,7 @@ export default function OwnerLoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-cover bg-center p-4" style={{ backgroundImage: "url('/login2.png')" }}>
+      <ToastContainer />
       <div className="relative w-full max-w-md p-6 bg-white bg-opacity-80 rounded-lg shadow-lg">
         <h2 className="text-2xl font-bold text-center mb-4 text-black">Owner Login</h2>
 

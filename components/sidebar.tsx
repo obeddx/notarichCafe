@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
       </div>
       <ul className="mt-6 space-y-2">
         <li>
-          <SidebarItem href="/manager" label="Dashboard" isOpen={isOpen} />
+          <SidebarItem href="/manager/dashboard" label="Dashboard" isOpen={isOpen} />
         </li>
         <li>
           <SidebarDropdown
