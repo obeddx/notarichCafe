@@ -195,7 +195,6 @@ export default function KasirPage() {
     }
   };
 
-
   const resetBookingOrder = async (orderId: number) => {
     try {
       const response = await fetch("/api/resetBookingOrder", {
@@ -212,7 +211,6 @@ export default function KasirPage() {
     }
   };
 
- 
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
@@ -230,106 +228,90 @@ export default function KasirPage() {
   };
 
   // Perbarui useEffect untuk WebSocket
-useEffect(() => {
-  const fetchMenusAndDiscounts = async () => {
-    try {
-      const menuResponse = await fetch("/api/getMenu");
-      if (!menuResponse.ok) throw new Error(`Failed to fetch menus: ${menuResponse.status}`);
-      const menuData = await menuResponse.json();
-      setMenus(menuData);
+  useEffect(() => {
+    const fetchMenusAndDiscounts = async () => {
+      try {
+        const menuResponse = await fetch("/api/getMenu");
+        if (!menuResponse.ok) throw new Error(`Failed to fetch menus: ${menuResponse.status}`);
+        const menuData = await menuResponse.json();
+        setMenus(menuData);
 
-      const discountResponse = await fetch("/api/diskon");
-      if (!discountResponse.ok) throw new Error(`Failed to fetch discounts: ${discountResponse.status}`);
-      const discountData = await discountResponse.json();
-      setDiscounts(discountData.filter((d: Discount) => d.isActive));
-    } catch (error) {
-      console.error("Error fetching menus or discounts:", error);
-    }
-  };
-  fetchMenusAndDiscounts();
-  fetchOrders();
-
-  const socketIo = io(SOCKET_URL, {
-    path: "/api/socket",
-    reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 5000,
-  });
-
-  socketIo.on("connect", () => console.log("Terhubung ke WebSocket server:", socketIo.id));
-
-  socketIo.on("ordersUpdated", (data: any) => {
-    console.log("Pesanan diperbarui di Kasir:", data);
+        const discountResponse = await fetch("/api/diskon");
+        if (!discountResponse.ok) throw new Error(`Failed to fetch discounts: ${discountResponse.status}`);
+        const discountData = await discountResponse.json();
+        setDiscounts(discountData.filter((d: Discount) => d.isActive));
+      } catch (error) {
+        console.error("Error fetching menus or discounts:", error);
+      }
+    };
+    fetchMenusAndDiscounts();
     fetchOrders();
-  });
 
-  socketIo.on("paymentStatusUpdated", (updatedOrder: Order) => {
-    console.log("Status pembayaran diperbarui:", updatedOrder);
-    setOrders((prevOrders) =>
-      prevOrders.map((order) =>
-        order.id === updatedOrder.id
-          ? {
-              ...order,
-              ...updatedOrder,
-              paymentStatusText:
-                updatedOrder.paymentStatus === "paid" && updatedOrder.paymentMethod === "ewallet"
-                  ? "Status Payment: Paid via E-Wallet"
-                  : order.paymentStatusText,
-            }
-          : order
-      )
-    );
-  });
+    const socketIo = io(SOCKET_URL, {
+      path: "/api/socket",
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 5000,
+    });
 
-  socketIo.on("reservationDeleted", ({ reservasiId, orderId }) => {
-    console.log("Reservasi dihapus di Kasir:", { reservasiId, orderId });
-    setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
-    fetchOrders();
-  });
+    socketIo.on("connect", () => console.log("Terhubung ke WebSocket server:", socketIo.id));
 
-  socketIo.on("reservationUpdated", (updatedReservasi) => {
-    console.log("Reservasi diperbarui:", updatedReservasi);
-    setOrders((prevOrders) =>
-      prevOrders.map((order) =>
-        order.reservasi?.id === updatedReservasi.id
-          ? { ...order, reservasi: updatedReservasi }
-          : order
-      )
-    );
-  });
+    socketIo.on("ordersUpdated", (data: any) => {
+      console.log("Pesanan diperbarui di Kasir:", data);
+      fetchOrders();
+    });
 
-  socketIo.on("tableStatusUpdated", ({ tableNumber }) => {
-    console.log(`Status meja diperbarui di Kasir: ${tableNumber}`);
-    fetchOrders();
-  });
+    socketIo.on("paymentStatusUpdated", (updatedOrder: Order) => {
+      console.log("Status pembayaran diperbarui:", updatedOrder);
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === updatedOrder.id
+            ? {
+                ...order,
+                ...updatedOrder,
+                paymentStatusText: updatedOrder.paymentStatus === "paid" && updatedOrder.paymentMethod === "ewallet" ? "Status Payment: Paid via E-Wallet" : order.paymentStatusText,
+              }
+            : order
+        )
+      );
+    });
 
-  socketIo.on("disconnect", () => console.log("Socket terputus"));
+    socketIo.on("reservationDeleted", ({ reservasiId, orderId }) => {
+      console.log("Reservasi dihapus di Kasir:", { reservasiId, orderId });
+      setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
+      fetchOrders();
+    });
 
-  setSocket(socketIo);
+    socketIo.on("reservationUpdated", (updatedReservasi) => {
+      console.log("Reservasi diperbarui:", updatedReservasi);
+      setOrders((prevOrders) => prevOrders.map((order) => (order.reservasi?.id === updatedReservasi.id ? { ...order, reservasi: updatedReservasi } : order)));
+    });
 
-  return () => {
-    socketIo.disconnect();
-    console.log("WebSocket disconnected");
-  };
-}, []);
+    socketIo.on("tableStatusUpdated", ({ tableNumber }) => {
+      console.log(`Status meja diperbarui di Kasir: ${tableNumber}`);
+      fetchOrders();
+    });
+
+    socketIo.on("disconnect", () => console.log("Socket terputus"));
+
+    setSocket(socketIo);
+
+    return () => {
+      socketIo.disconnect();
+      console.log("WebSocket disconnected");
+    };
+  }, []);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  const confirmPayment = async (
-    orderId: number,
-    paymentMethod: string,
-    paymentId?: string,
-    discountId?: number | null,
-    cashGiven?: number,
-    change?: number
-  ) => {
+  const confirmPayment = async (orderId: number, paymentMethod: string, paymentId?: string, discountId?: number | null, cashGiven?: number, change?: number) => {
     setLoading(true);
     setError(null);
     try {
       if (paymentMethod === "tunai" && cashGiven !== undefined && change !== undefined) {
         await updateCartWithPayment(cashGiven.toString(), change);
       }
-  
+
       const res = await fetch("/api/orders", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -343,20 +325,18 @@ useEffect(() => {
           status: "Sedang Diproses", // Ubah status menjadi "Sedang Diproses" setelah konfirmasi
         }),
       });
-  
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Gagal mengonfirmasi pembayaran");
       }
-  
+
       const data = await res.json();
       const updatedOrder = data.order;
-  
-      setOrders((prevOrders) =>
-        prevOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
-      );
+
+      setOrders((prevOrders) => prevOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
       toast.success("✅ Pembayaran berhasil dikonfirmasi!");
-  
+
       setPaymentMethod("tunai");
       setPaymentId("");
       setCashGiven("");
@@ -372,13 +352,7 @@ useEffect(() => {
 
   const removeFromCart = (uniqueKey: string) => {
     setSelectedMenuItems((prev) => {
-      const updatedCart = prev
-        .map((item) =>
-          item.uniqueKey === uniqueKey
-            ? { ...item, quantity: Math.max(0, item.quantity - 1) }
-            : item
-        )
-        .filter((item) => item.quantity > 0);
+      const updatedCart = prev.map((item) => (item.uniqueKey === uniqueKey ? { ...item, quantity: Math.max(0, item.quantity - 1) } : item)).filter((item) => item.quantity > 0);
 
       fetch("/api/cart", {
         method: "POST",
@@ -445,15 +419,11 @@ useEffect(() => {
   const addToCart = (menu: Menu, modifierIds: { [categoryId: number]: number | null } = {}) => {
     setSelectedMenuItems((prevCart) => {
       const uniqueKey = generateUniqueKey(menu.id, modifierIds);
-      const existingItemIndex = prevCart.findIndex(
-        (item) => item.uniqueKey === uniqueKey
-      );
+      const existingItemIndex = prevCart.findIndex((item) => item.uniqueKey === uniqueKey);
 
       let updatedCart;
       if (existingItemIndex !== -1) {
-        updatedCart = prevCart.map((item, index) =>
-          index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
-        );
+        updatedCart = prevCart.map((item, index) => (index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item));
       } else {
         const newItem = {
           menu,
@@ -479,11 +449,7 @@ useEffect(() => {
   };
 
   const handleModifierToggle = (modifierId: number) => {
-    setSelectedModifiers((prev) =>
-      prev.includes(modifierId)
-        ? prev.filter((id) => id !== modifierId)
-        : [...prev, modifierId]
-    );
+    setSelectedModifiers((prev) => (prev.includes(modifierId) ? prev.filter((id) => id !== modifierId) : [...prev, modifierId]));
   };
 
   const saveModifiersToCart = () => {
@@ -502,20 +468,15 @@ useEffect(() => {
     setCurrentMenu(null);
   };
 
-  const handleNewOrderPayment = async (
-    paymentMethod: string,
-    paymentId?: string,
-    cashGiven?: number,
-    change?: number
-  ) => {
+  const handleNewOrderPayment = async (paymentMethod: string, paymentId?: string, cashGiven?: number, change?: number) => {
     if (!pendingOrderData) return;
-  
+
     setLoading(true);
     try {
       if (paymentMethod === "tunai" && cashGiven !== undefined && change !== undefined) {
         await updateCartWithPayment(cashGiven.toString(), change);
       }
-  
+
       const response = await fetch("/api/placeOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -529,25 +490,18 @@ useEffect(() => {
           paymentMethod: paymentMethod === "e-wallet" ? "ewallet" : paymentMethod,
         }),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Gagal membuat pesanan");
       }
-  
+
       const data = await response.json();
       const newOrder = data.order;
-  
+
       const finalPaymentMethod = paymentMethod === "e-wallet" ? "ewallet" : paymentMethod;
-      await confirmPayment(
-        newOrder.id,
-        finalPaymentMethod,
-        paymentId,
-        selectedDiscountIdNewOrder,
-        cashGiven,
-        change
-      );
-  
+      await confirmPayment(newOrder.id, finalPaymentMethod, paymentId, selectedDiscountIdNewOrder, cashGiven, change);
+
       if (finalPaymentMethod === "ewallet") {
         await fetch("/api/updatePaymentStatus", {
           method: "POST",
@@ -560,15 +514,11 @@ useEffect(() => {
             status: "paid",
           }),
         });
-  
+
         // Set status pembayaran untuk E-Wallet
-        setOrders((prevOrders) =>
-          prevOrders.map((o) =>
-            o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via E-Wallet" } : o
-          )
-        );
+        setOrders((prevOrders) => prevOrders.map((o) => (o.id === newOrder.id ? { ...o, paymentStatusText: "Status Payment: Paid via E-Wallet" } : o)));
       }
-  
+
       setPendingOrderData(null);
       setPendingOrderId(null);
       setSelectedMenuItems([]);
@@ -579,7 +529,7 @@ useEffect(() => {
       setCashGiven("");
       setChange(0);
       setSelectedDiscountIdNewOrder(null);
-  
+
       setTimeout(async () => {
         await fetch("/api/cart", {
           method: "POST",
@@ -587,7 +537,7 @@ useEffect(() => {
           body: JSON.stringify({ cartItems: [], cashGiven: 0, change: 0 }),
         });
       }, 5000);
-  
+
       setIsNewOrderPaymentModalOpen(false);
       fetchOrders();
     } catch (error) {
@@ -611,25 +561,25 @@ useEffect(() => {
     try {
       const order = orders.find((o) => o.id === orderId);
       if (!order) throw new Error("Pesanan tidak ditemukan");
-  
+
       const isReservation = !!order.reservasi;
       const endpoint = isReservation ? "/api/resetBookingOrder" : "/api/resetTable";
       const body = isReservation ? { orderId } : { tableNumber: order.tableNumber };
-  
+
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-  
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Gagal membatalkan pesanan");
       }
-  
+
       toast.success("✅ Pesanan berhasil dibatalkan!");
       setOrders((prevOrders) => prevOrders.filter((o) => o.id !== orderId));
-  
+
       // Emit event WebSocket secara manual jika tidak ditangani oleh API
       if (socket) {
         if (isReservation) {
@@ -657,7 +607,7 @@ useEffect(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tableNumber }),
       });
-  
+
       if (res.ok) {
         toast.success(`✅ Meja ${tableNumber} berhasil direset!`);
         fetchOrders();
@@ -676,10 +626,7 @@ useEffect(() => {
     let basePrice = menu.price;
     const activeDiscount = menu.discounts?.find((d) => d.discount.isActive && d.discount.scope === "MENU");
     if (activeDiscount) {
-      basePrice -=
-        activeDiscount.discount.type === "PERCENTAGE"
-          ? (activeDiscount.discount.value / 100) * menu.price
-          : activeDiscount.discount.value;
+      basePrice -= activeDiscount.discount.type === "PERCENTAGE" ? (activeDiscount.discount.value / 100) * menu.price : activeDiscount.discount.value;
     }
     return basePrice > 0 ? basePrice : 0;
   };
@@ -710,10 +657,7 @@ useEffect(() => {
     if (selectedDiscountIdNewOrder) {
       const selectedDiscount = discounts.find((d) => d.id === selectedDiscountIdNewOrder);
       if (selectedDiscount && selectedDiscount.scope === "TOTAL") {
-        const additionalDiscount =
-          selectedDiscount.type === "PERCENTAGE"
-            ? (selectedDiscount.value / 100) * subtotalWithModifiers
-            : selectedDiscount.value;
+        const additionalDiscount = selectedDiscount.type === "PERCENTAGE" ? (selectedDiscount.value / 100) * subtotalWithModifiers : selectedDiscount.value;
         totalDiscountAmount += additionalDiscount;
       }
     }
@@ -721,7 +665,7 @@ useEffect(() => {
     totalDiscountAmount = Math.min(totalDiscountAmount, subtotalWithModifiers);
 
     const subtotalAfterAllDiscounts = subtotalWithModifiers - (totalDiscountAmount - totalMenuDiscountAmount);
-    const taxAmount = subtotalAfterAllDiscounts * 0.10;
+    const taxAmount = subtotalAfterAllDiscounts * 0.1;
     const gratuityAmount = subtotalAfterAllDiscounts * 0.02;
     const finalTotal = subtotalAfterAllDiscounts + taxAmount + gratuityAmount;
 
@@ -780,9 +724,7 @@ useEffect(() => {
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications((prevNotifications) =>
-      prevNotifications.map((notif) => ({ ...notif, isRead: true }))
-    );
+    setNotifications((prevNotifications) => prevNotifications.map((notif) => ({ ...notif, isRead: true })));
   };
 
   return (
@@ -791,21 +733,13 @@ useEffect(() => {
         <SidebarCashier isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       </div>
       <div className={`flex-1 p-6 transition-all duration-300 ${isSidebarOpen ? "ml-64" : "ml-20"}`}>
-       
         <h1 className="text-3xl font-bold text-center mb-6 text-[#0E0E0E]">💳 Halaman Kasir</h1>
         <div className="flex items-center gap-4">
           <button onClick={() => setNotificationModalOpen(true)} className="relative">
             <FiBell className="text-3xl text-[#FF8A00]" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
-                {unreadCount}
-              </span>
-            )}
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">{unreadCount}</span>}
           </button>
-          <button
-            onClick={() => setIsOrderModalOpen(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg flex items-center gap-2"
-          >
+          <button onClick={() => setIsOrderModalOpen(true)} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg flex items-center gap-2">
             <ShoppingCart className="w-5 h-5" />
             Buat Pesanan Baru
           </button>
@@ -824,43 +758,22 @@ useEffect(() => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium mb-1">Nomor Meja</label>
-                  <input
-                    type="text"
-                    value={tableNumberInput}
-                    onChange={(e) => setTableNumberInput(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                    placeholder="Masukkan nomor meja"
-                  />
+                  <input type="text" value={tableNumberInput} onChange={(e) => setTableNumberInput(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Masukkan nomor meja" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Nama Pelanggan</label>
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                    placeholder="Masukkan nama pelanggan"
-                  />
+                  <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Masukkan nama pelanggan" />
                 </div>
               </div>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">Cari Menu</label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                  placeholder="Cari nama menu..."
-                />
+                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Cari nama menu..." />
               </div>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">Filter Kategori</label>
-                <select
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                >
+                <select onChange={(e) => setSelectedCategory(e.target.value)} className="w-full p-2 border rounded-md">
                   <option value="">Semua Kategori</option>
                   {Array.from(new Set(menus.map((menu) => menu.category))).map((category) => (
                     <option key={category} value={category}>
@@ -922,9 +835,7 @@ useEffect(() => {
                   const itemPrice = basePriceAfterDiscount + modifierTotal;
                   const itemTotalPrice = itemPrice * item.quantity;
                   const modifierNames = Object.entries(item.modifierIds)
-                    .map(([_, modifierId]) =>
-                      modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
-                    )
+                    .map(([_, modifierId]) => (modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null))
                     .filter(Boolean)
                     .join(", ");
                   const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
@@ -941,27 +852,17 @@ useEffect(() => {
                           placeholder="Catatan..."
                           value={item.note}
                           onChange={(e) => {
-                            setSelectedMenuItems((prev) =>
-                              prev.map((prevItem) =>
-                                prevItem.uniqueKey === item.uniqueKey ? { ...prevItem, note: e.target.value } : prevItem
-                              )
-                            );
+                            setSelectedMenuItems((prev) => prev.map((prevItem) => (prevItem.uniqueKey === item.uniqueKey ? { ...prevItem, note: e.target.value } : prevItem)));
                           }}
                           className="text-sm mt-1 p-1 border rounded w-full"
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => removeFromCart(item.uniqueKey)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
-                        >
+                        <button onClick={() => removeFromCart(item.uniqueKey)} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition">
                           -
                         </button>
                         <span>{item.quantity}</span>
-                        <button
-                          onClick={() => addToCart(item.menu, item.modifierIds)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition"
-                        >
+                        <button onClick={() => addToCart(item.menu, item.modifierIds)} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition">
                           +
                         </button>
                       </div>
@@ -976,19 +877,12 @@ useEffect(() => {
                     <p>Diskon: Rp {calculateCartTotals().totalDiscountAmount.toLocaleString()}</p>
                     <p>Pajak (10%): Rp {calculateCartTotals().taxAmount.toLocaleString()}</p>
                     <p>Gratuity (2%): Rp {calculateCartTotals().gratuityAmount.toLocaleString()}</p>
-                    <p className="font-semibold">
-                      Total Bayar: Rp {calculateCartTotals().finalTotal.toLocaleString()}
-                    </p>
+                    <p className="font-semibold">Total Bayar: Rp {calculateCartTotals().finalTotal.toLocaleString()}</p>
                   </div>
                   <div className="mt-2">
                     <label className="block text-sm font-medium mb-1">Diskon Total:</label>
-                    <button
-                      onClick={() => setIsDiscountPopupOpen(true)}
-                      className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-                    >
-                      {selectedDiscountIdNewOrder
-                        ? discounts.find((d) => d.id === selectedDiscountIdNewOrder)?.name || "Pilih Diskon"
-                        : "Pilih Diskon"}
+                    <button onClick={() => setIsDiscountPopupOpen(true)} className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium">
+                      {selectedDiscountIdNewOrder ? discounts.find((d) => d.id === selectedDiscountIdNewOrder)?.name || "Pilih Diskon" : "Pilih Diskon"}
                     </button>
                   </div>
                   <button
@@ -1023,96 +917,73 @@ useEffect(() => {
           </div>
         )}
 
-{isNewOrderPaymentModalOpen && pendingOrderData && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg w-full max-w-md">
-      <h2 className="text-2xl font-bold mb-4">Konfirmasi Pembayaran Pesanan Baru</h2>
-      <p className="text-lg mb-2">Total Bayar (termasuk pajak & gratuity): Rp {pendingOrderData.total.toLocaleString()}</p>
-      <div className="space-y-4">
-        <button
-          onClick={() => setIsPaymentMethodPopupOpen(true)}
-          className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-        >
-          {paymentMethod === "tunai" ? "Tunai" : paymentMethod === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
-        </button>
-        {paymentMethod !== "tunai" && (
-          <input
-            type="text"
-            placeholder="Masukkan ID Pembayaran"
-            value={paymentId}
-            onChange={(e) => setPaymentId(e.target.value)}
-            className="w-full p-2 border rounded-md"
-          />
+        {isNewOrderPaymentModalOpen && pendingOrderData && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md">
+              <h2 className="text-2xl font-bold mb-4">Konfirmasi Pembayaran Pesanan Baru</h2>
+              <p className="text-lg mb-2">Total Bayar (termasuk pajak & gratuity): Rp {pendingOrderData.total.toLocaleString()}</p>
+              <div className="space-y-4">
+                <button onClick={() => setIsPaymentMethodPopupOpen(true)} className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium">
+                  {paymentMethod === "tunai" ? "Tunai" : paymentMethod === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
+                </button>
+                {paymentMethod !== "tunai" && <input type="text" placeholder="Masukkan ID Pembayaran" value={paymentId} onChange={(e) => setPaymentId(e.target.value)} className="w-full p-2 border rounded-md" />}
+                {paymentMethod === "tunai" && (
+                  <>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder="Masukkan jumlah pembayaran"
+                      value={cashGiven}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                          setCashGiven(value);
+                          const newChange = calculateChange(value);
+                          updateCartWithPayment(value, newChange);
+                        }
+                      }}
+                      className="w-full p-2 border rounded-md"
+                    />
+                    {change > 0 && <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>}
+                    {change < 0 && <p className="text-red-600">Uang yang diberikan kurang: Rp {(-change).toLocaleString()}</p>}
+                  </>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setPendingOrderData(null);
+                    setIsNewOrderPaymentModalOpen(false);
+                    updateCartWithPayment("", 0);
+                  }}
+                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={() => {
+                    if (paymentMethod === "tunai" && (parseFloat(cashGiven) || 0) < pendingOrderData.total) {
+                      toast.error("Uang yang diberikan kurang");
+                      return;
+                    }
+                    handleNewOrderPayment(paymentMethod, paymentId, parseFloat(cashGiven) || 0, change);
+                  }}
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md"
+                >
+                  Konfirmasi Pembayaran
+                </button>
+              </div>
+            </div>
+          </div>
         )}
-        {paymentMethod === "tunai" && (
-          <>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="Masukkan jumlah pembayaran"
-              value={cashGiven}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (/^[0-9]*\.?[0-9]*$/.test(value)) {
-                  setCashGiven(value);
-                  const newChange = calculateChange(value);
-                  updateCartWithPayment(value, newChange);
-                }
-              }}
-              className="w-full p-2 border rounded-md"
-            />
-            {change > 0 && (
-              <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
-            )}
-            {change < 0 && (
-              <p className="text-red-600">Uang yang diberikan kurang: Rp {(-change).toLocaleString()}</p>
-            )}
-          </>
-        )}
-      </div>
-      <div className="flex justify-end gap-2 mt-4">
-        <button
-          onClick={() => {
-            setPendingOrderData(null);
-            setIsNewOrderPaymentModalOpen(false);
-            updateCartWithPayment("", 0);
-          }}
-          className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
-        >
-          Batal
-        </button>
-        <button
-          onClick={() => {
-            if (paymentMethod === "tunai" && (parseFloat(cashGiven) || 0) < pendingOrderData.total) {
-              toast.error("Uang yang diberikan kurang");
-              return;
-            }
-            handleNewOrderPayment(paymentMethod, paymentId, parseFloat(cashGiven) || 0, change);
-          }}
-          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md"
-        >
-          Konfirmasi Pembayaran
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
         {error && <p className="text-red-500 text-center">{error}</p>}
         {loading ? (
           <p className="text-center text-[#979797]">Memuat data pesanan...</p>
         ) : (
           <div className="max-w-6xl mx-auto space-y-8">
-            <OrderSection
-              title="📌 Pesanan Aktif"
-              orders={activeOrders}
-              confirmPayment={confirmPayment}
-              markOrderAsCompleted={markOrderAsCompleted}
-              cancelOrder={cancelOrder}
-              resetTable={resetTable}
-              discounts={discounts}
-            />
+            <OrderSection title="📌 Pesanan Aktif" orders={activeOrders} confirmPayment={confirmPayment} markOrderAsCompleted={markOrderAsCompleted} cancelOrder={cancelOrder} resetTable={resetTable} discounts={discounts} />
             <OrderSection
               title="✅ Pesanan Selesai"
               orders={completedOrders}
@@ -1138,60 +1009,36 @@ useEffect(() => {
           </div>
         </div> */}
         <div className="flex mt-4">
+          <button onClick={handleResetDailyStock} className="mr-4 mt-4 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200">
+            Rekap Stock Cafe
+          </button>
 
-                   <button
-                    onClick={handleResetDailyStock}
-                    className="mt-4 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
-                  >
-                    Rekap Stock Cafe
-                  </button>
-          
-                  <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4">
-                    <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold text-yellow-900">Perhatian:</span>{" "}
-                      Tekan tombol{" "}
-                      <span className="font-semibold text-red-600">Rekap Stock Cafe</span>{" "}
-                      hanya pada saat <span className="font-semibold">closing cafe</span>,
-                      untuk menyimpan rekap pengeluaran stok Cafe hari ini.
-                    </p>
-                  </div>
+          <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4 mr-4">
+            <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Rekap Stock Cafe</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk
+              menyimpan rekap pengeluaran stok Cafe hari ini.
+            </p>
+          </div>
 
-                  <button
-                    onClick={handleResetDailyStockGudang}
-                    className="mt-4 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
-                  >
-                    Rekap Stock Gudang
-                  </button>
-          
-                  <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4">
-                    <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold text-yellow-900">Perhatian:</span>{" "}
-                      Tekan tombol{" "}
-                      <span className="font-semibold text-red-600">Rekap Stock Gudang</span>{" "}
-                      hanya pada saat <span className="font-semibold">closing cafe</span>,
-                      untuk menyimpan rekap pengeluaran stok gudang hari ini.
-                    </p>
-                  </div>
+          <button onClick={handleResetDailyStockGudang} className="mr-4 mt-4 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200">
+            Rekap Stock Gudang
+          </button>
 
+          <div className="flex items-start bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded-md mt-4">
+            <AlertTriangle className="text-yellow-700 w-5 h-5 mr-2 mt-1" />
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold text-yellow-900">Perhatian:</span> Tekan tombol <span className="font-semibold text-red-600">Rekap Stock Gudang</span> hanya pada saat <span className="font-semibold">closing cafe</span>, untuk
+              menyimpan rekap pengeluaran stok gudang hari ini.
+            </p>
+          </div>
         </div>
-       
 
         {modalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="relative bg-white p-8 rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+              <button onClick={() => setModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1212,17 +1059,10 @@ useEffect(() => {
                   </div>
                 ))}
                 <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setModalOpen(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
-                  >
+                  <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition"
-                  >
+                  <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition">
                     Submit
                   </button>
                 </div>
@@ -1231,109 +1071,87 @@ useEffect(() => {
           </div>
         )}
 
-{isPaymentMethodPopupOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-      <div className="flex justify-between items-center p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
-        <button
-          onClick={() => setIsPaymentMethodPopupOpen(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="space-y-3">
-          {["tunai", "kartu", "e-wallet"].map((method) => (
-            <div
-              key={method}
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={paymentMethod === method}
-                  onChange={() => {
-                    setPaymentMethod(method);
-                    setCashGiven("");
-                    setChange(0);
-                    updateCartWithPayment("", 0);
-                    setIsPaymentMethodPopupOpen(false);
-                  }}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-gray-700">
-                  {method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
-                </span>
+        {isPaymentMethodPopupOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
+                <button onClick={() => setIsPaymentMethodPopupOpen(false)} className="text-gray-500 hover:text-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-3">
+                  {["tunai", "kartu", "e-wallet"].map((method) => (
+                    <div key={method} className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={paymentMethod === method}
+                          onChange={() => {
+                            setPaymentMethod(method);
+                            setCashGiven("");
+                            setChange(0);
+                            updateCartWithPayment("", 0);
+                            setIsPaymentMethodPopupOpen(false);
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700">{method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button onClick={() => setIsPaymentMethodPopupOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
+                  Simpan Metode
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-        <button
-          onClick={() => setIsPaymentMethodPopupOpen(false)}
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-        >
-          Simpan Metode
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          </div>
+        )}
 
-{isPaymentMethodPopupOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-      <div className="flex justify-between items-center p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
-        <button
-          onClick={() => setIsPaymentMethodPopupOpen(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="space-y-3">
-          {["tunai", "kartu", "e-wallet"].map((method) => (
-            <div
-              key={method}
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={paymentMethod === method}
-                  onChange={() => {
-                    setPaymentMethod(method);
-                    setCashGiven("");
-                    setChange(0);
-                    updateCartWithPayment("", 0);
-                    setIsPaymentMethodPopupOpen(false);
-                  }}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-gray-700">
-                  {method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
-                </span>
+        {isPaymentMethodPopupOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
+                <button onClick={() => setIsPaymentMethodPopupOpen(false)} className="text-gray-500 hover:text-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-3">
+                  {["tunai", "kartu", "e-wallet"].map((method) => (
+                    <div key={method} className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={paymentMethod === method}
+                          onChange={() => {
+                            setPaymentMethod(method);
+                            setCashGiven("");
+                            setChange(0);
+                            updateCartWithPayment("", 0);
+                            setIsPaymentMethodPopupOpen(false);
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700">{method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button onClick={() => setIsPaymentMethodPopupOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
+                  Simpan Metode
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-        <button
-          onClick={() => setIsPaymentMethodPopupOpen(false)}
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-        >
-          Simpan Metode
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          </div>
+        )}
 
         {notificationModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
@@ -1341,10 +1159,7 @@ useEffect(() => {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-[#0E0E0E]">Notifications</h2>
                 {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkAllAsRead}
-                    className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded"
-                  >
+                  <button onClick={handleMarkAllAsRead} className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded">
                     Mark all as read
                   </button>
                 )}
@@ -1357,18 +1172,13 @@ useEffect(() => {
                     <li key={idx} className="border-b border-[#92700C] pb-2">
                       <p className="text-[#0E0E0E]">{notif.message}</p>
                       <p className="text-xs text-[#979797]">{notif.date}</p>
-                      {!notif.isRead && (
-                        <span className="text-xs bg-red-500 text-white rounded px-2 py-0.5">NEW</span>
-                      )}
+                      {!notif.isRead && <span className="text-xs bg-red-500 text-white rounded px-2 py-0.5">NEW</span>}
                     </li>
                   ))}
                 </ul>
               )}
               <div className="flex justify-end mt-4">
-                <button
-                  onClick={() => setNotificationModalOpen(false)}
-                  className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded"
-                >
+                <button onClick={() => setNotificationModalOpen(false)} className="px-4 py-2 bg-[#FF8A00] hover:bg-[#975F2C] text-[#FCFFFC] rounded">
                   Close
                 </button>
               </div>
@@ -1376,113 +1186,86 @@ useEffect(() => {
           </div>
         )}
 
-{isModifierPopupOpen && currentMenu && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-      <div className="flex justify-between items-center p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Tambah Modifier - {currentMenu.name}
-        </h2>
-        <button
-          onClick={() => setIsModifierPopupOpen(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="flex-1 p-4 overflow-y-auto max-h-[300px]"> {/* Batasi tinggi dan tambahkan scroll */}
-        <div className="space-y-3">
-          {currentMenu.modifiers.length > 0 ? (
-            currentMenu.modifiers.map((mod) => (
-              <div
-                key={mod.modifier.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedModifiers.includes(mod.modifier.id)}
-                    onChange={() => handleModifierToggle(mod.modifier.id)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">{mod.modifier.name}</span>
-                </div>
-                <span className="text-gray-600 text-sm">
-                  +Rp {mod.modifier.price.toLocaleString()}
-                </span>
+        {isModifierPopupOpen && currentMenu && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">Tambah Modifier - {currentMenu.name}</h2>
+                <button onClick={() => setIsModifierPopupOpen(false)} className="text-gray-500 hover:text-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            ))
-          ) : (
-            <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
-          )}
-        </div>
-      </div>
-      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-        <button
-          onClick={saveModifiersToCart}
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-        >
-          Simpan Modifier ({selectedModifiers.length} dipilih)
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-{isDiscountPopupOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
-      <div className="flex justify-between items-center p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
-        <button
-          onClick={() => setIsDiscountPopupOpen(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="flex-1 p-4 overflow-y-auto max-h-[300px]"> {/* Batasi tinggi dan tambahkan scroll */}
-        <div className="space-y-3">
-          {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
-            discounts
-              .filter((d) => d.scope === "TOTAL")
-              .map((discount) => (
-                <div
-                  key={discount.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedDiscountIdNewOrder === discount.id}
-                      onChange={() => setSelectedDiscountIdNewOrder(discount.id)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="text-gray-700">{discount.name}</span>
-                  </div>
-                  <span className="text-gray-600 text-sm">
-                    {discount.type === "PERCENTAGE"
-                      ? `${discount.value}%`
-                      : `Rp ${discount.value.toLocaleString()}`}
-                  </span>
+              <div className="flex-1 p-4 overflow-y-auto max-h-[300px]">
+                {" "}
+                {/* Batasi tinggi dan tambahkan scroll */}
+                <div className="space-y-3">
+                  {currentMenu.modifiers.length > 0 ? (
+                    currentMenu.modifiers.map((mod) => (
+                      <div key={mod.modifier.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all">
+                        <div className="flex items-center gap-3">
+                          <input type="checkbox" checked={selectedModifiers.includes(mod.modifier.id)} onChange={() => handleModifierToggle(mod.modifier.id)} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                          <span className="text-gray-700">{mod.modifier.name}</span>
+                        </div>
+                        <span className="text-gray-600 text-sm">+Rp {mod.modifier.price.toLocaleString()}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-center">Tidak ada modifier tersedia</p>
+                  )}
                 </div>
-              ))
-          ) : (
-            <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
-          )}
-        </div>
-      </div>
-      <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-        <button
-          onClick={() => setIsDiscountPopupOpen(false)}
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-        >
-          Simpan Diskon
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button onClick={saveModifiersToCart} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
+                  Simpan Modifier ({selectedModifiers.length} dipilih)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isDiscountPopupOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
+                <button onClick={() => setIsDiscountPopupOpen(false)} className="text-gray-500 hover:text-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto max-h-[300px]">
+                {" "}
+                {/* Batasi tinggi dan tambahkan scroll */}
+                <div className="space-y-3">
+                  {discounts.filter((d) => d.scope === "TOTAL").length > 0 ? (
+                    discounts
+                      .filter((d) => d.scope === "TOTAL")
+                      .map((discount) => (
+                        <div key={discount.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedDiscountIdNewOrder === discount.id}
+                              onChange={() => setSelectedDiscountIdNewOrder(discount.id)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-gray-700">{discount.name}</span>
+                          </div>
+                          <span className="text-gray-600 text-sm">{discount.type === "PERCENTAGE" ? `${discount.value}%` : `Rp ${discount.value.toLocaleString()}`}</span>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-gray-500 text-center">Tidak ada diskon total tersedia</p>
+                  )}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
+                <button onClick={() => setIsDiscountPopupOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
+                  Simpan Diskon
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <style jsx global>{`
@@ -1531,23 +1314,29 @@ function OrderSection({
 
   useEffect(() => {
     const selectedOrdersData = orders.filter((order) => selectedOrders.includes(Number(order.id)));
-    
+
     const subtotal = selectedOrdersData.reduce((acc, order) => {
-      return acc + order.orderItems.reduce((sum, item) => {
-        const basePrice = item.price - (item.modifiers?.reduce((modSum, mod) => modSum + mod.modifier.price, 0) || 0);
-        return sum + basePrice * item.quantity;
-      }, 0);
+      return (
+        acc +
+        order.orderItems.reduce((sum, item) => {
+          const basePrice = item.price - (item.modifiers?.reduce((modSum, mod) => modSum + mod.modifier.price, 0) || 0);
+          return sum + basePrice * item.quantity;
+        }, 0)
+      );
     }, 0);
 
     const modifier = selectedOrdersData.reduce((acc, order) => {
-      return acc + (order.orderItems.reduce((sum, item) => {
-        return sum + (item.modifiers?.reduce((modSum, mod) => modSum + mod.modifier.price * item.quantity, 0) || 0);
-      }, 0));
+      return (
+        acc +
+        order.orderItems.reduce((sum, item) => {
+          return sum + (item.modifiers?.reduce((modSum, mod) => modSum + mod.modifier.price * item.quantity, 0) || 0);
+        }, 0)
+      );
     }, 0);
 
     const discount = selectedOrdersData.reduce((acc, order) => acc + (order.discountAmount || 0), 0);
     const subtotalAfterDiscount = subtotal + modifier - discount;
-    const tax = subtotalAfterDiscount * 0.10;
+    const tax = subtotalAfterDiscount * 0.1;
     const gratuity = subtotalAfterDiscount * 0.02;
     const finalTotal = subtotalAfterDiscount + tax + gratuity;
 
@@ -1569,24 +1358,11 @@ function OrderSection({
     }
   };
 
-  const handleCombinedPayment = async (
-    paymentMethod: string,
-    paymentId?: string,
-    discountId?: number | null,
-    cashGiven?: number,
-    change?: number
-  ) => {
+  const handleCombinedPayment = async (paymentMethod: string, paymentId?: string, discountId?: number | null, cashGiven?: number, change?: number) => {
     const selectedOrdersData = orders.filter((order) => selectedOrders.includes(Number(order.id)));
     if (confirmPayment) {
       for (const order of selectedOrdersData) {
-        await confirmPayment(
-          Number(order.id),
-          paymentMethod,
-          paymentId,
-          discountId || order.discountId,
-          cashGiven,
-          change
-        );
+        await confirmPayment(Number(order.id), paymentMethod, paymentId, discountId || order.discountId, cashGiven, change);
       }
     }
 
@@ -1635,10 +1411,7 @@ function OrderSection({
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Meja {tableNumber}</h3>
                 {resetTable && title === "✅ Pesanan Selesai" && (
-                  <button
-                    onClick={() => resetTable(tableNumber)}
-                    className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md transition"
-                  >
+                  <button onClick={() => resetTable(tableNumber)} className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md transition">
                     ⟳ Reset Meja
                   </button>
                 )}
@@ -1646,16 +1419,16 @@ function OrderSection({
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                 {tableOrders.map((order: Order) => (
                   <OrderItemComponent
-                  key={order.id}
-                  order={order}
-                  confirmPayment={confirmPayment}
-                  markOrderAsCompleted={markOrderAsCompleted}
-                  cancelOrder={cancelOrder}
-                  onSelectOrder={handleOrderSelection}
-                  isSelected={selectedOrders.includes(Number(order.id))}
-                  discounts={discounts || []}
-                  resetBookingOrder={resetBookingOrder} // Pass the prop
-                />
+                    key={order.id}
+                    order={order}
+                    confirmPayment={confirmPayment}
+                    markOrderAsCompleted={markOrderAsCompleted}
+                    cancelOrder={cancelOrder}
+                    onSelectOrder={handleOrderSelection}
+                    isSelected={selectedOrders.includes(Number(order.id))}
+                    discounts={discounts || []}
+                    resetBookingOrder={resetBookingOrder} // Pass the prop
+                  />
                 ))}
               </div>
             </div>
@@ -1664,13 +1437,8 @@ function OrderSection({
       )}
       {selectedOrders.length > 0 && (
         <div className="mt-4">
-          <p className="text-lg font-semibold">
-            Total Gabungan: Rp {combinedTotal.toLocaleString()}
-          </p>
-          <button
-            onClick={() => setIsCombinedPaymentModalOpen(true)}
-            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition flex items-center justify-center"
-          >
+          <p className="text-lg font-semibold">Total Gabungan: Rp {combinedTotal.toLocaleString()}</p>
+          <button onClick={() => setIsCombinedPaymentModalOpen(true)} className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition flex items-center justify-center">
             💰 Gabungkan Pesanan
           </button>
         </div>
@@ -1732,7 +1500,7 @@ function OrderItemComponent({
     order.orderItems.forEach((item) => {
       const basePrice = item.price - (item.modifiers?.reduce((sum, mod) => sum + mod.modifier.price, 0) || 0);
       subtotal += basePrice * item.quantity;
-      totalModifierCost += (item.modifiers?.reduce((sum, mod) => sum + mod.modifier.price * item.quantity, 0) || 0);
+      totalModifierCost += item.modifiers?.reduce((sum, mod) => sum + mod.modifier.price * item.quantity, 0) || 0;
     });
 
     let totalDiscountAmount = totalMenuDiscountAmount;
@@ -1741,10 +1509,7 @@ function OrderItemComponent({
       const selectedDiscount = discounts.find((d) => d.id === discountId);
       if (selectedDiscount && selectedDiscount.scope === "TOTAL") {
         const baseForDiscount = subtotal + totalModifierCost - totalMenuDiscountAmount;
-        const additionalDiscount =
-          selectedDiscount.type === "PERCENTAGE"
-            ? (selectedDiscount.value / 100) * baseForDiscount
-            : selectedDiscount.value;
+        const additionalDiscount = selectedDiscount.type === "PERCENTAGE" ? (selectedDiscount.value / 100) * baseForDiscount : selectedDiscount.value;
         totalDiscountAmount += additionalDiscount;
       }
     }
@@ -1752,7 +1517,7 @@ function OrderItemComponent({
     totalDiscountAmount = Math.min(totalDiscountAmount, subtotal + totalModifierCost);
 
     const baseForTaxAndGratuity = subtotal + totalModifierCost - totalDiscountAmount;
-    const taxAmount = baseForTaxAndGratuity * 0.10;
+    const taxAmount = baseForTaxAndGratuity * 0.1;
     const gratuityAmount = baseForTaxAndGratuity * 0.02;
     const finalTotal = baseForTaxAndGratuity + taxAmount + gratuityAmount;
 
@@ -1822,28 +1587,34 @@ function OrderItemComponent({
   };
 
   return (
-    <div className="bg-[#FF8A00] p-3 rounded-lg">
-      <div className="flex justify-between items-center">
-        <div>
-          <h4 className="text-sm font-medium">Order ID: {order.id}</h4>
-          {order.reservasi?.kodeBooking && (
-            <p className="text-sm text-white">Kode Booking: {order.reservasi.kodeBooking}</p>
-          )}
-          <p className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200 px-4 py-2 rounded shadow-md">
-            Customer: {order.customerName}
-          </p>
+    <div className="bg-neutral-200   p-3 rounded-lg">
+      <div className="flex justify-between items-center py-2">
+        <div className="pr-4 ">
+          <h4 className="text-sm font-medium py-2">Order ID: {order.id}</h4>
+          {order.reservasi?.kodeBooking && <p className="text-sm text-white">Kode Booking: {order.reservasi.kodeBooking}</p>}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200 px-4 py-2 rounded shadow-md">Customer: {order.customerName}</p>
+            <StatusBadge status={order.status} />
+          </div>
         </div>
-        <StatusBadge status={order.status} />
       </div>
       <div className="mt-2 text-gray-700">
-        <p>Subtotal: <span className="font-semibold">Rp {totals.subtotal.toLocaleString()}</span></p>
-        <p>Modifier: <span className="font-semibold">Rp {totals.totalModifierCost.toLocaleString()}</span></p>
-        <p>Diskon: <span className="font-semibold">Rp {localDiscountAmount.toLocaleString()}</span></p>
-        <p>Pajak: <span className="font-semibold">Rp {localTaxAmount.toLocaleString()}</span></p>
-        <p>Gratuity: <span className="font-semibold">Rp {localGratuityAmount.toLocaleString()}</span></p>
-        <p className="font-semibold">
-          Total Bayar: Rp {localFinalTotal.toLocaleString()}
+        <p>
+          Subtotal: <span className="font-semibold">Rp {totals.subtotal.toLocaleString()}</span>
         </p>
+        <p>
+          Modifier: <span className="font-semibold">Rp {totals.totalModifierCost.toLocaleString()}</span>
+        </p>
+        <p>
+          Diskon: <span className="font-semibold">Rp {localDiscountAmount.toLocaleString()}</span>
+        </p>
+        <p>
+          Pajak: <span className="font-semibold">Rp {localTaxAmount.toLocaleString()}</span>
+        </p>
+        <p>
+          Gratuity: <span className="font-semibold">Rp {localGratuityAmount.toLocaleString()}</span>
+        </p>
+        <p className="font-semibold">Total Bayar: Rp {localFinalTotal.toLocaleString()}</p>
       </div>
       <ul className="mt-3 space-y-1">
         {order.orderItems.map((item) => (
@@ -1851,19 +1622,9 @@ function OrderItemComponent({
             <img src={item.menu.image} alt={item.menu.name} className="w-8 h-8 object-cover rounded" />
             <span>
               {item.menu.name} - {item.quantity} pcs
-              {item.discountAmount > 0 && (
-                <span className="block text-sm text-green-600">
-                  Diskon: Rp {(item.discountAmount / item.quantity).toLocaleString()} per item
-                </span>
-              )}
-              {item.note && (
-                <span className="block text-sm text-gray-600">Catatan: {item.note}</span>
-              )}
-              {item.modifiers && item.modifiers.length > 0 && (
-                <span className="block text-sm text-gray-600">
-                  Modifier: {item.modifiers.map((mod) => `${mod.modifier.name} (Rp${mod.modifier.price.toLocaleString()})`).join(", ")}
-                </span>
-              )}
+              {item.discountAmount > 0 && <span className="block text-sm text-green-600">Diskon: Rp {(item.discountAmount / item.quantity).toLocaleString()} per item</span>}
+              {item.note && <span className="block text-sm text-gray-600">Catatan: {item.note}</span>}
+              {item.modifiers && item.modifiers.length > 0 && <span className="block text-sm text-gray-600">Modifier: {item.modifiers.map((mod) => `${mod.modifier.name} (Rp${mod.modifier.price.toLocaleString()})`).join(", ")}</span>}
             </span>
           </li>
         ))}
@@ -1872,11 +1633,7 @@ function OrderItemComponent({
       {isPaidOrder && order.status !== "Sedang Diproses" && order.status !== "Selesai" && (
         <div className="mt-4 space-y-2">
           {/* Tampilkan status pembayaran */}
-          {(paymentStatusText || (order.paymentStatus === "paid" && order.paymentMethod === "ewallet")) && (
-            <p className="text-green-600 font-semibold">
-              {paymentStatusText || "Status Payment: Paid via E-Wallet"}
-            </p>
-          )}
+          {(paymentStatusText || (order.paymentStatus === "paid" && order.paymentMethod === "ewallet")) && <p className="text-green-600 font-semibold">{paymentStatusText || "Status Payment: Paid via E-Wallet"}</p>}
           <button
             onClick={() => {
               confirmPayment?.(Number(order.id), order.paymentMethod || "ewallet", order.paymentId, selectedDiscountId);
@@ -1905,32 +1662,14 @@ function OrderItemComponent({
 
       {order.status === "pending" && confirmPayment && (
         <div className="mt-4 space-y-2">
-          {paymentStatusText && (
-            <p className="text-green-600 font-semibold">{paymentStatusText}</p>
-          )}
-          <button
-            onClick={() => setIsDiscountPopupOpen(true)}
-            className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-          >
-            {selectedDiscountId
-              ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon"
-              : "Pilih Diskon"}
+          {paymentStatusText && <p className="text-green-600 font-semibold">{paymentStatusText}</p>}
+          <button onClick={() => setIsDiscountPopupOpen(true)} className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium">
+            {selectedDiscountId ? discounts.find((d) => d.id === selectedDiscountId)?.name || "Pilih Diskon" : "Pilih Diskon"}
           </button>
-          <button
-            onClick={() => setIsPaymentMethodPopupOpen(true)}
-            className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium"
-          >
+          <button onClick={() => setIsPaymentMethodPopupOpen(true)} className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-all font-medium">
             {paymentMethod === "tunai" ? "Tunai" : paymentMethod === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
           </button>
-          {paymentMethod !== "tunai" && (
-            <input
-              type="text"
-              placeholder="Masukkan ID Pembayaran"
-              value={paymentId}
-              onChange={(e) => setPaymentId(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md"
-            />
-          )}
+          {paymentMethod !== "tunai" && <input type="text" placeholder="Masukkan ID Pembayaran" value={paymentId} onChange={(e) => setPaymentId(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" />}
           {paymentMethod === "tunai" && (
             <>
               <input
@@ -1942,25 +1681,19 @@ function OrderItemComponent({
                 onChange={handleCashGivenChange}
                 className="w-full p-2 border border-gray-300 rounded-md [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-              {change > 0 && (
-                <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>
-              )}
-              {change < 0 && (
-                <p className="text-red-600">
-                  Uang yang diberikan kurang: Rp {(-change).toLocaleString()}
-                </p>
-              )}
+              {change > 0 && <p className="text-green-600">Kembalian: Rp {change.toLocaleString()}</p>}
+              {change < 0 && <p className="text-red-600">Uang yang diberikan kurang: Rp {(-change).toLocaleString()}</p>}
             </>
           )}
           <button
-  onClick={() => {
-    handleConfirmPayment();
-    printKitchenAndBarOrders(order);
-  }}
-  className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
->
-  💰 Konfirmasi Pembayaran
-</button>
+            onClick={() => {
+              handleConfirmPayment();
+              printKitchenAndBarOrders(order);
+            }}
+            className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white py-2 rounded-md transition"
+          >
+            💰 Konfirmasi Pembayaran
+          </button>
 
           <button
             onClick={() =>
@@ -1981,9 +1714,7 @@ function OrderItemComponent({
 
       {order.status === "Sedang Diproses" && markOrderAsCompleted && (
         <div className="mt-4 space-y-2">
-          {paymentStatusText && (
-            <p className="text-green-600 font-semibold">{paymentStatusText}</p>
-          )}
+          {paymentStatusText && <p className="text-green-600 font-semibold">{paymentStatusText}</p>}
           <button
             onClick={() =>
               setConfirmation({
@@ -2003,7 +1734,7 @@ function OrderItemComponent({
               setConfirmation({
                 message: "Sudah yakin untuk mencetak struk pesanan?",
                 onConfirm: () => {
-                  generatePDF(order);   
+                  generatePDF(order);
                   setConfirmation(null);
                 },
               })
@@ -2017,17 +1748,11 @@ function OrderItemComponent({
 
       {order.status === "Selesai" && (
         <div className="mt-4 space-y-2">
-          <button
-            onClick={() => generatePDF(order)}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md transition"
-          >
+          <button onClick={() => generatePDF(order)} className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md transition">
             🖨️ Cetak Struk
           </button>
           {order.reservasi?.kodeBooking && resetBookingOrder && (
-            <button
-              onClick={() => resetBookingOrder(Number(order.id))}
-              className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition"
-            >
+            <button onClick={() => resetBookingOrder(Number(order.id))} className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-md transition">
               Reset meja reservasi
             </button>
           )}
@@ -2036,12 +1761,7 @@ function OrderItemComponent({
 
       {onSelectOrder && (order.status === "pending" || order.status === "paid") && (
         <div className="mt-2">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={(e) => onSelectOrder(Number(order.id), e.target.checked)}
-            className="mr-2 w-6 h-6"
-          />
+          <input type="checkbox" checked={isSelected} onChange={(e) => onSelectOrder(Number(order.id), e.target.checked)} className="mr-2 w-6 h-6" />
           <span className="text-sm">Pilih untuk merge</span>
         </div>
       )}
@@ -2050,16 +1770,10 @@ function OrderItemComponent({
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
             <p className="text-gray-800 text-center">{confirmation.message}</p>
             <div className="mt-4 flex justify-center space-x-4">
-              <button
-                onClick={confirmation.onConfirm}
-                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
-              >
+              <button onClick={confirmation.onConfirm} className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded">
                 Yes
               </button>
-              <button
-                onClick={() => setConfirmation(null)}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded"
-              >
+              <button onClick={() => setConfirmation(null)} className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded">
                 No
               </button>
             </div>
@@ -2072,10 +1786,7 @@ function OrderItemComponent({
           <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">Pilih Diskon Total</h2>
-              <button
-                onClick={() => setIsDiscountPopupOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
+              <button onClick={() => setIsDiscountPopupOpen(false)} className="text-gray-500 hover:text-gray-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2085,24 +1796,12 @@ function OrderItemComponent({
                   discounts
                     .filter((d) => d.scope === "TOTAL")
                     .map((discount) => (
-                      <div
-                        key={discount.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-                      >
+                      <div key={discount.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all">
                         <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedDiscountId === discount.id}
-                            onChange={() => setSelectedDiscountId(discount.id)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
+                          <input type="checkbox" checked={selectedDiscountId === discount.id} onChange={() => setSelectedDiscountId(discount.id)} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
                           <span className="text-gray-700">{discount.name}</span>
                         </div>
-                        <span className="text-gray-600 text-sm">
-                          {discount.type === "PERCENTAGE"
-                            ? `${discount.value}%`
-                            : `Rp ${discount.value.toLocaleString()}`}
-                        </span>
+                        <span className="text-gray-600 text-sm">{discount.type === "PERCENTAGE" ? `${discount.value}%` : `Rp ${discount.value.toLocaleString()}`}</span>
                       </div>
                     ))
                 ) : (
@@ -2111,10 +1810,7 @@ function OrderItemComponent({
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-              <button
-                onClick={() => setIsDiscountPopupOpen(false)}
-                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-              >
+              <button onClick={() => setIsDiscountPopupOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
                 Simpan Diskon
               </button>
             </div>
@@ -2127,40 +1823,24 @@ function OrderItemComponent({
           <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">Pilih Metode Pembayaran</h2>
-              <button
-                onClick={() => setIsPaymentMethodPopupOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
+              <button onClick={() => setIsPaymentMethodPopupOpen(false)} className="text-gray-500 hover:text-gray-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="flex-1 p-4 overflow-y-auto">
               <div className="space-y-3">
                 {["tunai", "kartu", "ewallet"].map((method) => (
-                  <div
-                    key={method}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all"
-                  >
+                  <div key={method} className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-all">
                     <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={paymentMethod === method}
-                        onChange={() => handlePaymentMethodSelect(method)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-gray-700">
-                        {method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}
-                      </span>
+                      <input type="checkbox" checked={paymentMethod === method} onChange={() => handlePaymentMethodSelect(method)} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                      <span className="text-gray-700">{method === "tunai" ? "Tunai" : method === "kartu" ? "Kartu Kredit/Debit" : "E-Wallet"}</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0">
-              <button
-                onClick={() => setIsPaymentMethodPopupOpen(false)}
-                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium"
-              >
+              <button onClick={() => setIsPaymentMethodPopupOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-all font-medium">
                 Simpan Metode
               </button>
             </div>
@@ -2173,22 +1853,16 @@ function OrderItemComponent({
 function StatusBadge({ status }: { status: string }) {
   let color = "bg-[#979797]";
   if (status === "pending") color = "bg-[#FF8A00]";
-  if (status === "Sedang Diproses") color = "bg-[#92700C]";
+  if (status === "Sedang Diproses") color = "bg-yellow-500";
   if (status === "Selesai") color = "bg-[#4CAF50]";
 
-  return (
-    <span className={`px-3 py-1 text-white text-sm rounded-full ${color}`}>
-      {status}
-    </span>
-  );
+  return <span className={`px-3 py-2  text-white text-sm rounded-full ${color}`}>{status}</span>;
 }
 
 function isKitchenItem(item: OrderItem): boolean {
   const category = item.menu.category.toLowerCase();
   if (category === "bundle") {
-    const hasKitchen = item.menu.bundleCompositions.some((bundleItem) =>
-      ["main course", "snack"].includes(bundleItem.menu.category.toLowerCase())
-    );
+    const hasKitchen = item.menu.bundleCompositions.some((bundleItem) => ["main course", "snack"].includes(bundleItem.menu.category.toLowerCase()));
     console.log(`Bundle ${item.menu.name} has Kitchen items: ${hasKitchen}`);
     return hasKitchen;
   }
@@ -2198,11 +1872,7 @@ function isKitchenItem(item: OrderItem): boolean {
 function isBarItem(item: OrderItem): boolean {
   const category = item.menu.category.toLowerCase();
   if (category === "bundle") {
-    const hasBar = item.menu.bundleCompositions.some((bundleItem) =>
-      ["coffee", "tea", "frappe", "juice", "milk base", "refresher", "cocorich", "mocktail"].includes(
-        bundleItem.menu.category.toLowerCase()
-      )
-    );
+    const hasBar = item.menu.bundleCompositions.some((bundleItem) => ["coffee", "tea", "frappe", "juice", "milk base", "refresher", "cocorich", "mocktail"].includes(bundleItem.menu.category.toLowerCase()));
     console.log(`Bundle ${item.menu.name} has Bar items: ${hasBar}`);
     return hasBar;
   }
@@ -2212,8 +1882,14 @@ function printKitchenAndBarOrders(order: Order) {
   const kitchenItems = order.orderItems.filter(isKitchenItem);
   const barItems = order.orderItems.filter(isBarItem);
 
-  console.log("Kitchen Items:", kitchenItems.map((item) => item.menu.name));
-  console.log("Bar Items:", barItems.map((item) => item.menu.name));
+  console.log(
+    "Kitchen Items:",
+    kitchenItems.map((item) => item.menu.name)
+  );
+  console.log(
+    "Bar Items:",
+    barItems.map((item) => item.menu.name)
+  );
 
   const kitchenOrder: Order = { ...order, orderItems: kitchenItems };
   const barOrder: Order = { ...order, orderItems: barItems };
@@ -2368,7 +2044,7 @@ function generatePDF(order: Order) {
       yPosition += 5;
     }
 
-    const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+    const itemPriceAfterDiscount = item.price - item.discountAmount / item.quantity;
     checkPage();
     doc.setFont("helvetica", "bold");
     doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
@@ -2494,272 +2170,269 @@ function generatePDF(order: Order) {
   doc.save(`struk_order_${order.id}.pdf`);
 }
 
-
-
-
 //struk2
 function generateCombinedPDF(order: Order) {
-const margin = 5;
-const pageWidth = 58;
-const pageHeight = 250;
-const doc = new jsPDF({
-  unit: "mm",
-  format: [pageWidth, pageHeight],
-});
+  const margin = 5;
+  const pageWidth = 58;
+  const pageHeight = 250;
+  const doc = new jsPDF({
+    unit: "mm",
+    format: [pageWidth, pageHeight],
+  });
 
-let yPosition = margin;
+  let yPosition = margin;
 
-const checkPage = () => {
-  if (yPosition > pageHeight - 10) {
-    doc.addPage();
-    yPosition = margin;
-  }
-};
-const logoBase64 = "";
-const logoWidth = 20;
-const logoHeight = 20;
-doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
-yPosition += logoHeight + 6;
+  const checkPage = () => {
+    if (yPosition > pageHeight - 10) {
+      doc.addPage();
+      yPosition = margin;
+    }
+  };
+  const logoBase64 = "";
+  const logoWidth = 20;
+  const logoHeight = 20;
+  doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
+  yPosition += logoHeight + 6;
 
-doc.setFont("helvetica", "bold");
-doc.setFontSize(10);
-checkPage();
-doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
-yPosition += 6;
-
-doc.setFont("helvetica", "normal");
-doc.setFontSize(8);
-const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
-const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
-addressLines.forEach((line: string) => {
-  checkPage();
-  doc.text(line, pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 4;
-});
-yPosition += 2;
-
-doc.setFontSize(9);
-checkPage();
-doc.text("Struk Gabungan Pesanan", pageWidth / 2, yPosition, { align: "center" });
-yPosition += 5;
-
-doc.setLineWidth(0.3);
-doc.setDrawColor(150);
-checkPage();
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
-
-const labelX = margin;
-const colonX = margin + 22;
-const valueX = margin + 24;
-
-doc.setFont("helvetica", "normal");
-doc.setFontSize(8);
-const now = new Date();
-const tanggal = now.toLocaleDateString();
-const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
-const jam = now.toLocaleTimeString();
-
-checkPage();
-doc.text("Tanggal", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(tanggal, valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.text("Hari", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(hari, valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.text("Jam", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(jam, valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.text("Kasir", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text("Kasir 1", valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.text("Meja", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(String(order.tableNumber), valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.text("Order ID", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(String(order.id), valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.text("Nama", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(order.customerName || "-", valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
-
-doc.setFont("helvetica", "bold");
-checkPage();
-doc.text("Pesanan", margin, yPosition);
-yPosition += 5;
-doc.setFont("helvetica", "bold");
-checkPage();
-doc.text("Item", margin, yPosition);
-doc.text("Total", pageWidth - margin, yPosition, { align: "right" });
-yPosition += 5;
-
-const truncateMenuName = (name: string) => {
-  const maxItemNameLength = 19;
-  if (name.length > maxItemNameLength) {
-    const firstLine = name.substring(0, maxItemNameLength);
-    const secondLine = name.substring(maxItemNameLength);
-    return [firstLine, secondLine];
-  } else {
-    return [name];
-  }
-};
-
-order.orderItems.forEach((item) => {
-  const [firstLine, secondLine] = truncateMenuName(item.menu.name);
-  checkPage();
   doc.setFont("helvetica", "bold");
-  doc.text(firstLine, margin, yPosition);
+  doc.setFontSize(10);
+  checkPage();
+  doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 6;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
+  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+  addressLines.forEach((line: string) => {
+    checkPage();
+    doc.text(line, pageWidth / 2, yPosition, { align: "center" });
+    yPosition += 4;
+  });
+  yPosition += 2;
+
+  doc.setFontSize(9);
+  checkPage();
+  doc.text("Struk Gabungan Pesanan", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 5;
 
-  if (secondLine) {
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(150);
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
+
+  const labelX = margin;
+  const colonX = margin + 22;
+  const valueX = margin + 24;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  const now = new Date();
+  const tanggal = now.toLocaleDateString();
+  const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
+  const jam = now.toLocaleTimeString();
+
+  checkPage();
+  doc.text("Tanggal", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(tanggal, valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Hari", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(hari, valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Jam", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(jam, valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Kasir", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Kasir 1", valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Meja", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.tableNumber), valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Order ID", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(order.id), valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.text("Nama", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.customerName || "-", valueX, yPosition);
+  yPosition += 5;
+
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
+
+  doc.setFont("helvetica", "bold");
+  checkPage();
+  doc.text("Pesanan", margin, yPosition);
+  yPosition += 5;
+  doc.setFont("helvetica", "bold");
+  checkPage();
+  doc.text("Item", margin, yPosition);
+  doc.text("Total", pageWidth - margin, yPosition, { align: "right" });
+  yPosition += 5;
+
+  const truncateMenuName = (name: string) => {
+    const maxItemNameLength = 19;
+    if (name.length > maxItemNameLength) {
+      const firstLine = name.substring(0, maxItemNameLength);
+      const secondLine = name.substring(maxItemNameLength);
+      return [firstLine, secondLine];
+    } else {
+      return [name];
+    }
+  };
+
+  order.orderItems.forEach((item) => {
+    const [firstLine, secondLine] = truncateMenuName(item.menu.name);
     checkPage();
     doc.setFont("helvetica", "bold");
-    doc.text(secondLine, margin, yPosition);
+    doc.text(firstLine, margin, yPosition);
     yPosition += 5;
-  }
 
-  const itemPriceAfterDiscount = item.price - (item.discountAmount / item.quantity);
+    if (secondLine) {
+      checkPage();
+      doc.setFont("helvetica", "bold");
+      doc.text(secondLine, margin, yPosition);
+      yPosition += 5;
+    }
+
+    const itemPriceAfterDiscount = item.price - item.discountAmount / item.quantity;
+    checkPage();
+    doc.setFont("helvetica", "bold");
+    doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
+    const itemTotal = itemPriceAfterDiscount * item.quantity;
+    doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+    yPosition += 5;
+
+    if (item.modifiers && item.modifiers.length > 0) {
+      checkPage();
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      item.modifiers.forEach((modifier) => {
+        doc.text(`- ${modifier.modifier.name} (Rp ${modifier.modifier.price.toLocaleString()})`, margin, yPosition);
+        yPosition += 4;
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+    }
+
+    if (item.note) {
+      checkPage();
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      const noteText = `Catatan: ${item.note}`;
+      const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+      noteLines.forEach((line) => {
+        checkPage();
+        doc.text(line, margin, yPosition);
+        yPosition += 4;
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+    }
+  });
+
   checkPage();
-  doc.setFont("helvetica", "bold");
-  doc.text(`${item.quantity} x ${itemPriceAfterDiscount.toLocaleString()}`, margin, yPosition);
-  const itemTotal = itemPriceAfterDiscount * item.quantity;
-  doc.text(`Rp ${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
+  yPosition += 3;
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
   yPosition += 5;
 
-  if (item.modifiers && item.modifiers.length > 0) {
-    checkPage();
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    item.modifiers.forEach((modifier) => {
-      doc.text(`- ${modifier.modifier.name} (Rp ${modifier.modifier.price.toLocaleString()})`, margin, yPosition);
-      yPosition += 4;
-    });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-  }
+  doc.setFont("helvetica", "bold");
+  const totalQty = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  if (item.note) {
-    checkPage();
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7);
-    const noteText = `Catatan: ${item.note}`;
-    const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
-    noteLines.forEach((line) => {
-      checkPage();
-      doc.text(line, margin, yPosition);
-      yPosition += 4;
-    });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-  }
-});
+  checkPage();
+  doc.text("Total qty", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(String(totalQty), valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-yPosition += 3;
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
 
-doc.setFont("helvetica", "bold");
-const totalQty = order.orderItems.reduce((acc, item) => acc + item.quantity, 0);
+  checkPage();
+  doc.text("Subtotal", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.total.toLocaleString(), valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Total qty", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(String(totalQty), valueX, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.text("Diskon", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.discountAmount.toLocaleString(), valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.text("Pajak (10%)", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.taxAmount.toLocaleString(), valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Subtotal", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text("Rp " + order.total.toLocaleString(), valueX, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.text("Gratuity (2%)", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.gratuityAmount.toLocaleString(), valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Diskon", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text("Rp " + order.discountAmount.toLocaleString(), valueX, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.text("Total Bayar", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Pajak (10%)", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text("Rp " + order.taxAmount.toLocaleString(), valueX, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Gratuity (2%)", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text("Rp " + order.gratuityAmount.toLocaleString(), valueX, yPosition);
-yPosition += 5;
+  doc.setFont("helvetica", "normal");
+  checkPage();
+  doc.text("Pembayaran", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(order.paymentMethod || "-", valueX, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.text("Total Bayar", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text("Rp " + order.finalTotal.toLocaleString(), valueX, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 5;
 
-checkPage();
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.text("Uang Diberikan", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
+  yPosition += 5;
 
-doc.setFont("helvetica", "normal");
-checkPage();
-doc.text("Pembayaran", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(order.paymentMethod || "-", valueX, yPosition);
-yPosition += 5;
+  checkPage();
+  doc.text("Kembalian", labelX, yPosition);
+  doc.text(":", colonX, yPosition);
+  doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
+  yPosition += 7;
 
-checkPage();
-doc.line(margin, yPosition, pageWidth - margin, yPosition);
-yPosition += 5;
+  doc.setFont("helvetica", "italic");
+  checkPage();
+  doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 5;
+  checkPage();
+  doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
 
-checkPage();
-doc.text("Uang Diberikan", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(`Rp ${order.cashGiven?.toLocaleString() || "0"}`, valueX, yPosition);
-yPosition += 5;
-
-checkPage();
-doc.text("Kembalian", labelX, yPosition);
-doc.text(":", colonX, yPosition);
-doc.text(`Rp ${order.change?.toLocaleString() || "0"}`, valueX, yPosition);
-yPosition += 7;
-
-doc.setFont("helvetica", "italic");
-checkPage();
-doc.text("Terimakasih telah berkunjung!", pageWidth / 2, yPosition, { align: "center" });
-yPosition += 5;
-checkPage();
-doc.text("Semoga hari Anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
-
-doc.save(`struk_gabungan_${order.id}.pdf`);
+  doc.save(`struk_gabungan_${order.id}.pdf`);
 }
 
 //struk3

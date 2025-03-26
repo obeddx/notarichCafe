@@ -127,6 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggle, isOpen }) => {
             items={[
               { href: "/manager/employeeSlots", label: "Employee Slots" },
               { href: "/manager/employeeAccess", label: "Employee Access" },
+              { href: "/manager/generateQR", label: "Generate QR No Meja" },
             ]}
             border
           />

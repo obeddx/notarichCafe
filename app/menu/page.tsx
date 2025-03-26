@@ -8,6 +8,8 @@ import { useSearchParams } from "next/navigation";
 import { jsPDF } from "jspdf";
 import io from "socket.io-client";
 import html2canvas from "html2canvas";
+import CryptoJS from "crypto-js";
+import { useRouter } from "next/navigation";
 
 // Interface definitions remain unchanged
 interface Ingredient {
@@ -93,19 +95,7 @@ interface CartItem {
   uniqueKey: string;
 }
 
-const categories = [
-  "All Menu",
-  "Coffee",
-  "Tea",
-  "Frappe",
-  "Juice",
-  "Milk Base",
-  "Refresher",
-  "Cocorich",
-  "Mocktail",
-  "Snack",
-  "Main Course",
-];
+const categories = ["All Menu", "Coffee", "Tea", "Frappe", "Juice", "Milk Base", "Refresher", "Cocorich", "Mocktail", "Snack", "Main Course"];
 
 // Fungsi loadMidtransScript didefinisikan di luar komponen
 const loadMidtransScript = (): Promise<void> => {
@@ -126,6 +116,7 @@ const loadMidtransScript = (): Promise<void> => {
 export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("All Menu");
   const [menus, setMenus] = useState<Menu[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -148,24 +139,51 @@ export default function MenuPage() {
   const [showReservationDetails, setShowReservationDetails] = useState(false);
 
   const searchParams = useSearchParams();
+  const secretKey = "your-secret-key-here";
+
+  // Fungsi dekripsi
+  const decryptTableNumber = (encrypted: string): string | null => {
+    try {
+      const decoded = decodeURIComponent(encrypted);
+      const bytes = CryptoJS.AES.decrypt(decoded, secretKey);
+      return bytes.toString(CryptoJS.enc.Utf8);
+    } catch (e) {
+      console.error("Decryption failed:", e);
+      return null;
+    }
+  };
 
   // Deteksi reservasi dan konfigurasi awal
   useEffect(() => {
     const tableFromUrl = searchParams?.get("table");
     const reservation = searchParams?.get("reservation") === "true";
     const bookingCode = searchParams?.get("bookingCode");
-    const finalTableNumber = tableFromUrl || sessionStorage.getItem("tableNumber") || "Unknown";
+
+    // Dekripsi tableFromUrl jika ada
+    const decryptedTableFromUrl = tableFromUrl ? decryptTableNumber(tableFromUrl) : null;
+    // Ambil dari sessionStorage dan dekripsi jika perlu
+    const storedTableNumber = sessionStorage.getItem("tableNumber");
+    const decryptedStoredTable = storedTableNumber ? decryptTableNumber(storedTableNumber) : null;
+    if (!tableFromUrl && storedTableNumber && decryptedStoredTable === null) {
+      router.push("/scan?error=Gagal mendekripsi nomor meja dari penyimpanan. Silakan scan ulang.");
+      return; // Hentikan eksekusi useEffect
+    }
+
+    // Tentukan finalTableNumber dengan nilai yang sudah didekripsi
+    const finalTableNumber = decryptedTableFromUrl || decryptedStoredTable || "Unknown";
+
     if (reservation && bookingCode) {
-      setTableNumber(finalTableNumber); // Hanya nomor meja
+      setTableNumber(finalTableNumber); // Simpan nomor yang sudah didekripsi
       sessionStorage.setItem("reservation", "true");
       sessionStorage.setItem("bookingCode", bookingCode);
       setPaymentOption("ewallet");
       setCustomerName(JSON.parse(sessionStorage.getItem("reservationData") || "{}").namaCustomer || "");
     } else {
-      setTableNumber(finalTableNumber);
+      setTableNumber(finalTableNumber); // Simpan nomor yang sudah didekripsi
     }
-  
-    const storedCart = sessionStorage.getItem(`cart_table_${finalTableNumber}`); // Gunakan finalTableNumber
+
+    // Gunakan finalTableNumber yang sudah didekripsi untuk key cart
+    const storedCart = sessionStorage.getItem(`cart_table_${finalTableNumber}`);
     if (storedCart) {
       const parsedCart = JSON.parse(storedCart);
       const updatedCart = parsedCart.map((item: CartItem) => ({
@@ -294,9 +312,7 @@ export default function MenuPage() {
 
       let updatedCart;
       if (existingItemIndex !== -1) {
-        updatedCart = prevCart.map((item, index) =>
-          index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item
-        );
+        updatedCart = prevCart.map((item, index) => (index === existingItemIndex ? { ...item, quantity: item.quantity + 1 } : item));
       } else {
         const newItem = {
           menu,
@@ -348,9 +364,7 @@ export default function MenuPage() {
         const newModifierIds = { ...existingModifierIds, [categoryId]: modifierId };
         const newUniqueKey = generateUniqueKey(item.menu.id, newModifierIds);
 
-        const existingNewItemIndex = updatedCart.findIndex(
-          (otherItem) => otherItem.uniqueKey === newUniqueKey && otherItem !== item
-        );
+        const existingNewItemIndex = updatedCart.findIndex((otherItem) => otherItem.uniqueKey === newUniqueKey && otherItem !== item);
 
         if (existingNewItemIndex !== -1) {
           updatedCart[existingNewItemIndex].quantity += item.quantity;
@@ -375,9 +389,7 @@ export default function MenuPage() {
 
   const updateCartItemNote = (uniqueKey: string, note: string) => {
     setCart((prevCart) => {
-      const updatedCart = prevCart.map((item) =>
-        item.uniqueKey === uniqueKey ? { ...item, note } : item
-      );
+      const updatedCart = prevCart.map((item) => (item.uniqueKey === uniqueKey ? { ...item, note } : item));
       sessionStorage.setItem(`cart_table_${tableNumber}`, JSON.stringify(updatedCart));
       return updatedCart;
     });
@@ -389,14 +401,9 @@ export default function MenuPage() {
 
   const calculateItemPrice = (menu: Menu, modifierIds: { [categoryId: number]: number | null }) => {
     let price = menu.price;
-    const activeDiscount = Array.isArray(menu.discounts)
-      ? menu.discounts.find((d) => d.discount.isActive)
-      : undefined;
+    const activeDiscount = Array.isArray(menu.discounts) ? menu.discounts.find((d) => d.discount.isActive) : undefined;
     if (activeDiscount) {
-      price -=
-        activeDiscount.discount.type === "PERCENTAGE"
-          ? (activeDiscount.discount.value / 100) * menu.price
-          : activeDiscount.discount.value;
+      price -= activeDiscount.discount.type === "PERCENTAGE" ? (activeDiscount.discount.value / 100) * menu.price : activeDiscount.discount.value;
     }
 
     let modifierTotal = 0;
@@ -407,7 +414,7 @@ export default function MenuPage() {
       }
     });
 
-    return (price + modifierTotal) > 0 ? price + modifierTotal : 0;
+    return price + modifierTotal > 0 ? price + modifierTotal : 0;
   };
 
   const calculateCartTotals = () => {
@@ -438,10 +445,7 @@ export default function MenuPage() {
     if (selectedDiscountId) {
       const selectedDiscount = discounts.find((d) => d.id === selectedDiscountId);
       if (selectedDiscount) {
-        const additionalDiscount =
-          selectedDiscount.type === "PERCENTAGE"
-            ? (selectedDiscount.value / 100) * subtotalWithModifiers
-            : selectedDiscount.value;
+        const additionalDiscount = selectedDiscount.type === "PERCENTAGE" ? (selectedDiscount.value / 100) * subtotalWithModifiers : selectedDiscount.value;
         totalDiscountAmount += additionalDiscount;
       }
     }
@@ -466,10 +470,10 @@ export default function MenuPage() {
     const bookingCode = sessionStorage.getItem("bookingCode");
     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
-    
+
     // Pisahkan tableNumber menjadi nomor meja saja
     const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-  
+
     const orderDetails = {
       customerName,
       tableNumber: cleanTableNumber, // Hanya nomor meja
@@ -511,15 +515,15 @@ export default function MenuPage() {
       return null;
     }
   };
-  
+
   // const createOrderWithMethod = async (method: "cash" | "ewallet") => {
   //   const bookingCode = sessionStorage.getItem("bookingCode");
   //   const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
   //   const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
-    
+
   //   // Pisahkan tableNumber menjadi nomor meja saja
   //   const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-  
+
   //   const orderDetails = {
   //     customerName,
   //     tableNumber: cleanTableNumber, // Hanya nomor meja
@@ -566,10 +570,10 @@ export default function MenuPage() {
     const bookingCode = sessionStorage.getItem("bookingCode");
     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
-  
+
     // Pisahkan tableNumber menjadi nomor meja saja
     const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-  
+
     const orderDetails = {
       customerName,
       tableNumber: cleanTableNumber, // Hanya nomor meja
@@ -595,7 +599,7 @@ export default function MenuPage() {
       reservationData: bookingCode ? reservationData : undefined,
     };
     console.log("Order Details Before Sending:", orderDetails);
-  
+
     try {
       // Buat pesanan terlebih dahulu
       const response = await fetch("/api/placeOrder", {
@@ -608,7 +612,7 @@ export default function MenuPage() {
         throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorData.message || "Unknown error"}`);
       }
       const data = await response.json();
-  
+
       // Jika pesanan berhasil, tandai meja
       if (data.order) {
         const markTableResponse = await fetch("/api/nomeja", {
@@ -621,14 +625,14 @@ export default function MenuPage() {
           console.error("Failed to mark table:", errorData);
           // Tidak throw error agar pesanan tetap berhasil meskipun penandaan gagal
         }
-  
+
         // Kirim notifikasi WebSocket
         const socket = io("http://localhost:3000", { path: "/api/socket" });
         socket.emit("orderCreated", { newOrder: data.order });
         socket.emit("tableStatusUpdated", { tableNumber: cleanTableNumber });
         console.log("Emitted orderCreated and tableStatusUpdated for table:", cleanTableNumber);
       }
-  
+
       return data.order;
     } catch (error) {
       console.error("Error creating order:", error);
@@ -665,7 +669,7 @@ export default function MenuPage() {
     const pageHeight = 200;
     const doc = new jsPDF({ unit: "mm", format: [pageWidth, pageHeight] });
     let yPosition = margin;
-  
+
     // Fungsi untuk mengecek jika perlu membuat halaman baru
     const checkPage = () => {
       if (yPosition > pageHeight - 10) {
@@ -673,7 +677,7 @@ export default function MenuPage() {
         yPosition = margin;
       }
     };
-  
+
     // Tambahkan logo (jika tersedia)
     const logoBase64 = "";
     const logoWidth = 20;
@@ -682,19 +686,18 @@ export default function MenuPage() {
       doc.addImage(logoBase64, "PNG", (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
       yPosition += logoHeight + 6;
     }
-  
+
     // Judul: Notarich Cafe
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     checkPage();
     doc.text("Notarich Cafe", pageWidth / 2, yPosition, { align: "center" });
     yPosition += 6;
-  
+
     // Alamat (menggunakan alamat yang sama dengan generatePDF)
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    const address =
-      "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
+    const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
     const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
     addressLines.forEach((line) => {
       checkPage();
@@ -702,60 +705,60 @@ export default function MenuPage() {
       yPosition += 4;
     });
     yPosition += 2;
-  
+
     // Garis horizontal
     doc.setLineWidth(0.3);
     doc.setDrawColor(150);
     checkPage();
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 5;
-  
+
     // Informasi transaksi dengan format label : value
     const labelX = margin;
     const colonX = margin + 22;
     const valueX = margin + 24;
-  
+
     const now = new Date();
     const tanggal = now.toLocaleDateString();
     const hari = now.toLocaleDateString("en-US", { weekday: "long" });
     const jam = now.toLocaleTimeString();
-  
+
     doc.setFontSize(8);
     checkPage();
     doc.text("Tanggal", labelX, yPosition);
     doc.text(":", colonX, yPosition);
     doc.text(tanggal, valueX, yPosition);
     yPosition += 5;
-  
+
     checkPage();
     doc.text("Hari", labelX, yPosition);
     doc.text(":", colonX, yPosition);
     doc.text(hari, valueX, yPosition);
     yPosition += 5;
-  
+
     checkPage();
     doc.text("Jam", labelX, yPosition);
     doc.text(":", colonX, yPosition);
     doc.text(jam, valueX, yPosition);
     yPosition += 5;
-  
+
     checkPage();
     doc.text("Operator", labelX, yPosition);
     doc.text(":", colonX, yPosition);
     doc.text("Kasir 1", valueX, yPosition);
     yPosition += 5;
-  
+
     checkPage();
     doc.text("Meja", labelX, yPosition);
     doc.text(":", colonX, yPosition);
     // Pastikan variabel tableNumber terdefinisi atau ambil dari objek order jika ada
     doc.text(String(tableNumber), valueX, yPosition);
     yPosition += 7;
-  
+
     checkPage();
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 5;
-  
+
     // Header Pesanan
     doc.setFont("helvetica", "bold");
     checkPage();
@@ -765,11 +768,10 @@ export default function MenuPage() {
     doc.text("Item", margin, yPosition);
     doc.text("Total", pageWidth - margin, yPosition, { align: "right" });
     yPosition += 5;
-  
+
     // Daftar item pesanan
     let totalQty = 0;
-    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } =
-      calculateCartTotals();
+    const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
     cart.forEach((item) => {
       // Hitung harga dasar dan total modifier
       const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
@@ -785,7 +787,7 @@ export default function MenuPage() {
         }
       });
       const itemTotal = (itemBasePrice + modifierTotal) * item.quantity;
-  
+
       // Cetak nama menu dengan kemungkinan dua baris atau lebih
       checkPage();
       doc.setFont("helvetica", "bold");
@@ -796,7 +798,7 @@ export default function MenuPage() {
         doc.text(line, margin, yPosition, { maxWidth: 30 });
         yPosition += 5;
       });
-  
+
       // Cetak info jumlah dan harga
       checkPage();
       doc.setFont("helvetica", "normal");
@@ -804,7 +806,7 @@ export default function MenuPage() {
       doc.text(`${item.quantity} x ${(itemBasePrice + modifierTotal).toLocaleString()}`, margin, yPosition, { maxWidth: 30 });
       doc.text(`Rp${itemTotal.toLocaleString()}`, pageWidth - margin, yPosition, { align: "right" });
       yPosition += 5;
-  
+
       // Jika terdapat modifier, cetak setiap modifier pada baris terpisah
       if (modifierNames.length) {
         checkPage();
@@ -818,7 +820,7 @@ export default function MenuPage() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
       }
-  
+
       // Jika terdapat note, cetak note dengan membungkus (wrap) teks otomatis
       if (item.note) {
         checkPage();
@@ -835,16 +837,16 @@ export default function MenuPage() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
       }
-  
+
       totalQty += item.quantity;
       // Tambahkan jarak antar item
       yPosition += 2;
     });
-  
+
     checkPage();
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 5;
-  
+
     checkPage();
     doc.text(`Total qty: ${totalQty}`, margin, yPosition);
     yPosition += 5;
@@ -866,17 +868,17 @@ export default function MenuPage() {
     yPosition += 5;
     doc.text(`Total: Rp${totalAfterAll.toLocaleString()}`, margin, yPosition);
     yPosition += 5;
-  
+
     checkPage();
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 5;
-    
+
     checkPage();
     doc.text("Pembayaran", labelX, yPosition);
     doc.text(":", colonX, yPosition);
     doc.text(paymentOption === "ewallet" ? "ewallet" : "Tunai", valueX, yPosition);
     yPosition += 10;
-  
+
     // Footer
     doc.setFont("helvetica", "bold");
     checkPage();
@@ -884,13 +886,10 @@ export default function MenuPage() {
     yPosition += 5;
     checkPage();
     doc.text("Semoga hari anda menyenangkan!", pageWidth / 2, yPosition, { align: "center" });
-  
+
     doc.save("receipt.pdf");
   };
-  
-  
-  
-  
+
   const formatTanggalForKode = (date: string) => {
     const validDate = new Date(date);
     if (isNaN(validDate.getTime())) return "-";
@@ -956,213 +955,210 @@ export default function MenuPage() {
               Tunai
             </button>
           )}
-        <button
-          onClick={async () => {
-            setPaymentOption("ewallet");
-            setShowPaymentMethodModal(false);
+          <button
+            onClick={async () => {
+              setPaymentOption("ewallet");
+              setShowPaymentMethodModal(false);
 
-            const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
+              const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
 
-            const itemDetails = cart.map((item) => {
-              const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
-              let modifierTotal = 0;
-              const modifierNames: string[] = [];
-              Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
-                if (modifierId) {
-                  const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
-                  if (modifier) {
-                    modifierTotal += modifier.price * item.quantity;
-                    modifierNames.push(modifier.name);
+              const itemDetails = cart.map((item) => {
+                const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
+                let modifierTotal = 0;
+                const modifierNames: string[] = [];
+                Object.entries(item.modifierIds).forEach(([_, modifierId]) => {
+                  if (modifierId) {
+                    const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
+                    if (modifier) {
+                      modifierTotal += modifier.price * item.quantity;
+                      modifierNames.push(modifier.name);
+                    }
                   }
-                }
+                });
+                const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
+                return {
+                  id: item.menu.id.toString(),
+                  price: itemBasePrice + modifierTotal / item.quantity,
+                  quantity: item.quantity,
+                  name: itemNameWithModifiers,
+                };
               });
-              const itemNameWithModifiers = modifierNames.length ? `${item.menu.name} (${modifierNames.join(", ")})` : item.menu.name;
-              return {
-                id: item.menu.id.toString(),
-                price: itemBasePrice + (modifierTotal / item.quantity),
-                quantity: item.quantity,
-                name: itemNameWithModifiers,
+
+              if (taxAmount > 0) {
+                itemDetails.push({ id: "tax", price: taxAmount, quantity: 1, name: "Pajak" });
+              }
+              if (gratuityAmount > 0) {
+                itemDetails.push({ id: "gratuity", price: gratuityAmount, quantity: 1, name: "Gratuity" });
+              }
+
+              const payload = {
+                orderId: "ORDER-" + new Date().getTime(),
+                total: totalAfterAll,
+                customerName,
+                customerEmail: "customer@example.com",
+                customerPhone: "",
+                item_details: itemDetails,
               };
-            });
 
-            if (taxAmount > 0) {
-              itemDetails.push({ id: "tax", price: taxAmount, quantity: 1, name: "Pajak" });
-            }
-            if (gratuityAmount > 0) {
-              itemDetails.push({ id: "gratuity", price: gratuityAmount, quantity: 1, name: "Gratuity" });
-            }
+              try {
+                const response = await fetch("/api/payment/generateSnapToken", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload),
+                });
+                const data = await response.json();
+                if (data.success && data.snapToken) {
+                  setSnapToken(data.snapToken);
 
-            const payload = {
-              orderId: "ORDER-" + new Date().getTime(),
-              total: totalAfterAll,
-              customerName,
-              customerEmail: "customer@example.com",
-              customerPhone: "",
-              item_details: itemDetails,
-            };
+                  await loadMidtransScript();
 
-            try {
-              const response = await fetch("/api/payment/generateSnapToken", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const data = await response.json();
-              if (data.success && data.snapToken) {
-                setSnapToken(data.snapToken);
+                  // const handlePaymentSuccess = async (result: MidtransResult) => {
+                  //   // Membuat pesanan terlebih dahulu
+                  //   const order = await createOrder();
+                  //   if (order) {
+                  //     // Perbarui status pembayaran menjadi "paid" setelah pembayaran berhasil
+                  //     const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
+                  //       method: "POST",
+                  //       headers: { "Content-Type": "application/json" },
+                  //       body: JSON.stringify({
+                  //         orderId: order.id,
+                  //         paymentMethod: "ewallet",
+                  //         paymentStatus: "paid",
+                  //         paymentId: result.transaction_id,
+                  //         status: "paid", // Langsung ubah status pesanan menjadi "paid"
+                  //       }),
+                  //     });
 
-                await loadMidtransScript();
+                  //     if (!paymentUpdateResponse.ok) {
+                  //       throw new Error("Gagal memperbarui status pembayaran");
+                  //     }
 
-                // const handlePaymentSuccess = async (result: MidtransResult) => {
-                //   // Membuat pesanan terlebih dahulu
-                //   const order = await createOrder();
-                //   if (order) {
-                //     // Perbarui status pembayaran menjadi "paid" setelah pembayaran berhasil
-                //     const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
-                //       method: "POST",
-                //       headers: { "Content-Type": "application/json" },
-                //       body: JSON.stringify({
-                //         orderId: order.id,
-                //         paymentMethod: "ewallet",
-                //         paymentStatus: "paid",
-                //         paymentId: result.transaction_id,
-                //         status: "paid", // Langsung ubah status pesanan menjadi "paid"
-                //       }),
-                //     });
-                
-                //     if (!paymentUpdateResponse.ok) {
-                //       throw new Error("Gagal memperbarui status pembayaran");
-                //     }
-                
-                //     // Update status reservasi menjadi RESERVED jika ada reservasi
-                //     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-                //     if (isReservation) {
-                //       await fetch(`/api/reservasi`, {
-                //         method: "PUT",
-                //         headers: { "Content-Type": "application/json" },
-                //         body: JSON.stringify({
-                //           kodeBooking: reservationData.kodeBooking,
-                //           status: "RESERVED",
-                //         }),
-                //       });
-                //       reservationData.meja = tableNumber.split(" - ")[0];
-                //       setShowReservationDetails(true);
-                //       setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
-                //     }
-                
-                //     toast.success("Order placed successfully!");
-                //     generateReceiptPDF();
-                //     setCart([]);
-                //     sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                //     // Tidak men-set showReceiptModal ke true, sehingga pop-up tidak muncul
-                //   } else {
-                //     setOrderError("Failed to create order after payment.");
-                //     toast.error("Failed to create order after payment.");
-                //   }
-                // };
-                const handlePaymentSuccess = async (result: MidtransResult) => {
-                  const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
-                
-                  try {
-                    // Membuat pesanan terlebih dahulu (status awal "pending")
-                    const order = await createOrder();
-                    if (!order) {
-                      throw new Error("Failed to create order.");
-                    }
-                
-                    // Perbarui status pembayaran menjadi "paid" setelah pembayaran berhasil
-                    const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        orderId: order.id,
-                        paymentMethod: "ewallet",
-                        paymentStatus: "paid",
-                        paymentId: result.transaction_id,
-                        status: "paid", // Langsung ubah status pesanan menjadi "paid"
-                      }),
-                    });
-                
-                    if (!paymentUpdateResponse.ok) {
-                      throw new Error("Gagal memperbarui status pembayaran");
-                    }
-                
-                    // Jika pembayaran berhasil, tandai meja
-                    const markTableResponse = await fetch("/api/nomeja", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ tableNumber: cleanTableNumber }),
-                    });
-                    if (!markTableResponse.ok) {
-                      const errorData = await markTableResponse.json();
-                      console.error("Failed to mark table:", errorData);
-                    }
-                
-                    // Update status reservasi menjadi RESERVED jika ada reservasi
-                    const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
-                    const isReservation = sessionStorage.getItem("reservation") === "true";
-                    if (isReservation) {
-                      await fetch(`/api/reservasi`, {
-                        method: "PUT",
+                  //     // Update status reservasi menjadi RESERVED jika ada reservasi
+                  //     const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+                  //     if (isReservation) {
+                  //       await fetch(`/api/reservasi`, {
+                  //         method: "PUT",
+                  //         headers: { "Content-Type": "application/json" },
+                  //         body: JSON.stringify({
+                  //           kodeBooking: reservationData.kodeBooking,
+                  //           status: "RESERVED",
+                  //         }),
+                  //       });
+                  //       reservationData.meja = tableNumber.split(" - ")[0];
+                  //       setShowReservationDetails(true);
+                  //       setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
+                  //     }
+
+                  //     toast.success("Order placed successfully!");
+                  //     generateReceiptPDF();
+                  //     setCart([]);
+                  //     sessionStorage.removeItem(`cart_table_${tableNumber}`);
+                  //     // Tidak men-set showReceiptModal ke true, sehingga pop-up tidak muncul
+                  //   } else {
+                  //     setOrderError("Failed to create order after payment.");
+                  //     toast.error("Failed to create order after payment.");
+                  //   }
+                  // };
+                  const handlePaymentSuccess = async (result: MidtransResult) => {
+                    const cleanTableNumber = tableNumber.split(" - ")[0].replace("Meja ", "");
+
+                    try {
+                      // Membuat pesanan terlebih dahulu (status awal "pending")
+                      const order = await createOrder();
+                      if (!order) {
+                        throw new Error("Failed to create order.");
+                      }
+
+                      // Perbarui status pembayaran menjadi "paid" setelah pembayaran berhasil
+                      const paymentUpdateResponse = await fetch("/api/updatePaymentStatus", {
+                        method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          kodeBooking: reservationData.kodeBooking,
-                          status: "RESERVED",
+                          orderId: order.id,
+                          paymentMethod: "ewallet",
+                          paymentStatus: "paid",
+                          paymentId: result.transaction_id,
+                          status: "paid", // Langsung ubah status pesanan menjadi "paid"
                         }),
                       });
-                      reservationData.meja = cleanTableNumber;
-                      setShowReservationDetails(true);
-                      setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
+
+                      if (!paymentUpdateResponse.ok) {
+                        throw new Error("Gagal memperbarui status pembayaran");
+                      }
+
+                      // Jika pembayaran berhasil, tandai meja
+                      const markTableResponse = await fetch("/api/nomeja", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ tableNumber: cleanTableNumber }),
+                      });
+                      if (!markTableResponse.ok) {
+                        const errorData = await markTableResponse.json();
+                        console.error("Failed to mark table:", errorData);
+                      }
+
+                      // Update status reservasi menjadi RESERVED jika ada reservasi
+                      const reservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
+                      const isReservation = sessionStorage.getItem("reservation") === "true";
+                      if (isReservation) {
+                        await fetch(`/api/reservasi`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            kodeBooking: reservationData.kodeBooking,
+                            status: "RESERVED",
+                          }),
+                        });
+                        reservationData.meja = cleanTableNumber;
+                        setShowReservationDetails(true);
+                        setTimeout(() => captureAndDownloadReservationDetails(reservationData.kodeBooking, reservationData.namaCustomer), 500);
+                      }
+
+                      // Kirim notifikasi WebSocket
+                      const socket = io("http://localhost:3000", { path: "/api/socket" });
+                      socket.emit("orderCreated", { newOrder: { ...order, paymentStatus: "paid", status: "paid" } });
+                      socket.emit("tableStatusUpdated", { tableNumber: cleanTableNumber });
+
+                      toast.success("Order placed successfully!");
+                      generateReceiptPDF();
+                      setCart([]);
+                      sessionStorage.removeItem(`cart_table_${tableNumber}`);
+                    } catch (error) {
+                      console.error("Error in handlePaymentSuccess:", error);
+                      setOrderError("Failed to create order after payment.");
+                      toast.error("Failed to create order after payment.");
                     }
-                
-                    // Kirim notifikasi WebSocket
-                    const socket = io("http://localhost:3000", { path: "/api/socket" });
-                    socket.emit("orderCreated", { newOrder: { ...order, paymentStatus: "paid", status: "paid" } });
-                    socket.emit("tableStatusUpdated", { tableNumber: cleanTableNumber });
-                
-                    toast.success("Order placed successfully!");
-                    generateReceiptPDF();
-                    setCart([]);
-                    sessionStorage.removeItem(`cart_table_${tableNumber}`);
-                  } catch (error) {
-                    console.error("Error in handlePaymentSuccess:", error);
-                    setOrderError("Failed to create order after payment.");
-                    toast.error("Failed to create order after payment.");
-                  }
-                };
-                
-                window.snap.pay(data.snapToken, {
-                  onSuccess: handlePaymentSuccess,
-                  onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
-                  onError: (result: MidtransResult) => {
-                    console.error("Pembayaran error:", result);
-                    toast.error("Gagal melakukan pembayaran e-Wallet.");
-                  },
-                  onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
-                });
-              } else {
-                console.error("Gagal mendapatkan snap token:", data);
-                toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
+                  };
+
+                  window.snap.pay(data.snapToken, {
+                    onSuccess: handlePaymentSuccess,
+                    onPending: (result: MidtransResult) => console.log("Pembayaran pending:", result),
+                    onError: (result: MidtransResult) => {
+                      console.error("Pembayaran error:", result);
+                      toast.error("Gagal melakukan pembayaran e-Wallet.");
+                    },
+                    onClose: () => console.log("Popup pembayaran ditutup tanpa menyelesaikan pembayaran"),
+                  });
+                } else {
+                  console.error("Gagal mendapatkan snap token:", data);
+                  toast.error("Gagal memproses pembayaran. Silakan coba lagi.");
+                }
+              } catch (error) {
+                console.error("Error generating snap token or loading Midtrans:", error);
+                toast.error("Terjadi kesalahan saat memproses pembayaran.");
               }
-            } catch (error) {
-              console.error("Error generating snap token or loading Midtrans:", error);
-              toast.error("Terjadi kesalahan saat memproses pembayaran.");
-            }
-          }}
-          className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
-        >
-          E-Wallet
-        </button>
-        <button
-          onClick={() => setShowPaymentMethodModal(false)}
-          className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition"
-        >
-          Batal
-        </button>
+            }}
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-full text-lg font-semibold hover:bg-blue-700 transition"
+          >
+            E-Wallet
+          </button>
+          <button onClick={() => setShowPaymentMethodModal(false)} className="w-full mt-4 px-6 py-3 bg-gray-300 text-gray-800 rounded-full text-lg font-semibold hover:bg-gray-400 transition">
+            Batal
+          </button>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   const renderReceiptModal = () => {
     const { subtotal, totalModifierCost, totalDiscountAmount, taxAmount, gratuityAmount, totalAfterAll } = calculateCartTotals();
@@ -1183,15 +1179,15 @@ export default function MenuPage() {
               });
               const itemTotal = (itemBasePrice + modifierTotal) * item.quantity;
               const modifierNames = Object.entries(item.modifierIds)
-                .map(([_, modifierId]) =>
-                  modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
-                )
+                .map(([_, modifierId]) => (modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null))
                 .filter(Boolean)
                 .join(", ");
               const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
               return (
                 <li key={item.uniqueKey} className="flex justify-between text-black">
-                  <span>{item.quantity}x {itemNameWithModifiers}</span>
+                  <span>
+                    {item.quantity}x {itemNameWithModifiers}
+                  </span>
                   <span>Rp{itemTotal.toLocaleString()}</span>
                 </li>
               );
@@ -1203,17 +1199,10 @@ export default function MenuPage() {
             <p className="text-lg text-black">Diskon: Rp{totalDiscountAmount.toLocaleString()}</p>
             <p className="text-lg text-black">Pajak: Rp{taxAmount.toLocaleString()}</p>
             <p className="text-lg text-black">Gratuity: Rp{gratuityAmount.toLocaleString()}</p>
-            <p className="text-lg font-semibold text-black">
-              Total: Rp{totalAfterAll.toLocaleString()}
-            </p>
+            <p className="text-lg font-semibold text-black">Total: Rp{totalAfterAll.toLocaleString()}</p>
           </div>
-          <p className="mt-4 text-center text-green-600 font-semibold">
-            Silahkan menuju kasir untuk melanjutkan proses pembayaran
-          </p>
-          <button
-            onClick={handleCloseOrderSummary}
-            className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
-          >
+          <p className="mt-4 text-center text-green-600 font-semibold">Silahkan menuju kasir untuk melanjutkan proses pembayaran</p>
+          <button onClick={handleCloseOrderSummary} className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition">
             Tutup & Selesai
           </button>
         </div>
@@ -1224,152 +1213,106 @@ export default function MenuPage() {
   const filteredMenu =
     selectedCategory === "All Menu"
       ? menus.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      : menus.filter(
-          (item) =>
-            item.category.toLowerCase().includes(selectedCategory.toLowerCase()) &&
-            item.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+      : menus.filter((item) => item.category.toLowerCase().includes(selectedCategory.toLowerCase()) && item.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        if (tableNumber === "Unknown") {
-          return (
-            <div className="min-h-screen">
-              <Toaster position="top-right" reverseOrder={false} />
-        
-              <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
-                <div className="max-w-2xl text-center md:text-left">
-                  <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
-                    Begin your day with <br />
-                    a <span className="text-orange-600">perfect cup of coffee</span>
-                  </h1>
-                  <p className="mt-4 text-lg text-gray-700">
-                    Setting a positive tone with its comforting warmth and invigorating flavor
-                  </p>
-                </div>
-                <div className="w-full md:w-[600px] lg:w-[700px] h-[400px] md:h-[500px] relative flex justify-center">
-                  <Image src="/CaramelFrappucino.png" alt="Coffee Cup" layout="fill" objectFit="contain" />
-                </div>
-              </section>
-        
-              <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
-                <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">Our Popular Menu</h2>
-                <h2 className="text-2xl text-white mb-4">Table Number: {tableNumber}</h2>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-1">Cari Menu</label>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full p-2 border rounded-md"
-                    placeholder="Cari nama menu..."
-                  />
-                </div>
-        
-                <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
-                  {categoriesState.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
-                        selectedCategory === category
-                          ? "bg-orange-600 text-white scale-105"
-                          : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-        
-                {loading ? (
-                  <p className="text-center text-gray-500">Loading menu...</p>
-                ) : error ? (
-                  <p className="text-center text-red-500">{error}</p>
-                ) : filteredMenu.length === 0 ? (
-                  <p className="text-center text-gray-500">No menu available for this category.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredMenu.map((item) => {
-                      const discountedPrice = calculateItemPrice(item, {});
-                      return (
-                        <div
-                          key={item.id}
-                          className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
-                        >
-                          <div className="hidden sm:block">
-                            <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
-                              <Image
-                                src={item.image}
-                                alt={item.name}
-                                layout="fill"
-                                objectFit="cover"
-                                className="rounded-lg"
-                              />
-                            </div>
-                            <div className="p-4 text-center">
-                              <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
-                              <p className="text-gray-600 text-left">{item.description}</p>
-                              <div className="text-left">
-                                {discountedPrice < item.price ? (
-                                  <>
-                                    <p className="text-sm text-gray-500 line-through">
-                                      Rp{item.price.toLocaleString()}
-                                    </p>
-                                    <p className="text-lg font-semibold text-orange-600">
-                                      Rp{discountedPrice.toLocaleString()}
-                                    </p>
-                                  </>
-                                ) : (
-                                  <p className="text-lg font-semibold text-orange-600">
-                                    Rp{item.price.toLocaleString()}
-                                  </p>
-                                )}
-                                {item.modifiers.length > 0 && (
-                                  <p className="text-sm text-gray-600">+ Modifier mulai dari Rp0</p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="sm:hidden flex items-center gap-4">
-                            <div className="relative w-24 h-24 flex-shrink-0">
-                              <Image
-                                src={item.image}
-                                alt={item.name}
-                                layout="fill"
-                                objectFit="cover"
-                                className="rounded-lg"
-                              />
-                            </div>
-                            <div className="flex-grow">
-                              <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
-                              <p className="text-sm text-gray-600">{item.description}</p>
-                              {discountedPrice < item.price ? (
-                                <>
-                                  <p className="text-xs text-gray-500 line-through">
-                                    Rp{item.price.toLocaleString()}
-                                  </p>
-                                  <p className="text-md font-semibold text-orange-600">
-                                    Rp{discountedPrice.toLocaleString()}
-                                  </p>
-                                </>
-                              ) : (
-                                <p className="text-md font-semibold text-orange-600">
-                                  Rp{item.price.toLocaleString()}
-                                </p>
-                              )}
-                              {item.modifiers.length > 0 && (
-                                <p className="text-xs text-gray-600">+ Modifier mulai dari Rp0</p>
-                              )}
-                            </div>
-                          </div>
+  if (tableNumber === "Unknown") {
+    return (
+      <div className="min-h-screen">
+        <Toaster position="top-right" reverseOrder={false} />
+
+        <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
+          <div className="max-w-2xl text-center md:text-left">
+            <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
+              Begin your day with <br />a <span className="text-orange-600">perfect cup of coffee</span>
+            </h1>
+            <p className="mt-4 text-lg text-gray-700">Setting a positive tone with its comforting warmth and invigorating flavor</p>
+          </div>
+          <div className="w-full md:w-[600px] lg:w-[700px] h-[400px] md:h-[500px] relative flex justify-center">
+            <Image src="/CaramelFrappucino.png" alt="Coffee Cup" layout="fill" objectFit="contain" />
+          </div>
+        </section>
+
+        <div className="py-12 px-6 md:px-16 bg-[url('/bg-hero1.png')] bg-cover bg-center">
+          <h2 className="text-4xl font-extrabold text-center text-orange-600 mb-8">Our Popular Menu</h2>
+          <h2 className="text-2xl text-white mb-4">Table Number: {tableNumber}</h2>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Cari Menu</label>
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Cari nama menu..." />
+          </div>
+
+          <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
+            {categoriesState.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
+                  selectedCategory === category ? "bg-orange-600 text-white scale-105" : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <p className="text-center text-gray-500">Loading menu...</p>
+          ) : error ? (
+            <p className="text-center text-red-500">{error}</p>
+          ) : filteredMenu.length === 0 ? (
+            <p className="text-center text-gray-500">No menu available for this category.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredMenu.map((item) => {
+                const discountedPrice = calculateItemPrice(item, {});
+                return (
+                  <div key={item.id} className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden">
+                    <div className="hidden sm:block">
+                      <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
+                        <Image src={item.image} alt={item.name} layout="fill" objectFit="cover" className="rounded-lg" />
+                      </div>
+                      <div className="p-4 text-center">
+                        <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
+                        <p className="text-gray-600 text-left">{item.description}</p>
+                        <div className="text-left">
+                          {discountedPrice < item.price ? (
+                            <>
+                              <p className="text-sm text-gray-500 line-through">Rp{item.price.toLocaleString()}</p>
+                              <p className="text-lg font-semibold text-orange-600">Rp{discountedPrice.toLocaleString()}</p>
+                            </>
+                          ) : (
+                            <p className="text-lg font-semibold text-orange-600">Rp{item.price.toLocaleString()}</p>
+                          )}
+                          {item.modifiers.length > 0 && <p className="text-sm text-gray-600">+ Modifier mulai dari Rp0</p>}
                         </div>
-                      );
-                    })}
+                      </div>
+                    </div>
+                    <div className="sm:hidden flex items-center gap-4">
+                      <div className="relative w-24 h-24 flex-shrink-0">
+                        <Image src={item.image} alt={item.name} layout="fill" objectFit="cover" className="rounded-lg" />
+                      </div>
+                      <div className="flex-grow">
+                        <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
+                        <p className="text-sm text-gray-600">{item.description}</p>
+                        {discountedPrice < item.price ? (
+                          <>
+                            <p className="text-xs text-gray-500 line-through">Rp{item.price.toLocaleString()}</p>
+                            <p className="text-md font-semibold text-orange-600">Rp{discountedPrice.toLocaleString()}</p>
+                          </>
+                        ) : (
+                          <p className="text-md font-semibold text-orange-600">Rp{item.price.toLocaleString()}</p>
+                        )}
+                        {item.modifiers.length > 0 && <p className="text-xs text-gray-600">+ Modifier mulai dari Rp0</p>}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
-          );
-        }
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -1378,12 +1321,9 @@ export default function MenuPage() {
       <section className="relative flex flex-col md:flex-row items-center justify-between px-6 md:px-16 py-20 bg-[url('/bg-heromenu.png')] bg-cover bg-center">
         <div className="max-w-2xl text-center md:text-left">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
-            Begin your day with <br />
-            a <span className="text-orange-600">perfect cup of coffee</span>
+            Begin your day with <br />a <span className="text-orange-600">perfect cup of coffee</span>
           </h1>
-          <p className="mt-4 text-lg text-gray-700">
-            Setting a positive tone with its comforting warmth and invigorating flavor
-          </p>
+          <p className="mt-4 text-lg text-gray-700">Setting a positive tone with its comforting warmth and invigorating flavor</p>
         </div>
         <div className="w-full md:w-[600px] lg:w-[700px] h-[400px] md:h-[500px] relative flex justify-center">
           <Image src="/CaramelFrappucino.png" alt="Coffee Cup" layout="fill" objectFit="contain" />
@@ -1395,13 +1335,7 @@ export default function MenuPage() {
         <h2 className="text-2xl text-white mb-4">Table Number: {tableNumber}</h2>
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Cari Menu</label>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-2 border rounded-md"
-            placeholder="Cari nama menu..."
-          />
+          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full p-2 border rounded-md" placeholder="Cari nama menu..." />
         </div>
 
         <div className="flex overflow-x-auto space-x-4 mb-8 px-4 py-2 scrollbar-hide">
@@ -1410,9 +1344,7 @@ export default function MenuPage() {
               key={category}
               onClick={() => setSelectedCategory(category)}
               className={`whitespace-nowrap px-6 py-3 rounded-full text-lg font-semibold transition-all transform duration-300 shadow-lg ${
-                selectedCategory === category
-                  ? "bg-orange-600 text-white scale-105"
-                  : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
+                selectedCategory === category ? "bg-orange-600 text-white scale-105" : "bg-gray-300 text-gray-800 hover:bg-orange-400 hover:text-white"
               }`}
             >
               {category}
@@ -1434,20 +1366,11 @@ export default function MenuPage() {
 
               console.log(`Item: ${item.name}, Status: ${item.Status}, isOutOfStock: ${isOutOfStock}`);
               return (
-                <div
-                  key={item.id}
-                  className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden"
-                >
+                <div key={item.id} className="relative border p-5 rounded-2xl shadow-2xl bg-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl overflow-hidden">
                   {/* <h1>item :{item.name} , stock : {item.Status}  </h1> */}
                   <div className="hidden sm:block">
                     <div className="relative w-full h-64 cursor-pointer hover:scale-105 transition-transform">
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        layout="fill"
-                        objectFit="cover"
-                        className="rounded-lg"
-                      />
+                      <Image src={item.image} alt={item.name} layout="fill" objectFit="cover" className="rounded-lg" />
                     </div>
                     <div className="p-4 text-center">
                       <h2 className="text-2xl font-bold text-gray-900">{item.name}</h2>
@@ -1455,21 +1378,13 @@ export default function MenuPage() {
                       <div className="text-left">
                         {discountedPrice < item.price ? (
                           <>
-                            <p className="text-sm text-gray-500 line-through">
-                              Rp{item.price.toLocaleString()}
-                            </p>
-                            <p className="text-lg font-semibold text-orange-600">
-                              Rp{discountedPrice.toLocaleString()}
-                            </p>
+                            <p className="text-sm text-gray-500 line-through">Rp{item.price.toLocaleString()}</p>
+                            <p className="text-lg font-semibold text-orange-600">Rp{discountedPrice.toLocaleString()}</p>
                           </>
                         ) : (
-                          <p className="text-lg font-semibold text-orange-600">
-                            Rp{item.price.toLocaleString()}
-                          </p>
+                          <p className="text-lg font-semibold text-orange-600">Rp{item.price.toLocaleString()}</p>
                         )}
-                        {item.modifiers.length > 0 && (
-                          <p className="text-sm text-gray-600">+ Modifier mulai dari Rp0</p>
-                        )}
+                        {item.modifiers.length > 0 && <p className="text-sm text-gray-600">+ Modifier mulai dari Rp0</p>}
                       </div>
                       <button
                         onClick={() => !isOutOfStock && addToCart(item)} // Hanya aktif jika tidak habis
@@ -1490,39 +1405,22 @@ export default function MenuPage() {
                   </div>
                   <div className="sm:hidden flex items-center gap-4">
                     <div className="relative w-24 h-24 flex-shrink-0">
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        layout="fill"
-                        objectFit="cover"
-                        className="rounded-lg"
-                      />
+                      <Image src={item.image} alt={item.name} layout="fill" objectFit="cover" className="rounded-lg" />
                     </div>
                     <div className="flex-grow">
                       <h2 className="text-lg font-bold text-gray-900">{item.name}</h2>
                       <p className="text-sm text-gray-600">{item.description}</p>
                       {discountedPrice < item.price ? (
                         <>
-                          <p className="text-xs text-gray-500 line-through">
-                            Rp{item.price.toLocaleString()}
-                          </p>
-                          <p className="text-md font-semibold text-orange-600">
-                            Rp{discountedPrice.toLocaleString()}
-                          </p>
+                          <p className="text-xs text-gray-500 line-through">Rp{item.price.toLocaleString()}</p>
+                          <p className="text-md font-semibold text-orange-600">Rp{discountedPrice.toLocaleString()}</p>
                         </>
                       ) : (
-                        <p className="text-md font-semibold text-orange-600">
-                          Rp{item.price.toLocaleString()}
-                        </p>
+                        <p className="text-md font-semibold text-orange-600">Rp{item.price.toLocaleString()}</p>
                       )}
-                      {item.modifiers.length > 0 && (
-                        <p className="text-xs text-gray-600">+ Modifier mulai dari Rp0</p>
-                      )}
+                      {item.modifiers.length > 0 && <p className="text-xs text-gray-600">+ Modifier mulai dari Rp0</p>}
                     </div>
-                    <button
-                      onClick={() => addToCart(item)}
-                      className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition"
-                    >
+                    <button onClick={() => addToCart(item)} className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition">
                       +
                     </button>
                   </div>
@@ -1533,21 +1431,12 @@ export default function MenuPage() {
         )}
       </div>
 
-      <button
-        onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3 z-50"
-      >
+      <button onClick={() => setIsCartOpen(true)} className="fixed bottom-4 left-4 bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-3 z-50">
         <ShoppingCart className="w-6 h-6" />
-        {cart.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
-            {cart.reduce((total, item) => total + item.quantity, 0)}
-          </span>
-        )}
+        {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">{cart.reduce((total, item) => total + item.quantity, 0)}</span>}
         <span className="hidden sm:block">Cart</span>
         <div className="sm:hidden flex flex-col items-center">
-          <span className="text-sm font-semibold">
-            Rp{calculateCartTotals().totalAfterAll.toLocaleString()}
-          </span>
+          <span className="text-sm font-semibold">Rp{calculateCartTotals().totalAfterAll.toLocaleString()}</span>
           <span className="text-xs">Checkout</span>
         </div>
       </button>
@@ -1580,9 +1469,7 @@ export default function MenuPage() {
                     const itemTotalPrice = itemPrice * item.quantity;
                     const isNoteOpen = noteVisibility[item.uniqueKey] || false;
                     const modifierNames = Object.entries(item.modifierIds)
-                      .map(([_, modifierId]) =>
-                        modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null
-                      )
+                      .map(([_, modifierId]) => (modifierId ? item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier.name : null))
                       .filter(Boolean)
                       .join(", ");
                     const itemNameWithModifiers = modifierNames ? `${item.menu.name} (${modifierNames})` : item.menu.name;
@@ -1603,24 +1490,14 @@ export default function MenuPage() {
                             Rp{itemPrice.toLocaleString()} x {item.quantity}
                           </p>
                         </div>
-                        <p className="text-right text-gray-700 font-semibold text-sm mt-1">
-                          Total: Rp{itemTotalPrice.toLocaleString()}
-                        </p>
+                        <p className="text-right text-gray-700 font-semibold text-sm mt-1">Total: Rp{itemTotalPrice.toLocaleString()}</p>
                         <div className="flex justify-between items-center mt-2">
                           <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => removeFromCart(item.uniqueKey)}
-                              className="px-3 py-1 bg-red-500 text-white text-lg font-bold rounded-full hover:bg-red-600 transition"
-                            >
+                            <button onClick={() => removeFromCart(item.uniqueKey)} className="px-3 py-1 bg-red-500 text-white text-lg font-bold rounded-full hover:bg-red-600 transition">
                               −
                             </button>
-                            <span className="text-lg font-bold min-w-[30px] text-center text-black">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => addToCart(item.menu, item.modifierIds)}
-                              className="px-3 py-1 bg-green-500 text-white text-lg font-bold rounded-full hover:bg-green-600 transition"
-                            >
+                            <span className="text-lg font-bold min-w-[30px] text-center text-black">{item.quantity}</span>
+                            <button onClick={() => addToCart(item.menu, item.modifierIds)} className="px-3 py-1 bg-green-500 text-white text-lg font-bold rounded-full hover:bg-green-600 transition">
                               +
                             </button>
                           </div>
@@ -1631,13 +1508,7 @@ export default function MenuPage() {
                               <label className="block text-sm font-medium text-gray-700">{group.category.name}:</label>
                               <select
                                 value={item.modifierIds[parseInt(categoryId)] || 0}
-                                onChange={(e) =>
-                                  updateCartItemModifier(
-                                    item.uniqueKey,
-                                    parseInt(categoryId),
-                                    e.target.value === "0" ? null : parseInt(e.target.value)
-                                  )
-                                }
+                                onChange={(e) => updateCartItemModifier(item.uniqueKey, parseInt(categoryId), e.target.value === "0" ? null : parseInt(e.target.value))}
                                 className="w-full p-2 border border-gray-300 rounded-md text-sm"
                               >
                                 <option value={0}>Tanpa {group.category.name} (Rp0)</option>
@@ -1658,10 +1529,7 @@ export default function MenuPage() {
                             onChange={(e) => updateCartItemNote(item.uniqueKey, e.target.value)}
                           />
                         ) : (
-                          <button
-                            onClick={() => toggleNoteVisibility(item.uniqueKey)}
-                            className="mt-2 px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm hover:bg-gray-300 transition"
-                          >
+                          <button onClick={() => toggleNoteVisibility(item.uniqueKey)} className="mt-2 px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm hover:bg-gray-300 transition">
                             Add Note
                           </button>
                         )}
@@ -1711,10 +1579,7 @@ export default function MenuPage() {
                       <span>Rp{calculateCartTotals().totalAfterAll.toLocaleString()}</span>
                     </div>
                   </div>
-                  <button
-                    onClick={handleShowPaymentModal}
-                    className="mt-6 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
-                  >
+                  <button onClick={handleShowPaymentModal} className="mt-6 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition">
                     Pesan Sekarang
                   </button>
                 </div>
@@ -1723,10 +1588,7 @@ export default function MenuPage() {
           )}
           {/* Tombol Panah ke Bawah */}
           {cart.length > 0 && (
-            <button
-              onClick={scrollToSummary}
-              className="fixed bottom-16 right-4 bg-orange-600 text-white p-3 rounded-full shadow-lg hover:bg-orange-700 transition z-50"
-            >
+            <button onClick={scrollToSummary} className="fixed bottom-16 right-4 bg-orange-600 text-white p-3 rounded-full shadow-lg hover:bg-orange-700 transition z-50">
               <ChevronDown className="w-6 h-6" />
             </button>
           )}
@@ -1737,29 +1599,27 @@ export default function MenuPage() {
       {showReceiptModal && renderReceiptModal()}
       {showReservationDetails && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div
-            id="reservationDetails"
-            className="mt-6 p-4 border rounded-lg bg-white w-full sm:w-96 mx-auto transform transition-all hover:scale-105"
-            style={{ width: "384px", minHeight: "500px" }}
-          >
-            <img
-              src="/logo-notarich-transparent.png"
-              alt="Logo NotarichCafe"
-              className="mx-auto"
-              style={{ width: "100%", height: "auto" }}
-            />
+          <div id="reservationDetails" className="mt-6 p-4 border rounded-lg bg-white w-full sm:w-96 mx-auto transform transition-all hover:scale-105" style={{ width: "384px", minHeight: "500px" }}>
+            <img src="/logo-notarich-transparent.png" alt="Logo NotarichCafe" className="mx-auto" style={{ width: "100%", height: "auto" }} />
             <h3 className="text-lg font-bold text-gray-800 text-center mb-4">Detail Reservasi</h3>
             <div>
-              <p><strong>Nama :</strong> {JSON.parse(sessionStorage.getItem("reservationData") || "{}").namaCustomer}</p>
-              <p><strong>Tanggal & Waktu :</strong> {formatTanggalForKode(JSON.parse(sessionStorage.getItem("reservationData") || "{}").selectedDateTime)}</p>
-              <p><strong>Meja :</strong> {tableNumber.split(" - ")[0]}</p>
-              <p><strong>Durasi :</strong> {JSON.parse(sessionStorage.getItem("reservationData") || "{}").durasiJam} Jam {JSON.parse(sessionStorage.getItem("reservationData") || "{}").durasiMenit} Menit</p>
-              <p><strong>Kode Booking :</strong> {formatKodeBooking(JSON.parse(sessionStorage.getItem("reservationData") || "{}").kodeBooking)}</p>
+              <p>
+                <strong>Nama :</strong> {JSON.parse(sessionStorage.getItem("reservationData") || "{}").namaCustomer}
+              </p>
+              <p>
+                <strong>Tanggal & Waktu :</strong> {formatTanggalForKode(JSON.parse(sessionStorage.getItem("reservationData") || "{}").selectedDateTime)}
+              </p>
+              <p>
+                <strong>Meja :</strong> {tableNumber.split(" - ")[0]}
+              </p>
+              <p>
+                <strong>Durasi :</strong> {JSON.parse(sessionStorage.getItem("reservationData") || "{}").durasiJam} Jam {JSON.parse(sessionStorage.getItem("reservationData") || "{}").durasiMenit} Menit
+              </p>
+              <p>
+                <strong>Kode Booking :</strong> {formatKodeBooking(JSON.parse(sessionStorage.getItem("reservationData") || "{}").kodeBooking)}
+              </p>
             </div>
-            <button
-              onClick={() => setShowReservationDetails(false)}
-              className="mt-6 bg-red-500 text-white p-3 rounded-md w-full hover:bg-red-600 transition-all transform hover:scale-105 no-capture"
-            >
+            <button onClick={() => setShowReservationDetails(false)} className="mt-6 bg-red-500 text-white p-3 rounded-md w-full hover:bg-red-600 transition-all transform hover:scale-105 no-capture">
               Tutup
             </button>
           </div>
@@ -1770,10 +1630,7 @@ export default function MenuPage() {
           <div className="bg-white p-6 rounded-lg w-full max-w-md">
             <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
             <p className="text-gray-700">{orderError}</p>
-            <button
-              onClick={() => setOrderError(null)}
-              className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition"
-            >
+            <button onClick={() => setOrderError(null)} className="mt-4 w-full px-6 py-3 bg-orange-600 text-white rounded-full text-lg font-semibold hover:bg-orange-700 transition">
               Close
             </button>
           </div>

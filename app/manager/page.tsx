@@ -1,7 +1,6 @@
-// File: pages/dashboard/Stats.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/sidebar";
 import SalesChart from "@/components/SalesChart";
 import GrossMarginChart from "@/components/GrossMarginChart";
@@ -11,11 +10,16 @@ import MinimumStock from "@/components/MinimumStock";
 import PaymentMethodPieChart from "@/components/PaymentMethodPieChart";
 import TopSellers from "@/components/TopSellers";
 import RevenueByCategoryChart from "@/components/RevenueByCategoryChart";
-
-
+import EditIngredientModal from "@/components/modalEditDashboard";
 
 export default function Stats() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Tampilkan modal saat pertama kali load
+  useEffect(() => {
+    setIsModalOpen(true);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-[#FFFAF0]">
@@ -23,18 +27,13 @@ export default function Stats() {
       <Sidebar onToggle={setSidebarOpen} isOpen={sidebarOpen} />
 
       {/* Konten Utama */}
-      <div
-        className={`flex-1 p-4 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"
-          }`}
-      >
-        <h1 className="text-3xl md:text-4xl font-bold text-[#212121] mb-4">
-          Dashboard Manager
-        </h1>
+      <div className={`flex-1 p-4 transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
+        <h1 className="text-3xl md:text-4xl font-bold text-[#212121] mb-4">Dashboard Manager</h1>
 
         {/* Baris Pertama: Stat Cards */}
         <StatsCards />
 
-        {/* Baris Kedua: 3 Kolom (TopSellers, MinimumStock, PaymentMethodPieChart) */}
+        {/* Baris Kedua: 3 Kolom */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
           <div className="bg-white p-4 rounded-lg shadow">
             <TopSellers />
@@ -47,7 +46,7 @@ export default function Stats() {
           </div>
         </div>
 
-        {/* Baris Ketiga: Chart Lainnya (setiap chart satu baris) */}
+        {/* Baris Ketiga: Chart Lainnya */}
         <div className="mt-6 space-y-4">
           <div className="bg-white p-4 rounded-lg shadow">
             <SalesChart />
@@ -63,6 +62,9 @@ export default function Stats() {
           </div>
         </div>
       </div>
+
+      {/* Modal Edit Ingredient */}
+      <EditIngredientModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

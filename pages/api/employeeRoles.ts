@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === "GET") {
-      // Ambil semua role + relasi employees
+      // Ambil semua role beserta relasi employees dan users
       const roles = await prisma.roleEmployee.findMany({
         include: {
           employees: true,
@@ -16,37 +16,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json(roles);
     } else if (req.method === "POST") {
       // Tambah role baru
-      const { name, appPermissions, backofficePermissions } = req.body;
+      const { name, permissions } = req.body;
 
       if (!name) {
         return res.status(400).json({ error: "Role name is required" });
       }
 
-      // Simpan data JSON ke kolom appPermissions & backofficePermissions
+      // Simpan permissions sebagai array string
       const newRole = await prisma.roleEmployee.create({
         data: {
           name,
-          appPermissions,
-          backofficePermissions,
+          permissions: permissions || [], // Default ke array kosong jika tidak ada
         },
       });
 
       return res.status(201).json(newRole);
     } else if (req.method === "PUT") {
       // Edit role
-      const { id, name, appPermissions, backofficePermissions } = req.body;
+      const { id, name, permissions } = req.body;
 
       if (!id) {
         return res.status(400).json({ error: "Role ID is required" });
       }
 
-      // Update kolom name, appPermissions, dan backofficePermissions
+      // Update kolom name dan permissions
       const updatedRole = await prisma.roleEmployee.update({
         where: { id: Number(id) },
         data: {
           name,
-          appPermissions,
-          backofficePermissions,
+          permissions: permissions || [], // Default ke array kosong jika tidak ada
         },
       });
       return res.status(200).json(updatedRole);

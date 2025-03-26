@@ -17,15 +17,15 @@ interface RoleEmployee {
   id: number;
   name: string;
   employees: EmployeeAssigned[];
-
-  // Field JSON opsional (dari DB), agar kita bisa memuat data existing
-  appPermissions?: AppPermissions;
-  backofficePermissions?: BackofficePermissions;
+  permissions: string[]; // Array permission keys, misal: "app.cashier", "backoffice.viewInventory.summary"
+  appPermissions?: AppPermissions; // Opsional untuk kompatibilitas ke belakang
+  backofficePermissions?: BackofficePermissions; // Opsional untuk kompatibilitas ke belakang
 }
 
 // Struktur data untuk App Permissions
 interface AppPermissions {
   cashier: boolean;
+  menus: boolean;
   layoutCafe: boolean;
   riwayat: boolean;
   reservasi: boolean;
@@ -113,6 +113,7 @@ export default function EmployeeAccess() {
   // App Permissions
   const [appPermissions, setAppPermissions] = useState<AppPermissions>({
     cashier: false,
+    menus: false,
     layoutCafe: false,
     riwayat: false,
     reservasi: false,
@@ -172,6 +173,7 @@ export default function EmployeeAccess() {
     setRoleName("");
     setAppPermissions({
       cashier: false,
+      menus: false,
       layoutCafe: false,
       riwayat: false,
       reservasi: false,
@@ -203,37 +205,67 @@ export default function EmployeeAccess() {
     setIsEditMode(true);
     setEditingRoleId(role.id);
 
-    // Muat data existing
     setRoleName(role.name);
-    setAppPermissions(
-      role.appPermissions || {
-        cashier: false,
-        layoutCafe: false,
-        riwayat: false,
-        reservasi: false,
-      }
-    );
-    setBackofficePermissions(
-      role.backofficePermissions || {
-        viewDashboard: false,
-        viewReportsParent: false,
-        viewReports: { sales: false, transactions: false },
-        viewMenuParent: false,
-        viewMenu: { daftarMenu: false, kategoriMenu: false },
-        viewLibraryParent: false,
-        viewLibrary: { bundles: false, taxes: false, gratuity: false, discount: false },
-        viewModifierParent: false,
-        viewModifier: { modifier: false, category: false },
-        viewIngredientsParent: false,
-        viewIngredients: { ingredientsLibrary: false, ingredientsCategory: false, recipes: false },
-        viewInventoryParent: false,
-        viewInventory: { summary: false, supplier: false, purchaseOrder: false },
-        viewRekapParent: false,
-        viewRekap: { stokCafe: false, stokGudang: false, penjualan: false },
-        viewEmployeesParent: false,
-        viewEmployees: { employeeSlots: false, employeeAccess: false },
-      }
-    );
+    const permissions = role.permissions || [];
+
+    // Set appPermissions berdasarkan permissions array
+    setAppPermissions({
+      cashier: permissions.includes("app.cashier"),
+      menus: permissions.includes("app.menus"),
+      layoutCafe: permissions.includes("app.layoutCafe"),
+      riwayat: permissions.includes("app.riwayat"),
+      reservasi: permissions.includes("app.reservasi"),
+    });
+
+    // Set backofficePermissions berdasarkan permissions array
+    setBackofficePermissions({
+      viewDashboard: permissions.includes("backoffice.viewDashboard"),
+      viewReportsParent: false, // Parent hanya untuk UI, tidak disimpan
+      viewReports: {
+        sales: permissions.includes("backoffice.viewReports.sales"),
+        transactions: permissions.includes("backoffice.viewReports.transactions"),
+      },
+      viewMenuParent: false,
+      viewMenu: {
+        daftarMenu: permissions.includes("backoffice.viewMenu.daftarMenu"),
+        kategoriMenu: permissions.includes("backoffice.viewMenu.kategoriMenu"),
+      },
+      viewLibraryParent: false,
+      viewLibrary: {
+        bundles: permissions.includes("backoffice.viewLibrary.bundles"),
+        taxes: permissions.includes("backoffice.viewLibrary.taxes"),
+        gratuity: permissions.includes("backoffice.viewLibrary.gratuity"),
+        discount: permissions.includes("backoffice.viewLibrary.discount"),
+      },
+      viewModifierParent: false,
+      viewModifier: {
+        modifier: permissions.includes("backoffice.viewModifier.modifier"),
+        category: permissions.includes("backoffice.viewModifier.category"),
+      },
+      viewIngredientsParent: false,
+      viewIngredients: {
+        ingredientsLibrary: permissions.includes("backoffice.viewIngredients.ingredientsLibrary"),
+        ingredientsCategory: permissions.includes("backoffice.viewIngredients.ingredientsCategory"),
+        recipes: permissions.includes("backoffice.viewIngredients.recipes"),
+      },
+      viewInventoryParent: false,
+      viewInventory: {
+        summary: permissions.includes("backoffice.viewInventory.summary"),
+        supplier: permissions.includes("backoffice.viewInventory.supplier"),
+        purchaseOrder: permissions.includes("backoffice.viewInventory.purchaseOrder"),
+      },
+      viewRekapParent: false,
+      viewRekap: {
+        stokCafe: permissions.includes("backoffice.viewRekap.stokCafe"),
+        stokGudang: permissions.includes("backoffice.viewRekap.stokGudang"),
+        penjualan: permissions.includes("backoffice.viewRekap.penjualan"),
+      },
+      viewEmployeesParent: false,
+      viewEmployees: {
+        employeeSlots: permissions.includes("backoffice.viewEmployees.employeeSlots"),
+        employeeAccess: permissions.includes("backoffice.viewEmployees.employeeAccess"),
+      },
+    });
   };
 
   // ===================== PRIVILEGES (READ-ONLY) =====================
@@ -250,35 +282,65 @@ export default function EmployeeAccess() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
+      // Kumpulkan permission keys yang dipilih
+      const selectedPermissions: string[] = [];
+
+      // App Permissions
+      if (appPermissions.cashier) selectedPermissions.push("app.cashier");
+      if (appPermissions.menus) selectedPermissions.push("app.menus");
+      if (appPermissions.layoutCafe) selectedPermissions.push("app.layoutCafe");
+      if (appPermissions.riwayat) selectedPermissions.push("app.riwayat");
+      if (appPermissions.reservasi) selectedPermissions.push("app.reservasi");
+
+      // Backoffice Permissions
+      if (backofficePermissions.viewDashboard) selectedPermissions.push("backoffice.viewDashboard");
+      if (backofficePermissions.viewReports.sales) selectedPermissions.push("backoffice.viewReports.sales");
+      if (backofficePermissions.viewReports.transactions) selectedPermissions.push("backoffice.viewReports.transactions");
+      if (backofficePermissions.viewMenu.daftarMenu) selectedPermissions.push("backoffice.viewMenu.daftarMenu");
+      if (backofficePermissions.viewMenu.kategoriMenu) selectedPermissions.push("backoffice.viewMenu.kategoriMenu");
+      if (backofficePermissions.viewLibrary.bundles) selectedPermissions.push("backoffice.viewLibrary.bundles");
+      if (backofficePermissions.viewLibrary.taxes) selectedPermissions.push("backoffice.viewLibrary.taxes");
+      if (backofficePermissions.viewLibrary.gratuity) selectedPermissions.push("backoffice.viewLibrary.gratuity");
+      if (backofficePermissions.viewLibrary.discount) selectedPermissions.push("backoffice.viewLibrary.discount");
+      if (backofficePermissions.viewModifier.modifier) selectedPermissions.push("backoffice.viewModifier.modifier");
+      if (backofficePermissions.viewModifier.category) selectedPermissions.push("backoffice.viewModifier.category");
+      if (backofficePermissions.viewIngredients.ingredientsLibrary) selectedPermissions.push("backoffice.viewIngredients.ingredientsLibrary");
+      if (backofficePermissions.viewIngredients.ingredientsCategory) selectedPermissions.push("backoffice.viewIngredients.ingredientsCategory");
+      if (backofficePermissions.viewIngredients.recipes) selectedPermissions.push("backoffice.viewIngredients.recipes");
+      if (backofficePermissions.viewInventory.summary) selectedPermissions.push("backoffice.viewInventory.summary");
+      if (backofficePermissions.viewInventory.supplier) selectedPermissions.push("backoffice.viewInventory.supplier");
+      if (backofficePermissions.viewInventory.purchaseOrder) selectedPermissions.push("backoffice.viewInventory.purchaseOrder");
+      if (backofficePermissions.viewRekap.stokCafe) selectedPermissions.push("backoffice.viewRekap.stokCafe");
+      if (backofficePermissions.viewRekap.stokGudang) selectedPermissions.push("backoffice.viewRekap.stokGudang");
+      if (backofficePermissions.viewRekap.penjualan) selectedPermissions.push("backoffice.viewRekap.penjualan");
+      if (backofficePermissions.viewEmployees.employeeSlots) selectedPermissions.push("backoffice.viewEmployees.employeeSlots");
+      if (backofficePermissions.viewEmployees.employeeAccess) selectedPermissions.push("backoffice.viewEmployees.employeeAccess");
+
+      // Buat payload
       const payload = {
         name: roleName,
-        appPermissions,
-        backofficePermissions,
+        permissions: selectedPermissions,
       };
 
-      let method = "POST";
-      let url = "/api/employeeRoles";
       if (isEditMode && editingRoleId) {
-        method = "PUT";
         (payload as any).id = editingRoleId;
       }
+
+      const method = isEditMode ? "PUT" : "POST";
+      const url = "/api/employeeRoles";
 
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to submit role");
       }
 
-      if (isEditMode) {
-        toast.success("Role updated successfully!");
-      } else {
-        toast.success("Role created successfully!");
-      }
-
+      toast.success(isEditMode ? "Role updated successfully!" : "Role created successfully!");
       await fetchRoles();
       setShowForm(false);
     } catch (error: any) {
@@ -455,6 +517,9 @@ export default function EmployeeAccess() {
               <div className="flex flex-col mt-2 space-y-2">
                 <label>
                   <input type="checkbox" checked={appPermissions.cashier} onChange={(e) => setAppPermissions({ ...appPermissions, cashier: e.target.checked })} /> Cashier
+                </label>
+                <label>
+                  <input type="checkbox" checked={appPermissions.menus} onChange={(e) => setAppPermissions({ ...appPermissions, menus: e.target.checked })} /> Menu
                 </label>
                 <label>
                   <input type="checkbox" checked={appPermissions.layoutCafe} onChange={(e) => setAppPermissions({ ...appPermissions, layoutCafe: e.target.checked })} /> Layout Cafe
@@ -968,125 +1033,105 @@ export default function EmployeeAccess() {
           {/* App Permissions */}
           <div className="mb-4">
             <h3 className="font-semibold mb-2">App Permissions</h3>
-            {privilegesRole.appPermissions ? (
-              <ul className="list-disc list-inside ml-4">
-                {privilegesRole.appPermissions.cashier && <li>Cashier</li>}
-                {privilegesRole.appPermissions.layoutCafe && <li>Layout Cafe</li>}
-                {privilegesRole.appPermissions.riwayat && <li>Riwayat</li>}
-                {privilegesRole.appPermissions.reservasi && <li>Reservasi</li>}
-              </ul>
-            ) : (
-              <p className="text-gray-500">No App Permissions</p>
-            )}
+            <ul className="list-disc list-inside ml-4">
+              {privilegesRole.permissions.includes("app.cashier") && <li>Cashier</li>}
+              {privilegesRole.permissions.includes("app.menus") && <li>Menu</li>}
+              {privilegesRole.permissions.includes("app.layoutCafe") && <li>Layout Cafe</li>}
+              {privilegesRole.permissions.includes("app.riwayat") && <li>Riwayat</li>}
+              {privilegesRole.permissions.includes("app.reservasi") && <li>Reservasi</li>}
+            </ul>
           </div>
 
           {/* Backoffice Permissions */}
           <div>
             <h3 className="font-semibold mb-2">Backoffice Permissions</h3>
-            {privilegesRole.backofficePermissions ? (
-              <div className="space-y-2 text-sm ml-4">
-                {/* View Dashboard */}
-                {privilegesRole.backofficePermissions.viewDashboard && <div>- View Dashboard</div>}
-
-                {/* View Reports */}
-                {(privilegesRole.backofficePermissions.viewReports.sales || privilegesRole.backofficePermissions.viewReports.transactions) && (
-                  <div>
-                    - View Reports:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewReports.sales && <li>Sales</li>}
-                      {privilegesRole.backofficePermissions.viewReports.transactions && <li>Transactions</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* View Menu */}
-                {(privilegesRole.backofficePermissions.viewMenu.daftarMenu || privilegesRole.backofficePermissions.viewMenu.kategoriMenu) && (
-                  <div>
-                    - View Menu:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewMenu.daftarMenu && <li>Daftar Menu</li>}
-                      {privilegesRole.backofficePermissions.viewMenu.kategoriMenu && <li>Kategori Menu</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* View Library */}
-                {(privilegesRole.backofficePermissions.viewLibrary.bundles ||
-                  privilegesRole.backofficePermissions.viewLibrary.taxes ||
-                  privilegesRole.backofficePermissions.viewLibrary.gratuity ||
-                  privilegesRole.backofficePermissions.viewLibrary.discount) && (
-                  <div>
-                    - View Library:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewLibrary.bundles && <li>Bundles</li>}
-                      {privilegesRole.backofficePermissions.viewLibrary.taxes && <li>Taxes</li>}
-                      {privilegesRole.backofficePermissions.viewLibrary.gratuity && <li>Gratuity</li>}
-                      {privilegesRole.backofficePermissions.viewLibrary.discount && <li>Discount</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* View Modifier */}
-                {(privilegesRole.backofficePermissions.viewModifier.modifier || privilegesRole.backofficePermissions.viewModifier.category) && (
-                  <div>
-                    - View Modifier:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewModifier.modifier && <li>Modifier</li>}
-                      {privilegesRole.backofficePermissions.viewModifier.category && <li>Category</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* View Ingredients */}
-                {(privilegesRole.backofficePermissions.viewIngredients.ingredientsLibrary || privilegesRole.backofficePermissions.viewIngredients.ingredientsCategory || privilegesRole.backofficePermissions.viewIngredients.recipes) && (
-                  <div>
-                    - View Ingredients:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewIngredients.ingredientsLibrary && <li>Ingredients Library</li>}
-                      {privilegesRole.backofficePermissions.viewIngredients.ingredientsCategory && <li>Ingredients Category</li>}
-                      {privilegesRole.backofficePermissions.viewIngredients.recipes && <li>Recipes</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* View Inventory */}
-                {(privilegesRole.backofficePermissions.viewInventory.summary || privilegesRole.backofficePermissions.viewInventory.supplier || privilegesRole.backofficePermissions.viewInventory.purchaseOrder) && (
-                  <div>
-                    - View Inventory:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewInventory.summary && <li>Summary</li>}
-                      {privilegesRole.backofficePermissions.viewInventory.supplier && <li>Supplier</li>}
-                      {privilegesRole.backofficePermissions.viewInventory.purchaseOrder && <li>Purchase Order</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* View Rekap */}
-                {(privilegesRole.backofficePermissions.viewRekap.stokCafe || privilegesRole.backofficePermissions.viewRekap.stokGudang || privilegesRole.backofficePermissions.viewRekap.penjualan) && (
-                  <div>
-                    - View Rekap:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewRekap.stokCafe && <li>Rekap Stok Cafe</li>}
-                      {privilegesRole.backofficePermissions.viewRekap.stokGudang && <li>Rekap Stok Gudang</li>}
-                      {privilegesRole.backofficePermissions.viewRekap.penjualan && <li>Rekap Penjualan</li>}
-                    </ul>
-                  </div>
-                )}
-
-                {/* View Employees */}
-                {(privilegesRole.backofficePermissions.viewEmployees.employeeSlots || privilegesRole.backofficePermissions.viewEmployees.employeeAccess) && (
-                  <div>
-                    - View Employees:
-                    <ul className="list-disc list-inside ml-4">
-                      {privilegesRole.backofficePermissions.viewEmployees.employeeSlots && <li>Employee Slots</li>}
-                      {privilegesRole.backofficePermissions.viewEmployees.employeeAccess && <li>Employee Access</li>}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-500">No Backoffice Permissions</p>
-            )}
+            <div className="space-y-2 text-sm ml-4">
+              {privilegesRole.permissions.includes("backoffice.viewDashboard") && <div>- View Dashboard</div>}
+              {(privilegesRole.permissions.includes("backoffice.viewReports.sales") || privilegesRole.permissions.includes("backoffice.viewReports.transactions")) && (
+                <div>
+                  - View Reports:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewReports.sales") && <li>Sales</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewReports.transactions") && <li>Transactions</li>}
+                  </ul>
+                </div>
+              )}
+              {(privilegesRole.permissions.includes("backoffice.viewMenu.daftarMenu") || privilegesRole.permissions.includes("backoffice.viewMenu.kategoriMenu")) && (
+                <div>
+                  - View Menu:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewMenu.daftarMenu") && <li>Daftar Menu</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewMenu.kategoriMenu") && <li>Kategori Menu</li>}
+                  </ul>
+                </div>
+              )}
+              {(privilegesRole.permissions.includes("backoffice.viewLibrary.bundles") ||
+                privilegesRole.permissions.includes("backoffice.viewLibrary.taxes") ||
+                privilegesRole.permissions.includes("backoffice.viewLibrary.gratuity") ||
+                privilegesRole.permissions.includes("backoffice.viewLibrary.discount")) && (
+                <div>
+                  - View Library:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewLibrary.bundles") && <li>Bundles</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewLibrary.taxes") && <li>Taxes</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewLibrary.gratuity") && <li>Gratuity</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewLibrary.discount") && <li>Discount</li>}
+                  </ul>
+                </div>
+              )}
+              {(privilegesRole.permissions.includes("backoffice.viewModifier.modifier") || privilegesRole.permissions.includes("backoffice.viewModifier.category")) && (
+                <div>
+                  - View Modifier:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewModifier.modifier") && <li>Modifier</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewModifier.category") && <li>Category</li>}
+                  </ul>
+                </div>
+              )}
+              {(privilegesRole.permissions.includes("backoffice.viewIngredients.ingredientsLibrary") ||
+                privilegesRole.permissions.includes("backoffice.viewIngredients.ingredientsCategory") ||
+                privilegesRole.permissions.includes("backoffice.viewIngredients.recipes")) && (
+                <div>
+                  - View Ingredients:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewIngredients.ingredientsLibrary") && <li>Ingredients Library</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewIngredients.ingredientsCategory") && <li>Ingredients Category</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewIngredients.recipes") && <li>Recipes</li>}
+                  </ul>
+                </div>
+              )}
+              {(privilegesRole.permissions.includes("backoffice.viewInventory.summary") ||
+                privilegesRole.permissions.includes("backoffice.viewInventory.supplier") ||
+                privilegesRole.permissions.includes("backoffice.viewInventory.purchaseOrder")) && (
+                <div>
+                  - View Inventory:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewInventory.summary") && <li>Summary</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewInventory.supplier") && <li>Supplier</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewInventory.purchaseOrder") && <li>Purchase Order</li>}
+                  </ul>
+                </div>
+              )}
+              {(privilegesRole.permissions.includes("backoffice.viewRekap.stokCafe") || privilegesRole.permissions.includes("backoffice.viewRekap.stokGudang") || privilegesRole.permissions.includes("backoffice.viewRekap.penjualan")) && (
+                <div>
+                  - View Rekap:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewRekap.stokCafe") && <li>Rekap Stok Cafe</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewRekap.stokGudang") && <li>Rekap Stok Gudang</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewRekap.penjualan") && <li>Rekap Penjualan</li>}
+                  </ul>
+                </div>
+              )}
+              {(privilegesRole.permissions.includes("backoffice.viewEmployees.employeeSlots") || privilegesRole.permissions.includes("backoffice.viewEmployees.employeeAccess")) && (
+                <div>
+                  - View Employees:
+                  <ul className="list-disc list-inside ml-4">
+                    {privilegesRole.permissions.includes("backoffice.viewEmployees.employeeSlots") && <li>Employee Slots</li>}
+                    {privilegesRole.permissions.includes("backoffice.viewEmployees.employeeAccess") && <li>Employee Access</li>}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end mt-6">

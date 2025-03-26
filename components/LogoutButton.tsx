@@ -11,6 +11,7 @@ export default function LogoutButton() {
       });
 
       if (response.ok) {
+        sessionStorage.clear();
         router.push("/portal");
       }
     } catch (error) {

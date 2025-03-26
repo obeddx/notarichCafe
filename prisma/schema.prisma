@@ -187,13 +187,15 @@ model Employee {
   role           RoleEmployee @relation(fields: [roleId], references: [id])
 }
 
+
 model RoleEmployee {
-  id                    Int      @id @default(autoincrement())
-  name                  String 
-  employees             Employee[]
-  users                 User[]
-  appPermissions        Json?
-  backofficePermissions Json?
+  id          Int      @id @default(autoincrement())
+  name        String
+  permissions Json     @default("[]") // Array kosong dalam format JSON
+  employees   Employee[]
+  users       User[]
+  // appPermissions        Json? // Hapus atau komentari jika tidak diperlukan
+  // backofficePermissions Json? // Hapus atau komentari jika tidak diperlukan
 }
 
 

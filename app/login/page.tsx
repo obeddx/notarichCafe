@@ -40,6 +40,7 @@ export default function LoginPage() {
 
         // Simpan data user ke sessionStorage untuk keperluan aplikasi
         sessionStorage.setItem("user", JSON.stringify(data.user));
+        sessionStorage.setItem("role", JSON.stringify(data.user.role));
 
         // Redirect berdasarkan role locked atau berdasarkan role user
         if (lockedRole.toLowerCase() === "manager") {

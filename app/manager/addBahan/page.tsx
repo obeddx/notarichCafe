@@ -121,10 +121,7 @@ export default function CreateIngredient() {
       {/* Sidebar */}
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
 
-      <div
-        className="p-4 mt-20 transition-all"
-        style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}
-      >
+      <div className="p-4 mt-20 transition-all" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
         <div className="max-w-lg mx-auto bg-white p-8 rounded-xl shadow-lg">
           <h1 className="text-2xl font-bold text-center mb-6">Create Ingredient</h1>
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -175,13 +172,8 @@ export default function CreateIngredient() {
 
             {/* Input Category */}
             <div className="mb-4">
-              <label className="block font-medium mb-1">Kategori Semi:</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded"
-                required
-              >
+              <label className="block font-medium mb-1">Kategori Ingredient:</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-2 border border-gray-300 rounded" required>
                 <option value="">Pilih Kategori</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
@@ -206,14 +198,7 @@ export default function CreateIngredient() {
               </div>
               <div className="w-1/2">
                 <label className="block font-semibold mb-1">Finished Unit:</label>
-                <input
-                  type="text"
-                  value={finishedUnit}
-                  onChange={(e) => setFinishedUnit(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-                  placeholder="e.g., gram, liter"
-                  readOnly
-                />
+                <input type="text" value={finishedUnit} onChange={(e) => setFinishedUnit(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed" placeholder="e.g., gram, liter" readOnly />
               </div>
             </div>
 
@@ -252,64 +237,33 @@ export default function CreateIngredient() {
             {/* Readonly fields: Stock In, Used, Wasted */}
             <div>
               <label className="block font-semibold mb-1">Stock In:</label>
-              <input
-                type="number"
-                value={stockIn}
-                readOnly
-                className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-                required
-                step="any"
-              />
+              <input type="number" value={stockIn} readOnly className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed" required step="any" />
             </div>
 
             <div>
               <label className="block font-semibold mb-1">Used:</label>
-              <input
-                type="number"
-                value={used}
-                readOnly
-                className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-                required
-                step="any"
-              />
+              <input type="number" value={used} readOnly className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed" required step="any" />
             </div>
 
             <div>
               <label className="block font-semibold mb-1">Wasted:</label>
-              <input
-                type="number"
-                value={wasted}
-                readOnly
-                className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-                required
-                step="any"
-              />
+              <input type="number" value={wasted} readOnly className="w-full p-3 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed" required step="any" />
             </div>
 
             {/* Dropdown untuk Ingredient Type */}
             <div>
               <label className="block font-semibold mb-1">Ingredient Type:</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
-                required
-              >
+              <select value={type} onChange={(e) => setType(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition" required>
                 <option value="RAW">RAW</option>
-                
               </select>
             </div>
 
-            <button
-              type="submit"
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-md transition-colors"
-            >
+            <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-md transition-colors">
               Create Ingredient
             </button>
           </form>
         </div>
       </div>
-    
     </div>
   );
 }

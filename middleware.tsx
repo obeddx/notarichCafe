@@ -1,103 +1,107 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Definisikan tipe untuk roleAccessMapping
+type RoleAccessMapping = {
+  [key: string]: string[];
+};
+
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, searchParams } = req.nextUrl;
+  // Validasi untuk rute /menu
+  if (pathname.startsWith("/menu")) {
+    const tableParam = searchParams.get("table");
 
-  // Untuk rute /manager, izinkan role "manager" dan "owner"
-  if (pathname.startsWith("/manager")) {
-    const allowedRoles = ["manager", "owner"];
-    let validToken: string | null = null;
-    let detectedRole: string | null = null;
-
-    for (const roleName of allowedRoles) {
-      const cookieValue = req.cookies.get(roleName)?.value;
-      if (cookieValue) {
-        try {
-          validToken = decodeURIComponent(cookieValue);
-          detectedRole = roleName;
-          break;
-        } catch (error) {
-          console.error(`Gagal mendecode cookie ${roleName}:`, error);
-        }
-      }
+    // Jika tidak ada parameter table, redirect ke scan
+    if (!tableParam) {
+      return redirectToScan(req, "Silakan scan QR code terlebih dahulu");
     }
 
-    if (!validToken || !detectedRole) {
-      return redirectToLogin(req, "Cookie untuk role manager/owner tidak ditemukan");
+    // Pemeriksaan sederhana untuk memastikan tableParam terlihat seperti string terenkripsi
+    // String terenkripsi AES biasanya lebih panjang dari nomor biasa dan mengandung karakter khusus
+    const isLikelyEncrypted = tableParam.length > 10 && /[^0-9]/.test(tableParam);
+    if (!isLikelyEncrypted) {
+      return redirectToScan(req, "Parameter table tidak valid. Harap scan QR code.");
     }
 
-    // Validasi token melalui API validateUser
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/validateUser`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userToken: validToken, role: detectedRole }),
-    });
+    // Jika lolos pemeriksaan, lanjutkan ke halaman menu
+    // Dekripsi akan ditangani di file menu
+    return NextResponse.next();
+  }
 
-    if (!response.ok) {
-      let errorMessage = "Validasi gagal";
+  // Panggil endpoint API untuk mendapatkan role config
+  const roleConfigResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/roleConfig`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!roleConfigResponse.ok) {
+    console.error("Gagal mengambil role config:", await roleConfigResponse.text());
+    return redirectToLogin(req, "Gagal memuat konfigurasi role");
+  }
+
+  const roleAccessMapping: RoleAccessMapping = await roleConfigResponse.json();
+
+  let validToken: string | null = null;
+  let detectedRole: string | null = null;
+
+  for (const role of Object.keys(roleAccessMapping)) {
+    const cookieValue = req.cookies.get(role)?.value;
+    if (cookieValue) {
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (err) {
-        console.error("Gagal membaca error response:", err);
+        validToken = decodeURIComponent(cookieValue);
+        detectedRole = role;
+        break;
+      } catch (error) {
+        console.error(`Gagal mendecode cookie untuk role ${role}:`, error);
       }
-      return redirectToLogin(req, errorMessage);
     }
   }
 
-  // Untuk rute /cashier
-  if (pathname.startsWith("/cashier")) {
-    const allowedRoles = ["kasir", "manager", "owner"];
-    let validToken: string | null = null;
-    let detectedRole: string | null = null;
-
-    for (const roleName of allowedRoles) {
-      const cookieValue = req.cookies.get(roleName)?.value;
-      if (cookieValue) {
-        try {
-          validToken = decodeURIComponent(cookieValue);
-          detectedRole = roleName;
-          break;
-        } catch (error) {
-          console.error(`Gagal mendecode cookie ${roleName}:`, error);
-        }
-      }
-    }
-
-    if (!validToken || !detectedRole) {
-      return redirectToLogin(req, "Cookie untuk kasir/manager tidak ditemukan");
-    }
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/validateUser`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userToken: validToken, role: detectedRole }),
-    });
-
-    if (!response.ok) {
-      let errorMessage = "Validasi gagal";
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (err) {
-        console.error("Gagal membaca error response:", err);
-      }
-      return redirectToLogin(req, errorMessage);
-    }
+  if (!validToken || !detectedRole) {
+    return redirectToLogin(req, "Cookie untuk role tidak ditemukan");
   }
 
-  // Lanjutkan jika validasi berhasil
+  const allowedPaths: string[] = roleAccessMapping[detectedRole] || [];
+  const isAllowed = allowedPaths.some((allowedPath: string) => pathname.startsWith(allowedPath));
+
+  if (!isAllowed) {
+    return redirectToLogin(req, "Akses ditolak untuk role anda");
+  }
+
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/validateUser`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userToken: validToken, role: detectedRole }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Validasi gagal";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorMessage;
+    } catch (err) {
+      console.error("Gagal membaca error response:", err);
+    }
+    return redirectToLogin(req, errorMessage);
+  }
+
   return NextResponse.next();
 }
 
 function redirectToLogin(req: NextRequest, errorInfo: string = "") {
   const url = req.nextUrl.clone();
   url.pathname = "/portal";
+  url.searchParams.set("from", req.nextUrl.pathname);
+  if (errorInfo) {
+    url.searchParams.set("error", errorInfo);
+  }
+  return NextResponse.redirect(url);
+}
+
+function redirectToScan(req: NextRequest, errorInfo: string = "") {
+  const url = req.nextUrl.clone();
+  url.pathname = "/scan";
   url.searchParams.set("from", req.nextUrl.pathname);
   if (errorInfo) {
     url.searchParams.set("error", errorInfo);
