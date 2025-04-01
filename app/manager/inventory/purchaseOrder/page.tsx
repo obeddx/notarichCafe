@@ -117,6 +117,35 @@ const PurchaseOrderForm: React.FC = () => {
     }
   };
 
+  const handleFetchAllOrders = async () => {
+    try {
+      const response = await fetch("/api/purchaseOrder", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        
+      });
+      if (!response.ok) throw new Error("Gagal mengambil data purchase order");
+      const data = await response.json();
+      setPurchaseOrders(data);
+    } catch (err) {
+      alert("Error fetching purchase orders");
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hour12: true,
+    });
+  };
+
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -165,6 +194,7 @@ const PurchaseOrderForm: React.FC = () => {
             <div>
               <label className="block text-gray-600">Buy Quantity:</label>
               <input
+              min="0"
                 type="number"
                 name="quantity"
                 value={form.quantity}
@@ -179,6 +209,7 @@ const PurchaseOrderForm: React.FC = () => {
               <label className="block text-gray-600">Total Price:</label>
               <input
                 type="number"
+                  min="0"
                 name="totalPrice"
                 value={form.totalPrice}
                 onChange={handleInputChange}
@@ -224,7 +255,13 @@ const PurchaseOrderForm: React.FC = () => {
             onClick={handleFetchOrders}
             className="bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 transition duration-300"
           >
-            Fetch Orders
+            Track Purchase Order
+          </button>
+          <button
+            onClick={handleFetchAllOrders}
+            className="bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 transition duration-300"
+          >
+            Track All Purchase Order
           </button>
         </div>
   
@@ -246,9 +283,7 @@ const PurchaseOrderForm: React.FC = () => {
                   <td className="border border-gray-300 p-2">
                     {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(order.totalPrice)}
                   </td>
-                  <td className="border border-gray-300 p-2">
-                    {new Date(order.createdAt).toLocaleString()}
-                  </td>
+                  <td className="border border-gray-300 p-2">{formatDate(order.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import Sidebar from "@/components/sidebar";
 import toast from "react-hot-toast";
+import Select from "react-select";
 
 interface Bundle {
   id: number;
@@ -188,7 +189,7 @@ const BundlesPage: React.FC = () => {
                           setSelectedBundle(bundle);
                           setShowEditModal(true);
                         }}
-                        className="bg-blue-500 hover:bg-green-600 text-white py-1 px-3 rounded mr-2"
+                        className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded mr-2"
                       >
                         Edit
                       </button>
@@ -286,6 +287,12 @@ const AddBundleModal: React.FC<AddBundleModalProps> = ({ onClose, onBundleAdded 
     setMenuRows([...menuRows, { menuId: 0, amount: 0 }]);
   };
 
+  // Format options untuk react-select
+  const menuSelectOptions = menuOptions.map((menu) => ({
+    value: menu.id,
+    label: `${menu.name} - Rp ${menu.price}`,
+  }));
+
   // Fungsi untuk update baris menu di AddBundleModal
   const updateRowAddModal = (index: number, field: keyof BundleMenuRow, value: number) => {
     const newRows = [...menuRows];
@@ -377,6 +384,7 @@ const AddBundleModal: React.FC<AddBundleModalProps> = ({ onClose, onBundleAdded 
         setError(data.message || 'Gagal membuat bundle');
       } else {
         onBundleAdded();
+        toast.success("Berhasil Buat Bundle!!!");
         onClose();
       }
     } catch (err) {
@@ -406,6 +414,7 @@ const AddBundleModal: React.FC<AddBundleModalProps> = ({ onClose, onBundleAdded 
             <label className="block mb-1">Harga Bundle:</label>
             <input
               type="number"
+              min="0"
               value={bundlePrice}
               onChange={(e) => setBundlePrice(Number(e.target.value))}
               required
@@ -430,23 +439,23 @@ const AddBundleModal: React.FC<AddBundleModalProps> = ({ onClose, onBundleAdded 
             <label className="block mb-1">Pilih Menu untuk Bundle:</label>
             {menuRows.map((row, index) => (
               <div key={index} className="flex gap-4 items-center mb-4">
-                <select
-                  value={row.menuId}
-                  onChange={(e) =>
-                    updateRowAddModal(index, "menuId", parseInt(e.target.value))
-                  }
-                  required
-                  className="flex-1 p-2 border border-gray-300 rounded"
-                >
-                  <option value={0}>Pilih Menu</option>
-                  {menuOptions.map((menu) => (
-                    <option key={menu.id} value={menu.id}>
-                      {menu.name} - Rp {menu.price}
-                    </option>
-                  ))}
-                </select>
+               <div className="flex-1">
+                  <Select
+                    options={menuSelectOptions}
+                    value={menuSelectOptions.find(option => option.value === row.menuId) || null}
+                    onChange={(selectedOption) => 
+                      updateRowAddModal(index, "menuId", selectedOption ? selectedOption.value : 0)
+                    }
+                    placeholder="Pilih Menu"
+                    isSearchable={true}
+                    required
+                    className="basic-single"
+                    classNamePrefix="select"
+                  />
+                </div>
                 <input
                   type="number"
+                  min="0"
                   placeholder="Amount"
                   value={row.amount}
                   onChange={(e) =>
@@ -569,6 +578,12 @@ const EditBundleModal: React.FC<EditBundleModalProps> = ({ bundle, onClose, onBu
     setMenuRows(newRows);
   };
 
+  // Format options untuk react-select
+  const menuSelectOptions = menuOptions.map((menu) => ({
+    value: menu.id,
+    label: `${menu.name} - Rp ${menu.price}`,
+  }));
+
   // Fungsi untuk menambah baris menu di EditBundleModal
   const addRowEditModal = () => {
     setMenuRows([...menuRows, { menuId: 0, amount: 0 }]);
@@ -659,6 +674,7 @@ const EditBundleModal: React.FC<EditBundleModalProps> = ({ bundle, onClose, onBu
       if (!res.ok) {
         setError(data.message || 'Gagal mengupdate bundle');
       } else {
+        toast.success("Berhasil Edit Bundle!!!");
         onBundleUpdated();
         onClose();
       }
@@ -689,6 +705,7 @@ const EditBundleModal: React.FC<EditBundleModalProps> = ({ bundle, onClose, onBu
             <label className="block mb-1">Harga Bundle:</label>
             <input
               type="number"
+              min="0"
               value={bundlePrice}
               onChange={(e) => setBundlePrice(Number(e.target.value))}
               required
@@ -713,23 +730,23 @@ const EditBundleModal: React.FC<EditBundleModalProps> = ({ bundle, onClose, onBu
             <label className="block mb-1">Pilih Menu untuk Bundle:</label>
             {menuRows.map((row, index) => (
               <div key={index} className="flex gap-4 items-center mb-4">
-                <select
-                  value={row.menuId}
-                  onChange={(e) =>
-                    updateRowEditModal(index, "menuId", parseInt(e.target.value))
-                  }
-                  required
-                  className="flex-1 p-2 border border-gray-300 rounded"
-                >
-                  <option value={0}>Pilih Menu</option>
-                  {menuOptions.map((menu) => (
-                    <option key={menu.id} value={menu.id}>
-                      {menu.name} - Rp {menu.price}
-                    </option>
-                  ))}
-                </select>
+               <div className="flex-1">
+                  <Select
+                    options={menuSelectOptions}
+                    value={menuSelectOptions.find(option => option.value === row.menuId) || null}
+                    onChange={(selectedOption) => 
+                      updateRowEditModal(index, "menuId", selectedOption ? selectedOption.value : 0)
+                    }
+                    placeholder="Pilih Menu"
+                    isSearchable={true}
+                    required
+                    className="basic-single"
+                    classNamePrefix="select"
+                  />
+                </div>
                 <input
                   type="number"
+                  min="0"
                   placeholder="Amount"
                   value={row.amount}
                   onChange={(e) =>

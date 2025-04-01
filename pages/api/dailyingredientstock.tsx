@@ -38,6 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             23, 59, 59, 999
           )
         }
+        
       },
       _sum: {
         start: true

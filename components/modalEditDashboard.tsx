@@ -130,7 +130,7 @@ export default function EditIngredientModal({ isOpen, onClose }: EditIngredientM
   const handleSave = async () => {
     const selectedIngredient = activeTab === "RAW" ? rawIngredient : semiIngredient;
     if (!selectedIngredient) {
-      alert("Pilih ingredient terlebih dahulu!");
+      toast.error("Pilih ingredient terlebih dahulu!");
       return;
     }
 
@@ -152,7 +152,7 @@ export default function EditIngredientModal({ isOpen, onClose }: EditIngredientM
         });
 
         if (res.ok) {
-          toast.success("Raw ingredient berhasil diedit!");
+          toast.success(`Berhasil Edit Stock untuk ingredient ${selectedIngredient.name}`);
           fetchIngredients(); // Refresh data
           setRawIngredient(null); // Reset pilihan setelah save
           onClose();
@@ -190,7 +190,7 @@ export default function EditIngredientModal({ isOpen, onClose }: EditIngredientM
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan saat mengupdate ingredient.");
+      toast.error("Terjadi kesalahan saat mengupdate ingredient.");
     }
   };
 

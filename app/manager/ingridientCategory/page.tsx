@@ -2,7 +2,7 @@
 'use client'
 import { useEffect, useState } from 'react';
 import Sidebar from "@/components/sidebar";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 type Category = {
   id: number;
@@ -118,7 +118,7 @@ export default function CategoryList() {
 
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
-      <Toaster />
+      
       <h1 className="text-2xl font-bold mb-4">Daftar Kategori</h1>
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       <button 

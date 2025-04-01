@@ -3,6 +3,7 @@ import { useState, useEffect, FormEvent } from "react";
 import Sidebar from "@/components/sidebar";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
+import Select from "react-select";
 
 interface Category {
   id: number;
@@ -66,6 +67,7 @@ export default function AddMenu() {
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [ingredientSearchTerm, setIngredientSearchTerm] = useState<string>("");
 
   // State untuk diskon
   const [applyDiscount, setApplyDiscount] = useState<boolean>(false);
@@ -174,6 +176,13 @@ export default function AddMenu() {
     setIngredientRows([...ingredientRows, { ingredientId: 0, amount: 0 }]);
   };
 
+  const handleNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "-" || e.key === "+") {
+      e.preventDefault();
+    }
+  };
+
+
   const updateIngredientRow = (index: number, field: keyof IngredientRow, value: number) => {
     const newRows = [...ingredientRows];
     newRows[index] = { ...newRows[index], [field]: value };
@@ -184,6 +193,11 @@ export default function AddMenu() {
     const newRows = ingredientRows.filter((_, i) => i !== index);
     setIngredientRows(newRows);
   };
+
+  const ingredientOptions = availableIngredients.map((ing) => ({
+    value: ing.id,
+    label: ing.name,
+  }));
 
   const addModifier = (modifierId: number) => {
     if (!selectedModifierIds.includes(modifierId) && modifierId !== 0) {
@@ -295,8 +309,10 @@ export default function AddMenu() {
                 Price:
                 <input
                   type="number"
+                  min="0"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  onKeyDown={handleNumberKeyDown}
                   required
                   className="w-full p-2 border border-gray-300 rounded mt-1"
                 />
@@ -368,26 +384,28 @@ export default function AddMenu() {
               const selectedIngredient = availableIngredients.find(
                 (ing) => ing.id === row.ingredientId
               );
+              
               return (
                 <div key={index} className="flex gap-4 items-center mb-4">
-                  <select
-                    value={row.ingredientId}
-                    onChange={(e) =>
-                      updateIngredientRow(index, "ingredientId", parseInt(e.target.value))
-                    }
-                    required
-                    className="flex-1 p-2 border border-gray-300 rounded"
-                  >
-                    <option value={0}>Pilih Ingredient</option>
-                    {availableIngredients.map((ing) => (
-                      <option key={ing.id} value={ing.id}>
-                        {ing.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <Select
+                      options={ingredientOptions}
+                      value={ingredientOptions.find(option => option.value === row.ingredientId) || null}
+                      onChange={(selectedOption) => 
+                        updateIngredientRow(index, "ingredientId", selectedOption ? selectedOption.value : 0)
+                      }
+                      placeholder="Pilih Ingredient"
+                      isSearchable={true}
+                      required
+                      className="basic-single"
+                      classNamePrefix="select"
+                    />
+                  </div>
                   <div className="flex items-center gap-2 flex-1">
                     <input
                       type="number"
+                      onKeyDown={handleNumberKeyDown}
+                      min="0"
                       placeholder="Amount"
                       value={row.amount}
                       onChange={(e) =>

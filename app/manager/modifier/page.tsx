@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import Sidebar from "@/components/sidebar"; // Pastikan component ini ada
+import Select from "react-select";
 
 interface Ingredient {
   id: number;
@@ -117,11 +118,11 @@ export default function ModifierPage() {
   };
 
   // Handle ingredient selection and amount
-  const handleIngredientChange = (index: number, field: "ingredientId" | "amount", value: string) => {
+  const handleIngredientChange = (index: number, field: "ingredientId" | "amount", value: number | string) => {
     const updatedIngredients = [...formData.selectedIngredients];
     updatedIngredients[index] = {
       ...updatedIngredients[index],
-      [field]: field === "amount" ? parseFloat(value) || 0 : Number(value),
+      [field]: field === "amount" ? parseFloat(value as string) || 0 : Number(value),
     };
     setFormData((prev) => ({ ...prev, selectedIngredients: updatedIngredients }));
   };
@@ -133,6 +134,11 @@ export default function ModifierPage() {
       selectedIngredients: [...prev.selectedIngredients, { ingredientId: 0, amount: 0 }],
     }));
   };
+
+  const ingredientOptions = ingredients.map((ingredient) => ({
+    value: ingredient.id,
+    label: ingredient.name,
+  }));
 
   // Remove ingredient row
   const removeIngredientRow = (index: number) => {
@@ -222,7 +228,7 @@ export default function ModifierPage() {
 
   return (
     <div className="p-4 mt-[85px]" style={{ marginLeft: isSidebarOpen ? "256px" : "80px" }}>
-      <Toaster />
+     
       <Sidebar onToggle={toggleSidebar} isOpen={isSidebarOpen} />
       <h1 className="text-2xl font-bold mb-4">Daftar Modifier</h1>
       <button
@@ -316,23 +322,20 @@ export default function ModifierPage() {
                 <h3 style={{ marginBottom: "10px" }}>Ingredients:</h3>
                 {formData.selectedIngredients.map((ing, index) => (
                   <div key={index} className="flex gap-4 mb-2 items-center">
-                    <select
-                      value={ing.ingredientId}
-                      onChange={(e) => handleIngredientChange(index, "ingredientId", e.target.value)}
-                      style={{
-                        width: "50%",
-                        padding: "10px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc",
-                      }}
-                    >
-                      <option value={0}>Pilih Ingredient</option>
-                      {ingredients.map((ingredient) => (
-                        <option key={ingredient.id} value={ingredient.id}>
-                          {ingredient.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ width: "100%" }}>
+                      <Select
+                        options={ingredientOptions}
+                        value={ingredientOptions.find(option => option.value === ing.ingredientId) || null}
+                        onChange={(selectedOption) =>
+                          handleIngredientChange(index, "ingredientId", selectedOption ? selectedOption.value : 0)
+                        }
+                        placeholder="Pilih Ingredient"
+                        isSearchable={true}
+                        required
+                        className="basic-single"
+                        classNamePrefix="select"
+                      />
+                    </div>
                     <input
                       type="number"
                       value={ing.amount}

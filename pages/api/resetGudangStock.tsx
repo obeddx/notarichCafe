@@ -17,7 +17,11 @@ export default async function handler(
     const today = new Date();
 
     // Ambil semua record gudang
-    const gudangs = await prisma.gudang.findMany();
+    const gudangs = await prisma.gudang.findMany({
+      where: {
+        isActive: true
+      }
+    });
 
     for (const gudang of gudangs) {
       // Simpan snapshot harian ke tabel DailyGudangStock

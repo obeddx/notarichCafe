@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isManagerPage = pathname?.startsWith("/manager") ?? false;
-  const isCashierHiddenPage = pathname === "/cashier/layoutCafe" || pathname === "/cashier/history" || pathname === "/cashier/kasir"|| pathname === "/cashier/menus" || pathname === "/reservasi/layoutCafe" 
+  const isCashierHiddenPage = pathname === "/cashier/layoutCafe" || pathname === "/cashier/history" || pathname === "/cashier/kasir"|| pathname === "/cashier/menus" || pathname === "/cashier/bundles" || pathname === "/reservasi/layoutCafe" 
   || pathname === "/cashier/reservasi"  || pathname === "/portal"  || pathname === "/login" || pathname === "/register" || pathname === "/cashier/visitor"; // Cek apakah di halaman yang perlu menghilangkan Navbar dan Footer
 
   return isManagerPage ? (

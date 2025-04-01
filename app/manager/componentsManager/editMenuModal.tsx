@@ -169,6 +169,13 @@ export default function EditMenuModal({ menuId, onCloseAction, onMenuUpdatedActi
     setIngredientRows([...ingredientRows, { ingredientId: 0, amount: 0 }]);
   };
 
+  const handleNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "-" || e.key === "+") {
+      e.preventDefault();
+    }
+  };
+
+
   const updateIngredientRow = (index: number, field: keyof IngredientRow, value: number) => {
     const newRows = [...ingredientRows];
     newRows[index] = { ...newRows[index], [field]: value };
@@ -273,8 +280,10 @@ export default function EditMenuModal({ menuId, onCloseAction, onMenuUpdatedActi
               <label className="block font-semibold mb-2">Price:</label>
               <input
                 type="number"
+                min="0"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
+                onKeyDown={handleNumberKeyDown}
                 required
                 className="w-full p-2 border border-gray-300 rounded mt-1"
               />
@@ -320,11 +329,13 @@ export default function EditMenuModal({ menuId, onCloseAction, onMenuUpdatedActi
                     <div className="flex items-center">
                       <input
                         type="number"
+                        min="0"
                         placeholder="Amount"
                         value={row.amount}
                         onChange={(e) =>
                           updateIngredientRow(index, "amount", parseFloat(e.target.value))
                         }
+                        onKeyDown={handleNumberKeyDown}
                         required
                         className="p-2 border border-gray-300 rounded"
                       />

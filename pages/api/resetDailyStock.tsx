@@ -17,7 +17,12 @@ export default async function handler(
     const today = new Date();
 
     // Ambil semua record ingredient
-    const ingredients = await prisma.ingredient.findMany();
+    const ingredients = await prisma.ingredient.findMany({
+      where: {
+        isActive: true
+      }
+    });
+    
 
     for (const ingredient of ingredients) {
       // Simpan snapshot harian ke tabel DailyIngredientStock
