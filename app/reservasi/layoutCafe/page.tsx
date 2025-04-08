@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
 import moment from "moment-timezone";
 import io from "socket.io-client";
+import CryptoJS from "crypto-js";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -72,6 +73,8 @@ const Booking1 = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [popupReservations, setPopupReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const secretKey = "your-secret-key-here";
 
   // Fetch data reservasi
   useEffect(() => {
@@ -158,13 +161,13 @@ const Booking1 = () => {
       console.log("WebSocket ordersUpdated in Booking1:", data);
       fetchData();
     });
-    socket.on("paymentStatusUpdated", (updatedOrder) => {
+    socket.on("paymentStatusUpdated", (updatedOrder: Order) => {
       console.log("WebSocket paymentStatusUpdated in Booking1:", updatedOrder);
       setAllOrders((prev) =>
         prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
       );
     });
-    socket.on("tableStatusUpdated", ({ tableNumber }) => {
+    socket.on("tableStatusUpdated", ({ tableNumber }: { tableNumber: string }) => {
       console.log(`WebSocket tableStatusUpdated in Booking1: ${tableNumber}`);
       fetchData();
     });
@@ -278,40 +281,50 @@ const Booking1 = () => {
   };
 
   const handleSelectTable = (tableNumber: string) => {
+    
     const reservationData: ReservationData = JSON.parse(sessionStorage.getItem("reservationData") || "{}");
     const selectedDateTime = reservationData.selectedDateTime;
-
+  
     if (!selectedDateTime) {
       toast.error("Tanggal reservasi tidak ditemukan. Silakan kembali ke halaman reservasi.");
       router.push("/reservasi");
       return;
     }
-
+  
     const selectedDate = new Date(selectedDateTime);
     const selectedDayStart = moment(selectedDate).tz("Asia/Jakarta").startOf("day").toDate();
     const selectedDayEnd = moment(selectedDate).tz("Asia/Jakarta").endOf("day").toDate();
-
+  
     const hasConflict = popupReservations.some((r) => {
       const reservasiDate = moment.tz(r.tanggalReservasi, "Asia/Jakarta").startOf("day").toDate();
       const isSameDate = reservasiDate.getTime() === selectedDayStart.getTime();
       console.log(
-        `Popup Table ${selectedTableNumber} - Conflict Check: ReservasiDate=${reservasiDate.toISOString().split("T")[0]}, SelectedDate=${selectedDayStart.toISOString().split("T")[0]}, IsSameDate=${isSameDate}, Status=${r.status}`
+        `Popup Table ${tableNumber} - Conflict Check: ReservasiDate=${reservasiDate.toISOString().split("T")[0]}, SelectedDate=${selectedDayStart.toISOString().split("T")[0]}, IsSameDate=${isSameDate}, Status=${r.status}`
       );
       return (
-        r.nomorMeja === selectedTableNumber &&
+        r.nomorMeja === tableNumber &&
         (r.status === "BOOKED" || r.status === "RESERVED") &&
         isSameDate
       );
     });
-
+  
     if (hasConflict) {
       toast.error("Meja ini sudah dipesan pada tanggal yang dipilih.");
       return;
     }
-
+  
+    // Encrypt the tableNumber
+    const encryptedTableNumber = CryptoJS.AES.encrypt(tableNumber, secretKey).toString();
+    const urlSafeEncryptedTableNumber = encodeURIComponent(encryptedTableNumber);
+  
+    // Store the original (unencrypted) tableNumber in sessionStorage
     reservationData.meja = tableNumber;
     sessionStorage.setItem("reservationData", JSON.stringify(reservationData));
-    router.push(`/menu?table=${tableNumber}&reservation=true&bookingCode=${reservationData.kodeBooking}`);
+  
+    // Pass the encrypted tableNumber in the URL
+    router.push(
+      `/menu?table=${urlSafeEncryptedTableNumber}&reservation=true&bookingCode=${reservationData.kodeBooking}`
+    );
     setIsPopupVisible(false);
   };
 

@@ -276,18 +276,24 @@ export default function KasirPage() {
       );
     });
 
-    socketIo.on("reservationDeleted", ({ reservasiId, orderId }) => {
+    socketIo.on("reservationDeleted", ({ reservasiId, orderId }: { reservasiId: string; orderId: string }) => {
       console.log("Reservasi dihapus di Kasir:", { reservasiId, orderId });
       setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
       fetchOrders();
     });
 
-    socketIo.on("reservationUpdated", (updatedReservasi) => {
+    interface Reservasi {
+      id: number;
+      kodeBooking: string;
+  }
+
+
+    socketIo.on("reservationUpdated", (updatedReservasi: Reservasi) => {
       console.log("Reservasi diperbarui:", updatedReservasi);
       setOrders((prevOrders) => prevOrders.map((order) => (order.reservasi?.id === updatedReservasi.id ? { ...order, reservasi: updatedReservasi } : order)));
     });
 
-    socketIo.on("tableStatusUpdated", ({ tableNumber }) => {
+    socketIo.on("tableStatusUpdated", ({ tableNumber }: { tableNumber: string }) => {
       console.log(`Status meja diperbarui di Kasir: ${tableNumber}`);
       fetchOrders();
     });
@@ -387,10 +393,12 @@ export default function KasirPage() {
       if (socket) {
         socket.emit("orderCompleted", { orderId });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error:", error);
       toast.error("❌ Terjadi kesalahan saat menyelesaikan pesanan.");
-      setError(error.message || "Gagal menyelesaikan pesanan.");
+      // Safely extract the message if it exists
+      const errorMessage = error instanceof Error ? error.message : "Gagal menyelesaikan pesanan.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -1938,7 +1946,7 @@ function generatePDF(order: Order) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
-  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+  const addressLines: string[] = doc.splitTextToSize(address, pageWidth - margin * 2);
   addressLines.forEach((line: string) => {
     checkPage();
     doc.text(line, pageWidth / 2, yPosition, { align: "center" });
@@ -2070,8 +2078,8 @@ function generatePDF(order: Order) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       const noteText = `Catatan: ${item.note}`;
-      const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
-      noteLines.forEach((line) => {
+      const noteLines: string[] = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+      noteLines.forEach((line: string) => {
         checkPage();
         doc.text(line, margin, yPosition);
         yPosition += 4;
@@ -2203,7 +2211,7 @@ function generateCombinedPDF(order: Order) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
-  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+  const addressLines: string[] = doc.splitTextToSize(address, pageWidth - margin * 2);
   addressLines.forEach((line: string) => {
     checkPage();
     doc.text(line, pageWidth / 2, yPosition, { align: "center" });
@@ -2339,8 +2347,8 @@ function generateCombinedPDF(order: Order) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(7);
       const noteText = `Catatan: ${item.note}`;
-      const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
-      noteLines.forEach((line) => {
+      const noteLines: string[] = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+      noteLines.forEach((line: string) => {
         checkPage();
         doc.text(line, margin, yPosition);
         yPosition += 4;
@@ -2461,7 +2469,7 @@ function generatePDFbarKitchen(order: Order, title: string) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
-  const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
+  const addressLines: string[] = doc.splitTextToSize(address, pageWidth - margin * 2);
   addressLines.forEach((line: string) => {
     checkPage();
     doc.text(line, pageWidth / 2, yPosition, { align: "center" });
@@ -2596,8 +2604,8 @@ function generatePDFbarKitchen(order: Order, title: string) {
         doc.setFont("helvetica", "italic");
         doc.setFontSize(7);
         const noteText = `Catatan: ${item.note}`;
-        const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
-        noteLines.forEach((line) => {
+        const noteLines: string[] = doc.splitTextToSize(noteText, pageWidth - margin * 2);
+        noteLines.forEach((line: string) => {
           checkPage();
           doc.text(line, margin, yPosition);
           yPosition += 4;

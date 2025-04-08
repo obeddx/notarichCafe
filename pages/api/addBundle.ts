@@ -20,10 +20,13 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
+  destination: (req, file, cb) => {
+    console.log(req)
+     console.log(file)
     cb(null, "./public/uploads");
   },
-  filename: (_req, file, cb) => {
+  filename: (req, file, cb) => {
+    console.log(req)
     const ext = file.originalname.split(".").pop();
     const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
     cb(null, filename);

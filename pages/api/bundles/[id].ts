@@ -20,10 +20,13 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
+  destination: (req, file, cb) => {
+      console.log(req)
+      console.log(file)
     cb(null, uploadDir);
   },
-  filename: (_req, file, cb) => {
+  filename: (req, file, cb) => {
+    console.log(req)
     const ext = path.extname(file.originalname);
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, file.fieldname + "-" + uniqueSuffix + ext);

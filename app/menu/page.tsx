@@ -698,8 +698,8 @@ export default function MenuPage() {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     const address = "Jl. Mejobo Perum Kompleks Nojorono No.2c, Megawonbaru, Mlati Norowito, Kec. Kota Kudus, Kabupaten Kudus, Jawa Tengah 59319";
-    const addressLines = doc.splitTextToSize(address, pageWidth - margin * 2);
-    addressLines.forEach((line) => {
+    const addressLines: string[] = doc.splitTextToSize(address, pageWidth - margin * 2);
+    addressLines.forEach((line: string) => {
       checkPage();
       doc.text(line, pageWidth / 2, yPosition, { align: "center" });
       yPosition += 4;
@@ -776,7 +776,7 @@ export default function MenuPage() {
       // Hitung harga dasar dan total modifier
       const itemBasePrice = calculateItemPrice(item.menu, item.modifierIds);
       let modifierTotal = 0;
-      const modifierNames = [];
+      const modifierNames: string[] = [];
       Object.entries(item.modifierIds).forEach(([key, modifierId]) => {
         if (modifierId) {
           const modifier = item.menu.modifiers.find((m) => m.modifier.id === modifierId)?.modifier;
@@ -792,8 +792,8 @@ export default function MenuPage() {
       checkPage();
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      const menuNameLines = doc.splitTextToSize(item.menu.name, 30);
-      menuNameLines.forEach((line) => {
+      const menuNameLines: string[] = doc.splitTextToSize(item.menu.name, 30);
+      menuNameLines.forEach((line: string) => {
         checkPage();
         doc.text(line, margin, yPosition, { maxWidth: 30 });
         yPosition += 5;
@@ -828,8 +828,8 @@ export default function MenuPage() {
         doc.setFontSize(7);
         // Membungkus teks note sesuai dengan lebar yang tersedia (misal: pageWidth - 2 * margin)
         const noteText = `Catatan: ${item.note}`;
-        const noteLines = doc.splitTextToSize(noteText, pageWidth - margin * 2);
-        noteLines.forEach((line) => {
+        const noteLines: string[]= doc.splitTextToSize(noteText, pageWidth - margin * 2);
+        noteLines.forEach((line: string) => {
           checkPage();
           doc.text(line, margin, yPosition);
           yPosition += 4;
