@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const menus = await prisma.menu.findMany({
         where: {
-          // Status: { in: ["Tersedia", "tersedia"] },
+          Status: { in: ["Tersedia", "tersedia"] },
           isActive: true,
         },
         include: {

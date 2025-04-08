@@ -1599,7 +1599,7 @@ function OrderItemComponent({
       <div className="flex justify-between items-center py-2">
         <div className="pr-4 ">
           <h4 className="text-sm font-medium py-2">Order ID: {order.id}</h4>
-          {order.reservasi?.kodeBooking && <p className="text-sm text-white">Kode Booking: {order.reservasi.kodeBooking}</p>}
+          {order.reservasi?.kodeBooking && <p className="text-sm text-red-600">Kode Booking: {order.reservasi.kodeBooking}</p>}
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200 px-4 py-2 rounded shadow-md">Customer: {order.customerName}</p>
             <StatusBadge status={order.status} />
