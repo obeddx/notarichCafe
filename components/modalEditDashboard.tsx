@@ -40,6 +40,7 @@ type SemiComposition = {
 interface EditIngredientModalProps {
   isOpen: boolean;
   onClose: () => void;
+  
 }
 
 export default function EditIngredientModal({ isOpen, onClose }: EditIngredientModalProps) {
@@ -155,7 +156,7 @@ export default function EditIngredientModal({ isOpen, onClose }: EditIngredientM
           toast.success(`Berhasil Edit Stock untuk ingredient ${selectedIngredient.name}`);
           fetchIngredients(); // Refresh data
           setRawIngredient(null); // Reset pilihan setelah save
-          onClose();
+          // onClose();
         } else {
           const data = await res.json();
           toast.error(data.message || "Gagal mengupdate raw ingredient.");
@@ -182,7 +183,7 @@ export default function EditIngredientModal({ isOpen, onClose }: EditIngredientM
           fetchIngredients(); // Refresh data
           setSemiIngredient(null); // Reset pilihan setelah save
           setCompositions([]); // Reset komposisi
-          onClose();
+          // onClose();
         } else {
           const data = await res.json();
           toast.error(data.message || "Gagal mengupdate semi-finished ingredient.");

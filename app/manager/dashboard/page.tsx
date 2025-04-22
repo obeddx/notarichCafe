@@ -64,7 +64,7 @@ export default function Stats() {
       </div>
 
       {/* Modal Edit Ingredient */}
-      <EditIngredientModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <EditIngredientModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false) } />
     </div>
   );
 }
