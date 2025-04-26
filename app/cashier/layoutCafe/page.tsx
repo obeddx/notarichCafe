@@ -323,41 +323,6 @@ const Bookinge = () => {
 
 
 
-  // const fetchMeja = async () => {
-  //   try {
-  //     const response = await fetch("/api/nomeja");
-  //     if (!response.ok) throw new Error("Gagal mengambil data meja");
-  //     const data = await response.json();
-  //     console.log("Raw data from /api/nomeja in bookinge.tsx:", JSON.stringify(data, null, 2));
-  
-  //     const today = moment.tz("Asia/Jakarta").startOf("day").toDate();
-  //     const mejaNumbers = data
-  //       .filter((item: { nomorMeja: number; isManuallyMarked: boolean; markedAt: Date | null }) => {
-  //         const isMarked = item.isManuallyMarked;
-  //         const markedAt = item.markedAt ? new Date(item.markedAt) : null;
-  //         // Reset otomatis: Abaikan isManuallyMarked jika markedAt lebih lama dari 24 jam dan tidak ada pesanan aktif
-  //         const isMarkedValid =
-  //           isMarked &&
-  //           markedAt &&
-  //           (today.getTime() - markedAt.getTime()) / (1000 * 60 * 60) < 24; // Kurang dari 24 jam
-  //         console.log(
-  //           `Table ${item.nomorMeja}: isManuallyMarked=${isMarked}, markedAt=${markedAt}, isMarkedValid=${isMarkedValid}`
-  //         );
-  //         return isMarkedValid;
-  //       })
-  //       .map((item: { nomorMeja: number }) => item.nomorMeja.toString());
-  
-  //     setBackendMarkedTables(mejaNumbers);
-  //     setManuallyMarkedTables((prev) => {
-  //       const syncedTables = [...new Set([...prev, ...mejaNumbers])];
-  //       console.log("Synced manuallyMarkedTables after fetchMeja:", syncedTables);
-  //       return syncedTables;
-  //     });
-  //   } catch (error) {
-  //     console.error("Error fetching meja:", error);
-  //     toast.error("Gagal memuat data meja");
-  //   }
-  // };
 
   const fetchMeja = async () => {
     try {
@@ -812,10 +777,10 @@ const Bookinge = () => {
           
           <div className="w-full sm:px-6 lg:px-28">
             
-          <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm sticky top-0  z-10 py-4">
+          <h2 className="text-4xl font-bold mb-8 text-[#2A2A2A] drop-shadow-sm 0 py-4">
   🪑 Pilih Meja Anda
 </h2>
-            <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9]  pb-4 sticky top-24  z-10 " >
+            <div className="mb-8 flex gap-6 border-b-2 border-[#FFEED9]  pb-4  " >
               {[1, 2].map((floor) => (
                 <label
                   key={floor}
