@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import EditMenuModal from "../componentsManager/editMenuModal";
 import Sidebar from "@/components/sidebar";
 import { FiSearch } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 interface DiscountInfo {
   discount: {
@@ -95,6 +96,7 @@ export default function ManagerMenusPage() {
       });
       if (res.ok) {
         setMenus(menus.filter((menu) => menu.id !== menuId));
+        toast.success('Menu Berhasil di Hapus')
       } else {
         alert("Gagal menghapus menu.");
       }

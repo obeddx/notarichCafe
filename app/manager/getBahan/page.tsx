@@ -495,7 +495,7 @@ export default function IngredientsTable() {
         <div className="relative w-full max-w-md">
           <input
             type="text"
-            placeholder="Cari menu..."
+            placeholder="Cari Bahan...."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pr-10 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

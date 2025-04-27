@@ -10,7 +10,11 @@ export default async function handler(
 ) {
   if (req.method === 'GET') {
     try {
-      const suppliers = await prisma.supplier.findMany();
+      const suppliers = await prisma.supplier.findMany({
+        where: {
+          isActive: true,
+        },
+      });
       res.status(200).json(suppliers);
     } catch (error) {
       console.error('Error fetching suppliers:', error);

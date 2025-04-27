@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, FormEvent } from "react";
+import toast from "react-hot-toast";
 
 interface Category {
   id: number;
@@ -233,15 +234,15 @@ export default function EditMenuModal({ menuId, onCloseAction, onMenuUpdatedActi
       const data = await res.json();
 
       if (res.ok) {
-        alert("Menu berhasil diupdate!");
+        toast.success("Menu berhasil diupdate!");
         onMenuUpdatedAction();
         onCloseAction();
       } else {
-        alert("Gagal mengupdate menu: " + (data.message || "Unknown error"));
+        toast.error("Gagal mengupdate menu: " + (data.message || "Unknown error"));
       }
     } catch (error) {
       console.error("Error updating menu:", error);
-      alert("Terjadi kesalahan saat mengupdate menu.");
+      toast.error("Terjadi kesalahan saat mengupdate menu.");
     }
   };
 

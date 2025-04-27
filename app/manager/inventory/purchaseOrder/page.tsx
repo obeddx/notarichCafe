@@ -1,8 +1,8 @@
 'use client'
 import React, { useState, useEffect } from "react";
+import Select, { SingleValue } from "react-select";
 import Sidebar from "@/components/sidebar";
 import toast from "react-hot-toast";
-
 
 type Ingredient = {
   id: number;
@@ -53,8 +53,15 @@ const PurchaseOrderForm: React.FC = () => {
     fetchIngredients();
   }, []);
   
-  const handleIngredientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const ingredientId = parseInt(e.target.value, 10);
+  // Prepare options for react-select
+  const ingredientOptions = rawIngredients.map((ingredient) => ({
+    value: ingredient.id,
+    label: ingredient.name,
+  }));
+
+  // Handle ingredient selection with react-select
+  const handleIngredientChange = (option: SingleValue<{ value: number; label: string }>) => {
+    const ingredientId = option ? option.value : 0;
     const ingredient = rawIngredients.find((ing) => ing.id === ingredientId) || null;
     setSelectedIngredient(ingredient);
     setForm((prev) => ({
@@ -107,7 +114,7 @@ const PurchaseOrderForm: React.FC = () => {
       const response = await fetch("/api/purchaseOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({date: selectedDate }),
+        body: JSON.stringify({ date: selectedDate }),
       });
       if (!response.ok) throw new Error("Gagal mengambil data purchase order");
       const data = await response.json();
@@ -122,7 +129,6 @@ const PurchaseOrderForm: React.FC = () => {
       const response = await fetch("/api/purchaseOrder", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
-        
       });
       if (!response.ok) throw new Error("Gagal mengambil data purchase order");
       const data = await response.json();
@@ -145,7 +151,6 @@ const PurchaseOrderForm: React.FC = () => {
     });
   };
 
-
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -163,22 +168,19 @@ const PurchaseOrderForm: React.FC = () => {
   
         {!loading && !error && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Pilih Ingredient */}
+            {/* Pilih Ingredient dengan react-select */}
             <div>
               <label className="block text-gray-600">Ingredient:</label>
-              <select
-                value={form.ingredientId || ""}
+              <Select
+                options={ingredientOptions}
+                value={ingredientOptions.find((option) => option.value === form.ingredientId) || null}
                 onChange={handleIngredientChange}
+                placeholder="Pilih Ingredient"
+                isSearchable
                 required
-                className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                <option value="">Pilih Ingredient</option>
-                {rawIngredients.map((ingredient) => (
-                  <option key={ingredient.id} value={ingredient.id}>
-                    {ingredient.name}
-                  </option>
-                ))}
-              </select>
+                className="w-full"
+                classNamePrefix="select"
+              />
             </div>
   
             {/* Tampilkan Unit */}
@@ -194,7 +196,7 @@ const PurchaseOrderForm: React.FC = () => {
             <div>
               <label className="block text-gray-600">Buy Quantity:</label>
               <input
-              min="0"
+                min="0"
                 type="number"
                 name="quantity"
                 value={form.quantity}
@@ -209,7 +211,7 @@ const PurchaseOrderForm: React.FC = () => {
               <label className="block text-gray-600">Total Price:</label>
               <input
                 type="number"
-                  min="0"
+                min="0"
                 name="totalPrice"
                 value={form.totalPrice}
                 onChange={handleInputChange}
@@ -227,8 +229,6 @@ const PurchaseOrderForm: React.FC = () => {
                 </span>
               </p>
             </div>
-
-
   
             {/* Tombol Submit */}
             <button
