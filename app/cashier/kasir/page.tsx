@@ -792,42 +792,51 @@ export default function KasirPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {menus
-                  .filter((menu) => {
-                    if (selectedCategory && menu.category !== selectedCategory) return false;
-                    if (searchQuery && !menu.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-                    return true;
-                  })
-                  .map((menu) => {
-                    const discountedPrice = calculateItemPrice(menu);
-                    return (
-                      <div key={menu.id} className="border p-4 rounded-lg flex flex-col items-center justify-between">
-                        <img src={menu.image} alt={menu.name} className="w-24 h-24 object-cover rounded-full mb-2" />
-                        <h3 className="font-semibold text-center">{menu.name}</h3>
-                        <div className="text-center">
-                          {discountedPrice < menu.price ? (
-                            <>
-                              <p className="text-sm text-gray-500 line-through">Rp {menu.price.toLocaleString()}</p>
-                              <p className="text-sm font-semibold text-green-600">Rp {discountedPrice.toLocaleString()}</p>
-                            </>
-                          ) : (
-                            <p className="text-sm text-gray-600">Rp {menu.price.toLocaleString()}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => {
-                            setCurrentMenu(menu);
-                            setSelectedModifiers([]);
-                            setIsModifierPopupOpen(true);
-                          }}
-                          className="mt-2 bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
-                        >
-                          Tambah
-                        </button>
-                      </div>
-                    );
-                  })}
-              </div>
+  {menus
+    .filter((menu) => {
+      if (selectedCategory && menu.category !== selectedCategory) return false;
+      if (searchQuery && !menu.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      return true;
+    })
+    .map((menu) => {
+      const discountedPrice = calculateItemPrice(menu);
+      const isOutOfStock = menu.Status?.toLowerCase() === 'habis';
+      return (
+        <div key={menu.id} className="border p-4 rounded-lg flex flex-col items-center justify-between">
+          <img src={menu.image} alt={menu.name} className="w-24 h-24 object-cover rounded-full mb-2" />
+          <h3 className="font-semibold text-center">{menu.name}</h3>
+          <div className="text-center">
+            {discountedPrice < menu.price ? (
+              <>
+                <p className="text-sm text-gray-500 line-through">Rp {menu.price.toLocaleString()}</p>
+                <p className="text-sm font-semibold text-green-600">Rp {discountedPrice.toLocaleString()}</p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-600">Rp {menu.price.toLocaleString()}</p>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              if (!isOutOfStock) {
+                setCurrentMenu(menu);
+                setSelectedModifiers([]);
+                setIsModifierPopupOpen(true);
+              }
+            }}
+            className={`mt-2 px-3 py-1 rounded-md text-white ${
+              isOutOfStock ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
+            }`}
+            disabled={isOutOfStock}
+          >
+            Tambah
+          </button>
+          {isOutOfStock && (
+            <p className="text-sm text-red-500 mt-1">Out of Stock</p>
+          )}
+        </div>
+      );
+    })}
+</div>
 
               <div className="mt-6 border-t pt-4">
                 <h3 className="text-lg font-semibold mb-4">Keranjang Pesanan</h3>
